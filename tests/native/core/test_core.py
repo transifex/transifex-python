@@ -1,0 +1,229 @@
+# -*- coding: utf-8 -*-
+
+from mock import patch, MagicMock
+
+import pytest
+
+from transifex.native.cache import MemoryCache
+from transifex.native.cds import TRANSIFEX_CDS_HOST
+from transifex.native.core import TxNative, NotInitializedError
+from transifex.native.parsing import SourceString
+from transifex.native.rendering import (
+    SourceStringPolicy, PseudoTranslationPolicy,
+    SourceStringErrorPolicy, parse_error_policy
+)
+from transifex.common.utils import generate_key
+
+
+class TestSourceString(object):
+    """Tests the functionality of the SourceString class."""
+
+    def test_default_values(self):
+        string = SourceString('something')
+        assert string.string == 'something'
+        assert string.context is None
+        assert string.meta == {}
+        assert string.developer_comment is None
+        assert string.character_limit is None
+        assert string.tags == []
+
+    def test_custom_meta(self):
+        string = SourceString(
+            'something',
+            _context='one,two,three',
+            _comment='A crucial comment',
+            _charlimit=33,
+            _tags=' t1,t2 ,  t3',
+            custom='custom',
+        )
+        assert string.string == 'something'
+        assert string.context == ['one', 'two', 'three']
+        assert string.developer_comment == 'A crucial comment'
+        assert string.character_limit == 33
+        assert string.tags == ['t1', 't2', 't3']
+        assert string.meta.get('custom') is None
+
+    def test_tag_list(self):
+        string = SourceString(
+            'something',
+            _tags=['t1', 't2', 't3'],
+        )
+        assert string.tags == ['t1', 't2', 't3']
+
+
+class TestNative(object):
+    """Tests the TxNative class."""
+
+    def _get_tx(self, **kwargs):
+        mytx = TxNative()
+        mytx.init(['en', 'el'], 'cds_token', **kwargs)
+        return mytx
+
+    def test_uninitialized(self):
+        mytx = TxNative()
+        with pytest.raises(NotInitializedError):
+            mytx.translate('string', 'en')
+        with pytest.raises(NotInitializedError):
+            mytx.fetch_translations()
+        with pytest.raises(NotInitializedError):
+            mytx.push_source_strings([], False)
+
+    def test_default_init(self):
+        mytx = self._get_tx()
+        assert mytx.initialized is True
+        assert mytx._languages == ['en', 'el']
+        assert isinstance(mytx._missing_policy, SourceStringPolicy)
+        assert isinstance(mytx._cache, MemoryCache)
+        assert mytx._cds_handler.token == 'cds_token'
+        assert mytx._cds_handler.host == TRANSIFEX_CDS_HOST
+
+    def test_custom_init(self):
+        missing_policy = PseudoTranslationPolicy()
+        mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
+        assert mytx.initialized is True
+        assert mytx._languages == ['en', 'el']
+        assert mytx._missing_policy == missing_policy
+        assert isinstance(mytx._cache, MemoryCache)
+        assert mytx._cds_handler.token == 'cds_token'
+        assert mytx._cds_handler.host == 'myhost'
+
+    @patch('transifex.native.core.StringRenderer.render')
+    def test_translate_source_language_reaches_renderer(self, mock_render):
+        mytx = self._get_tx()
+        mytx.translate('My String', 'en', is_source=True)
+        mock_render.assert_called_once_with(
+            source_string='My String',
+            string_to_render='My String',
+            language_code='en',
+            escape=True,
+            missing_policy=mytx._missing_policy,
+        )
+
+    @patch('transifex.native.core.MemoryCache.get')
+    @patch('transifex.native.core.StringRenderer.render')
+    def test_translate_target_language_missing_reaches_renderer(self, mock_render,
+                                                                mock_cache):
+        mock_cache.return_value = None
+        mytx = self._get_tx()
+        mytx.translate('My String', 'en', is_source=False)
+        mock_cache.assert_called_once_with(generate_key('My String'), 'en')
+        mock_render.assert_called_once_with(
+            source_string='My String',
+            string_to_render=None,
+            language_code='en',
+            escape=True,
+            missing_policy=mytx._missing_policy,
+        )
+
+    def test_translate_target_language_missing_reaches_missing_policy(self):
+        missing_policy = MagicMock()
+        mytx = self._get_tx(missing_policy=missing_policy)
+        mytx.translate('My String', 'en', is_source=False)
+        missing_policy.get.assert_called_once_with('My String')
+
+    @patch('transifex.native.core.StringRenderer')
+    def test_translate_error_reaches_error_policy(self, mock_renderer):
+        error_policy = MagicMock()
+        mock_renderer.render.side_effect = Exception
+        mytx = self._get_tx(error_policy=error_policy)
+        mytx.translate('My String', 'en', is_source=False)
+        error_policy.get.assert_called_once_with(
+            source_string='My String', translation=None, language_code='en',
+            escape=True
+        )
+
+    def test_translate_error_reaches_source_string_error_policy(
+        self
+    ):
+        # Trigger a random error in rendering to fallback to the
+        # error policy, e.g. an error in missing_policy
+        mock_missing_policy = MagicMock()
+        mock_missing_policy.get.side_effect = Exception
+        mytx = self._get_tx(missing_policy=mock_missing_policy)
+        result = mytx.translate('My String', 'en', is_source=False)
+        assert result == 'My String'
+
+    @patch('transifex.native.core.StringRenderer')
+    @patch('transifex.native.rendering.StringRenderer')
+    def test_source_string_policy_custom_text(
+        self, mock_renderer1, mock_renderer2
+    ):
+        error_policy_identifier = (
+            'transifex.native.rendering.SourceStringErrorPolicy',
+            {'default_text': 'my-default-text'}
+        )
+        error_policy = parse_error_policy(error_policy_identifier)
+
+        mock_renderer1.render.side_effect = Exception
+        mock_renderer2.render.side_effect = Exception
+        mytx = self._get_tx(
+            error_policy=error_policy
+        )
+        result = mytx.translate('My String', 'en', is_source=False)
+        assert result == 'my-default-text'
+
+    def test_translate_source_language_renders_icu(self):
+        mytx = self._get_tx()
+        translation = mytx.translate(
+            u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
+            'en',
+            is_source=True,
+            params={'cnt': 1}
+        )
+        assert translation == '1 duck'
+
+    @patch('transifex.native.core.MemoryCache.get')
+    def test_translate_target_language_renders_icu(self, mock_cache):
+        mock_cache.return_value = u'{cnt, plural, one {{cnt} παπί} other {{cnt} παπιά}}'
+        mytx = self._get_tx()
+        translation = mytx.translate(
+            u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
+            'en',
+            is_source=False,
+            params={'cnt': 1}
+        )
+        assert translation == u'1 παπί'
+
+    def test_translate_source_language_escape_html_true(self):
+        mytx = self._get_tx()
+        translation = mytx.translate(
+            u'<script type="text/javascript">alert(1)</script>',
+            'en',
+            is_source=True,
+            escape=True,
+            params={'cnt': 1}
+        )
+        assert translation == (
+            u'&lt;script type=&quot;text/javascript&quot;&gt;alert(1)&lt;/script&gt;'
+        )
+
+    def test_translate_source_language_escape_html_false(self):
+        mytx = self._get_tx()
+        translation = mytx.translate(
+            u'<script type="text/javascript">alert(1)</script>',
+            'en',
+            is_source=True,
+            escape=False,
+            params={'cnt': 1}
+        )
+        assert translation == u'<script type="text/javascript">alert(1)</script>'
+
+    @patch('transifex.native.core.CDSHandler.push_source_strings')
+    def test_push_strings_reaches_cds_handler(self, mock_push_strings):
+        response = MagicMock()
+        response.status_code = 200
+        response.content = '{}'
+        mock_push_strings.return_value = response
+        strings = [SourceString('a'), SourceString('b')]
+        mytx = self._get_tx()
+        mytx.push_source_strings(strings, False)
+        mock_push_strings.assert_called_once_with(strings, False)
+
+    @patch('transifex.native.core.MemoryCache.update')
+    @patch('transifex.native.core.CDSHandler.fetch_translations')
+    def test_fetch_translations_reaches_cds_handler_and_cache(self, mock_cds,
+                                                              mock_cache):
+        mytx = self._get_tx()
+        mytx.fetch_translations()
+        mock_cds.assert_called_once()
+        mock_cache.assert_called()

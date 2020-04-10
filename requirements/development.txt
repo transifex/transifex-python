@@ -1,0 +1,8 @@
+-r base.txt
+
+# Pinned, waiting for a fix for https://github.com/nedbat/coveragepy/issues/883
+coverage==4.5.4
+pytest
+pytest-cov
+mock
+responses
