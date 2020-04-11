@@ -2,6 +2,11 @@ from __future__ import unicode_literals
 
 
 class Confidence(object):
+    """The level of certainty for a particular migration.
+
+    If a migration of a string from a certain framework to Transifex Native
+    is very complex, or an edge-case, it can be marked as low-confidence.
+    """
 
     LOW = 1
     HIGH = 2
@@ -28,9 +33,9 @@ class StringMigration(object):
     def __init__(self, original, new, confidence=Confidence.HIGH):
         """Constructor.
 
-        :param unicode original:
-        :param unicode new:
-        :param int confidence:
+        :param unicode original: the original string in 3rd-party syntax
+        :param unicode new: the new string in Transifex Native syntax
+        :param int confidence: the level of confidence of this migration
         """
         self.original = ''
         self.new = ''
@@ -39,11 +44,25 @@ class StringMigration(object):
         self.update(original, new)
 
     def update(self, extra_original, extra_new, confidence=None, append=True):
-        """Append a extra_new substring.
+        """Update the string migration, adding a new part in the original
+        string and a new part in the new string.
 
-        :param unicode extra_original:
-        :param unicode extra_new:
-        :param int confidence:
+        Usage:
+        >>> migration = StringMigration('a', 'b')
+        >>> # 'a' -> 'b'
+        >>> migration.update('c', 'C')
+        >>> # 'ac' -> 'bC'
+        >>> migration.update('>', '>>', append=False)
+        >>> # '>ac' -> '>>bC'
+        >>> migration.update('', '<<', append=True)
+        >>> # '>ac' -> '>>bC<<'
+
+        :param unicode extra_original: the additional string to add
+            to the original string
+        :param unicode extra_new: the additional string to add
+            to the new string
+        :param int confidence: the new level of confidence of the migration;
+            if `None` is provided, the previous confidence is preserved
         :param bool append: if True, the changes will be appended to the end
             of the strings, otherwise they will be prepended in the beginning
         """
