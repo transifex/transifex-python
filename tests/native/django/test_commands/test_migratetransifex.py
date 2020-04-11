@@ -8,12 +8,11 @@ from tests.native.django.test_tools.test_migrations.test_templatetags import (
 from transifex.native.django.management.commands.migratetransifex import \
     Command
 from transifex.native.django.management.common import TranslatableFile
-from transifex.native.parsing import SourceString
 from transifex.native.tools.migrations.review import (FileReviewPolicy,
                                                       NoopReviewPolicy,
                                                       StringReviewPolicy)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
-                                                    InPlaceSavePolicy,
+                                                    ReplaceSavePolicy,
                                                     NewFileSavePolicy,
                                                     NoopSavePolicy)
 
@@ -194,7 +193,7 @@ def test_replace_save_string_review(mock_find_files, mock_read,
     ]
     command = Command()
     call_command(command, save_policy='replace', review_policy='string')
-    assert isinstance(command.save_policy, InPlaceSavePolicy)
+    assert isinstance(command.save_policy, ReplaceSavePolicy)
     assert isinstance(command.review_policy, StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0

@@ -4,7 +4,7 @@ from mock import mock_open, patch
 from transifex.native.tools.migrations.models import (FileMigration,
                                                       StringMigration)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
-                                                    InPlaceSavePolicy,
+                                                    ReplaceSavePolicy,
                                                     NewFileSavePolicy,
                                                     NoopSavePolicy, SavePolicy)
 
@@ -56,7 +56,7 @@ def test_backup_policy_writes_to_original_file_and_takes_backup():
 
 
 def test_in_place_policy_writes_to_original_file():
-    policy = InPlaceSavePolicy()
+    policy = ReplaceSavePolicy()
     m = mock_open()
     with patch(BUILTINS_MODULE + ".open", m, create=True):
         saved, error_type = policy.save_file(_file_migration())

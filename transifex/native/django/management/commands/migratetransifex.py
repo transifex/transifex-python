@@ -3,13 +3,15 @@ from __future__ import unicode_literals
 import fnmatch
 import io
 import os
+import sys
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import BaseCommand
 from django.core.management.utils import handle_extensions
 from django.utils.functional import cached_property
-from transifex.common.console import Color
+
+from transifex.common.console import Color, prompt, pluralized
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.django.tools.migrations.templatetags import \
     DjangoTagMigrationBuilder
@@ -17,35 +19,39 @@ from transifex.native.tools.migrations.models import Confidence
 from transifex.native.tools.migrations.review import (
     REVIEW_ACCEPT_ALL, REVIEW_REJECT_ALL, FileReviewPolicy,
     LowConfidenceFileReviewPolicy, LowConfidenceStringReviewPolicy,
-    NoopReviewPolicy, StringReviewPolicy, prompt_to_start)
+    NoopReviewPolicy, StringReviewPolicy, REVIEW_EXIT)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
-                                                    InPlaceSavePolicy,
+                                                    ReplaceSavePolicy,
                                                     NewFileSavePolicy,
                                                     NoopSavePolicy)
 
 SAVE_POLICY_OPTIONS = {
-    'dry-run': 'no changes will be saved\n',
-    'new': 'migrated content will be saved in a new file, '
-           'named <filename>__native.<extension>\n',
-    'backup': 'migrated content will be saved directly in the original '
-              'file path, and a backup will also be saved '
-              'in <filename>.<extension>.bak\n',
-    'replace': 'migrated content will be saved in the original file',
+    NoopSavePolicy.name: 'no changes will be saved\n',
+    NewFileSavePolicy.name: 'migrated content will be saved in a new file, '
+                            'named <filename>__native.<extension>\n',
+    BackupSavePolicy.name: 'migrated content will be saved directly in the '
+                           'original file path, and a backup will also be '
+                           'saved in <filename>.<extension>.bak\n',
+    ReplaceSavePolicy: 'migrated content will be saved in the original file',
 }
 
 REVIEW_POLICY_OPTIONS = {
-    'none': 'everything will be done automatically without '
-            'having a chance to review anything\n',
-    'file': 'you get a chance to review each migrated file '
-            'before it is saved\n',
-    'string': 'you get a chance to review each string of each file '
-              'before the file is saved\n',
-    'file-low': 'you get a chance to review each migrated file '
-                'that includes at least one string that has '
-                'a low migration confidence\n',
-    'string-low': 'you get a chance to review each string '
-                  'that has a low migration confidence\n',
+    NoopReviewPolicy.name: 'everything will be done automatically without '
+                           'having a chance to review anything\n',
+    FileReviewPolicy.name: 'you get a chance to review each migrated file '
+                           'before it is saved\n',
+    StringReviewPolicy.name: 'you get a chance to review each string of each '
+                             'file before the file is saved\n',
+    LowConfidenceFileReviewPolicy.name: 'you get a chance to review each '
+                                        'migrated file that includes at least '
+                                        'one string that has a low migration '
+                                        'confidence\n',
+    LowConfidenceStringReviewPolicy.name: 'you get a chance to review each '
+                                          'string that has a low migration '
+                                          'confidence\n',
 }
+
+EXTENSIONS = ['html', 'txt', 'py']
 
 
 def pretty_options(options_dict):
@@ -95,19 +101,21 @@ class Command(BaseCommand):
         self.ignore_patterns = []
         self.verbosity = options['verbosity']
         self.path = options['path']
+
+        options['files'] = set(options['files'] or [])
         self.files = options['files']
 
         self.save_policy = self._create_save_policy(options['save_policy'])
         self.review_policy = self._create_review_policy(
             options['review_policy'])
 
-        self.extensions = handle_extensions(['html', 'txt', 'py'])
+        self.extensions = handle_extensions(EXTENSIONS)
         self.stats = {
             'processed_files': 0, 'migrations': [], 'saved': [], 'errors': [],
         }
 
         # Show an intro message
-        self._show_intro(options)
+        _show_intro(options)
 
         # If specific files are defined, use those
         if self.files:
@@ -120,37 +128,12 @@ class Command(BaseCommand):
         else:
             files = self._find_files(self.path)
 
+        # Ask the user for permission to continue
+        _prompt_to_start(len(files), options)
+
         # Execute the migration
         self.django_migration_builder = DjangoTagMigrationBuilder()
         self.migrate_files(files)
-
-    def _show_intro(self, options):
-        """Show an introductory message to help the user understand what is going on.
-
-        :param dict options: the configuration options of the command
-        """
-        Color.echo(
-            '[high]'
-            '\n####################################################################\n'
-            'Running migration from Django i18n syntax to Transifex Native syntax\n'
-            '[end]'
-            'This migration is idempotent, so its output should not change if run\n'
-            'multiple times.'
-        )
-        Color.echo('\n[high]Configuration:[end]')
-        Color.echo('- [opt]Path:[end] [file]{}[end]'.format(self.path))
-        Color.echo(
-            '- [opt]Save policy:[end] [high]{}[end] -> {}'.format(
-                options['save_policy'],
-                SAVE_POLICY_OPTIONS[options['save_policy']],
-            ).strip()
-        )
-        Color.echo(
-            '- [opt]Review policy:[end] [high]{}[end] -> {}'.format(
-                options['review_policy'],
-                REVIEW_POLICY_OPTIONS[options['review_policy']],
-            ).strip()
-        )
 
     def migrate_files(self, files):
         """Search all related files, detect Django i18n translate hooks and migrate
@@ -159,26 +142,32 @@ class Command(BaseCommand):
         :param list files: a list of TranslatableFile objects
         """
         files_total = len(files)
-        prompt_to_start(files_total)
+
+        accept_remaining_files = False
+        exit_migration = False
 
         # Loop through each file, migrate, ask for user review if applicable,
         # save to disk if applicable
-        accept_remaining_files = False
         for file_cnt, translatable_file in enumerate(files):
+            if exit_migration:
+                break
+
             _, extension = os.path.splitext(translatable_file.file)
             comment_format = '# {}\n' if extension == '.py' else '<!-- {} -->\n'
             self.review_policy.set_comment_format(comment_format)
 
             Color.echo(
-                '\n---- [{cnt}/{total}] Migrating [file]{path}[end]...'.format(
+                '\n---- '
+                '[[high]{cnt}[end]/[high]{total}[end]] '
+                'Migrating [file]{path}[end]...'.format(
                     path=translatable_file.path,
                     cnt=file_cnt + 1,
                     total=files_total,
                 )
             )
+            self.stats['processed_files'] += 1
             file_migration = self._migrate_file(translatable_file)
             if not file_migration:
-                self.stats['processed_files'] += 1
                 continue
 
             modified_strings = file_migration.modified_strings
@@ -186,11 +175,20 @@ class Command(BaseCommand):
             total_low_confidence = len(
                 [x for x in modified_strings if x.confidence == Confidence.LOW]
             )
+            msg = pluralized(
+                '[warn]1[end] [prompt]string was modified[end]',
+                '[warn]{cnt}[end] [prompt]strings were modified[end]',
+                total_modified,
+            )
             Color.echo(
-                '[prompt]{strings} strings were modified '
-                ' ([warn]{low}[end] with LOW confidence)[end]'.format(
-                    strings=total_modified,
-                    low=total_low_confidence,
+                '{msg}{confidence}'.format(
+                    msg=msg,
+                    confidence=(
+                        ' ([warn]{low}[end] with low confidence)'.format(
+                            low=total_low_confidence,
+                        )
+                        if total_low_confidence else ''
+                    )
                 )
             )
             if not total_modified:
@@ -202,13 +200,13 @@ class Command(BaseCommand):
             # additional filters, e.g. only prompt for strings with low
             # confidence
             if self.review_policy.should_review_strings():
-                reject_remaining = False
+                reject_remaining_strings = False
                 for string_index in range(total_modified):
                     string_migration = modified_strings[string_index]
 
                     # The rest of the string test_migrations should be reverted
                     # based on the user's choice
-                    if reject_remaining:
+                    if reject_remaining_strings:
                         string_migration.revert()
 
                     # Optionally prompt the user to review the migration
@@ -229,11 +227,17 @@ class Command(BaseCommand):
                         # remaining strings. Set the flag to True, so that
                         # it will revert all changes for the rest strings
                         # in the loop
-                        if result == REVIEW_REJECT_ALL:
-                            reject_remaining = True
+                        elif result == REVIEW_REJECT_ALL:
+                            reject_remaining_strings = True
+
+                        # The user has chosen to exit the migration completely
+                        # Break to exit the outer (file) loop
+                        elif result == REVIEW_EXIT:
+                            exit_migration = True
+                            break
 
             # If the review policy says so, prompt the user for each file
-            if accept_remaining_files is False:
+            if accept_remaining_files is False and exit_migration is False:
                 result = self.review_policy.review_file(file_migration)
 
                 # The user has chosen to reject all remaining files
@@ -244,8 +248,17 @@ class Command(BaseCommand):
                 # The user has chosen to accept all remaining files
                 # Set the flag, so that the file review policy won't be used
                 # for the remaining file test_migrations
-                if result == REVIEW_ACCEPT_ALL:
+                elif result == REVIEW_ACCEPT_ALL:
                     accept_remaining_files = True
+
+                # The user has chosen to exit the migration completely
+                elif result == REVIEW_EXIT:
+                    exit_migration = True
+
+            # Skip to the results
+            # Break to exit the outer (file) loop
+            if exit_migration is True:
+                break
 
             # If the save policy says so, save the changes
             if file_migration.modified_strings:
@@ -254,7 +267,6 @@ class Command(BaseCommand):
                 saved, error_type = False, None
 
             # Update stats
-            self.stats['processed_files'] += 1
             self.stats['migrations'].append(
                 (translatable_file.path, file_migration)
             )
@@ -263,7 +275,7 @@ class Command(BaseCommand):
             elif error_type is not None:
                 self.stats['errors'].append(file_migration)
 
-        self._show_results(files)
+        _show_results(files, self.stats)
 
     def _migrate_file(self, translatable_file):
         """Extract source strings from the given file.
@@ -301,46 +313,6 @@ class Command(BaseCommand):
         return self.django_migration_builder.build_migration(
             src_data, translatable_file.path, encoding,
         )
-
-    def _show_results(self, files):
-        """Show a detailed report of how the migration went.
-
-        :param list files: a list of TranslatableFile objects
-        """
-        Color.echo('\n\n[high]Migration completed![end]')
-        Color.echo('--------------------')
-        Color.echo('[high]Total files found:[end] [warn]{}[end]'.format(
-            len(files))
-        )
-        Color.echo('[high]Total files processed:[end] [warn]{}[end]'.format(
-            self.stats['processed_files'])
-        )
-        modified = [
-            file_migration for _, file_migration in self.stats['migrations']
-            if len(file_migration.modified_strings)
-        ]
-        Color.echo('[high]Total migrations created:[end] [warn]{}[end]'.format(
-            len(modified)
-        ))
-        Color.echo('[high]Total files saved:[end] [warn]{}[end]'.format(
-            len(self.stats['saved'])
-        ))
-        Color.echo(
-            '\n'.join([
-                '- [file]{}[end]'.format(x.filename)
-                for x in self.stats['saved']
-            ])
-        )
-        Color.echo('[high]Total errors:[end] [warn]{}[end]'.format(
-            len(self.stats['errors'])
-        ))
-        Color.echo(
-            '\n'.join([
-                '- [warn]{}[end]'.format(x.filename)
-                for x in self.stats['errors']
-            ])
-        )
-        Color.echo('')
 
     def _find_files(self, root):
         """Get all files in the given root.
@@ -431,14 +403,14 @@ class Command(BaseCommand):
         :rtype: SavePolicy
         """
         policy_id = policy_id.lower()
-        if policy_id == 'dry-run':
+        if policy_id == NoopSavePolicy.name:
             return NoopSavePolicy()
-        elif policy_id == 'new':
+        elif policy_id == NewFileSavePolicy.name:
             return NewFileSavePolicy()
-        elif policy_id == 'backup':
+        elif policy_id == BackupSavePolicy.name:
             return BackupSavePolicy()
-        elif policy_id == 'replace':
-            return InPlaceSavePolicy()
+        elif policy_id == ReplaceSavePolicy.name:
+            return ReplaceSavePolicy()
 
         raise AttributeError('Invalid save policy ID={}'.format(policy_id))
 
@@ -450,15 +422,152 @@ class Command(BaseCommand):
         :return: a ReviewPolicy subclass
         :rtype: ReviewPolicy
         """
-        if policy_id == 'none':
+        if policy_id == NoopReviewPolicy.name:
             return NoopReviewPolicy()
-        elif policy_id == 'file':
+        elif policy_id == FileReviewPolicy.name:
             return FileReviewPolicy()
-        elif policy_id == 'string':
+        elif policy_id == StringReviewPolicy.name:
             return StringReviewPolicy()
-        elif policy_id == 'file-low':
+        elif policy_id == LowConfidenceFileReviewPolicy.name:
             return LowConfidenceFileReviewPolicy()
-        elif policy_id == 'string-low':
+        elif policy_id == LowConfidenceStringReviewPolicy.name:
             return LowConfidenceStringReviewPolicy()
 
         raise AttributeError('Invalid review policy ID={}'.format(policy_id))
+
+
+def _show_intro(options):
+    """Show an introductory message to help the user understand what is going on.
+
+    :param dict options: the configuration options of the command
+    """
+    Color.echo(
+        '[high]'
+        '\n####################################################################\n'
+        'Running migration from Django i18n syntax to Transifex Native syntax\n'
+        '[end]'
+        '\nThis migration is idempotent, so its output should not change if run'
+        '\nmultiple times with the same configuration.'
+    )
+    Color.echo('\n[high]Configuration:[end]')
+    if options['path']:
+        Color.echo('[opt]Path:[end] [file]{}[end]'.format(options['path']))
+    if options['files']:
+        Color.echo('[opt]Files:[end]')
+        Color.echo(
+            '\n'.join([
+                ' - [file]{}[end]'.format(x)
+                for x in options['files']
+            ])
+        )
+    Color.echo(
+        '[opt]Review policy:[end] [high]{}[end] -> {}'.format(
+            options['review_policy'],
+            REVIEW_POLICY_OPTIONS[options['review_policy']],
+        ).strip()
+    )
+    Color.echo(
+        '[opt]Save policy:[end] [high]{}[end] -> {}'.format(
+            options['save_policy'],
+            SAVE_POLICY_OPTIONS[options['save_policy']],
+        ).strip()
+    )
+
+
+def _prompt_to_start(total_files, options):
+    """Prompt the user before starting the migration.
+
+    If the user chooses to not go through with it, sys.exit() is called.
+
+    :param int total_files: the total number of files to migrate
+    :param dict options: the configuration options of the command
+    """
+    msg = pluralized(
+        'Found [warn]{cnt}[end] file to check for translatable strings.',
+        'Found [warn]{cnt}[end] files to check for translatable strings.',
+        total_files,
+    )
+    Color.echo('\n{}'.format(msg))
+
+    if not total_files:
+        Color.echo('\n[high]Migration ended.[end]')
+        sys.exit(1)
+
+    if (
+        options['save_policy'] != NoopSavePolicy.name
+        and options['review_policy'] == NoopReviewPolicy.name
+    ):
+        Color.echo(
+            '\n[warn]WARNING! The selected configuration will save all files'
+            ' automatically, without allowing you to do any reviewing first'
+            '.[end]'
+        )
+
+    while True:
+        reply = prompt(
+            Color.format(
+                '[opt](Y)[end] Yes [opt](N)[end] No'
+            ),
+            description='Are you sure you want to continue?',
+            default='N',
+        )
+        reply = reply.upper()
+        if reply == 'Y':
+            return
+        elif reply == 'N':
+            Color.echo('\n[high]Migration aborted.[end]')
+            sys.exit(1)
+
+
+def _show_results(files, stats):
+    """Show a detailed report of how the migration went.
+
+    :param list files: a list of TranslatableFile objects
+    :param dict stats: a dictionary with all statistics of the execution
+    """
+    Color.echo('\n\n[high]Migration completed![end]')
+    Color.echo('--------------------')
+    Color.echo('[high]Files found:[end] [warn]{}[end]'.format(
+        len(files))
+    )
+    Color.echo('[high]Files processed:[end] [warn]{}[end]'.format(
+        stats['processed_files'])
+    )
+
+    files_modified = 0
+    strings_modified = 0
+    for _, file_migration in stats['migrations']:
+        new_string_count = len(file_migration.modified_strings)
+        strings_modified += new_string_count
+        if new_string_count:
+            files_modified += 1
+    Color.echo(
+        '[high]File migrations created:[end] [warn]{}[end]'.format(
+            files_modified
+        )
+    )
+    Color.echo(
+        '[high]String migration inside these files: [warn]{}[end]'.format(
+            strings_modified
+        )
+    )
+    Color.echo('[high]Files saved:[end] [warn]{}[end]'.format(
+        len(stats['saved'])
+    ))
+    saved_str = '\n'.join([
+        ' - [file]{}[end]'.format(x.filename)
+        for x in stats['saved']
+    ])
+    if saved_str:
+        Color.echo(saved_str)
+    Color.echo('[high]Errors found:[end] [warn]{}[end]'.format(
+        len(stats['errors'])
+    ))
+    errors_str = '\n'.join([
+        ' - [warn]{}[end]'.format(x.filename)
+        for x in stats['errors']
+    ])
+    if errors_str:
+        Color.echo(errors_str)
+
+    Color.echo('')

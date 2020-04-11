@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+"""This module contains everything related to the saving functionality
+of a migration from another i18n framework to Transifex Native.
 
+The classes defined here are responsible for saving the migrated content
+to the proper target, saving a backup and so on.
+"""
 from __future__ import unicode_literals
 
 import os
@@ -66,7 +71,7 @@ class SavePolicy(object):
             with open(path, "w") as f:
                 f.write(content_func())
                 Color.echo(
-                    '✅️ {} saved at [file]{}[end]'.format(file_type, path)
+                    '💾️ {} file saved at [file]{}[end]'.format(file_type, path)
                 )
                 return True, None
         except IOError as e:
@@ -90,17 +95,17 @@ class SavePolicy(object):
 class NoopSavePolicy(SavePolicy):
     """Doesn't save anything to a file, i.e. a dry-run."""
 
+    name = 'none'
+
     def save_file(self, file_migration):
-        Color.echo(
-            'Dry-run: no file was saved (file={})'.format(
-                file_migration.filename
-            )
-        )
+        Color.echo('Dry-run: no file was saved')
         return False, None
 
 
 class NewFileSavePolicy(SavePolicy):
     """Saves the contents to a new file."""
+
+    name = 'new'
 
     def save_file(self, file_migration):
         """Save the new content in a new file.
@@ -116,6 +121,8 @@ class NewFileSavePolicy(SavePolicy):
 
 class BackupSavePolicy(SavePolicy):
     """Saves the contents to the original file, but takes a backup first."""
+
+    name = 'backup'
 
     def save_file(self, file_migration):
         """Save the new content in the original path, but take a backup first.
@@ -146,8 +153,10 @@ class BackupSavePolicy(SavePolicy):
         )
 
 
-class InPlaceSavePolicy(SavePolicy):
+class ReplaceSavePolicy(SavePolicy):
     """Saves the contents to the original file, without taking any backup."""
+
+    name = 'replace'
 
     def save_file(self, file_migration):
         """Save the new content in the original path.

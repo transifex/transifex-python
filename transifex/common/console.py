@@ -1,4 +1,7 @@
+from __future__ import unicode_literals
 import click
+
+from transifex.native.rendering import StringRenderer
 
 
 class Color:
@@ -17,14 +20,15 @@ class Color:
         """Format the given string, adding color support."""
         return (
             string.replace('[high]', Color.HIGHLIGHT)
-            .replace('[cyan]', Color.CYAN)
             .replace('[end]', Color.END)
+            .replace('[cyan]', Color.CYAN)
+            .replace('[file]', Color.CYAN)
             .replace('[green]', Color.GREEN)
             .replace('[red]', Color.RED)
             .replace('[opt]', Color.PINK)
             .replace('[warn]', Color.PINK)
             .replace('[prompt]', Color.YELLOW)
-            .replace('[file]', Color.CYAN)
+            .replace('[yel]', Color.YELLOW)
         )
 
     @staticmethod
@@ -58,3 +62,26 @@ def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=Non
             description=description))
 
     return click.prompt(prompt_msg, default=default, type=(vtype or str))
+
+
+def pluralized(one, other, cnt_value):
+    """Render an ICU pluralized string with the given parameters.
+
+    :param unicode one: the string for singular
+    :param unicode other: the string for plural
+    :param int cnt_value: the value of the plural counter variable
+    :return: a rendered string that has taken into account the given
+    :rtype: unicode
+    """
+    icu_string = '{cnt, plural, one {[one]} other {[other]}}'\
+        .replace('[one]', one)\
+        .replace('[other]', other)
+
+    return StringRenderer.render(
+        icu_string,
+        string_to_render=icu_string,
+        language_code='en',
+        escape=False,
+        missing_policy=None,
+        cnt=cnt_value,
+    )
