@@ -12,9 +12,9 @@ from transifex.native.tools.migrations.review import (FileReviewPolicy,
                                                       NoopReviewPolicy,
                                                       StringReviewPolicy)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
-                                                    ReplaceSavePolicy,
                                                     NewFileSavePolicy,
-                                                    NoopSavePolicy)
+                                                    NoopSavePolicy,
+                                                    ReplaceSavePolicy)
 
 PYTHON_TEMPLATE = u"""
 # -*- coding: utf-8 -*-
@@ -58,22 +58,18 @@ PATH_PROMPT_STRING = 'transifex.native.tools.migrations.review' \
                      '.ReviewPolicy.prompt_for_string'
 PATH_SAVE_FILE = 'transifex.native.tools.migrations.save.SavePolicy' \
                  '._safe_save'
-PATH_PROMPT_START1 = 'transifex.native.tools.migrations.review' \
-                     '.prompt_to_start'
-PATH_PROMPT_START2 = 'transifex.native.django.management.commands' \
-                     '.migratetransifex.prompt_to_start'
-PATH_ECHO = 'transifex.native.django.management.commands' \
-    '.migratetransifex.Color.echo'
+PATH_PROMPT_START1 = 'transifex.native.tools.migrations.execution' \
+                     '.MigrationExecutor._prompt_to_start'
+PATH_ECHO = 'transifex.native.tools.migrations.execution' \
+            '.Color.echo'
 
 
 @mock.patch(PATH_ECHO)
-@mock.patch(PATH_PROMPT_START2)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
 def test_dry_run_save_none_review(mock_find_files, mock_read,
-                                  mock_prompt_to_start1,
-                                  mock_prompt_to_start2, mock_echo):
+                                  mock_prompt_to_start1, mock_echo):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
@@ -83,13 +79,12 @@ def test_dry_run_save_none_review(mock_find_files, mock_read,
         HTML_SAMPLE_2,  # 1.txt
     ]
     command = Command()
-    call_command(command, save_policy='dry-run', review_policy='none')
-    assert isinstance(command.save_policy, NoopSavePolicy)
-    assert isinstance(command.review_policy, NoopReviewPolicy)
+    call_command(command, save_policy='none', review_policy='none')
+    assert isinstance(command.executor.save_policy, NoopSavePolicy)
+    assert isinstance(command.executor.review_policy, NoopReviewPolicy)
 
 
 @mock.patch(PATH_ECHO)
-@mock.patch(PATH_PROMPT_START2)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_SAVE_FILE, return_value=(True, None))
 @mock.patch(PATH_PROMPT_STRING)
@@ -99,8 +94,7 @@ def test_dry_run_save_none_review(mock_find_files, mock_read,
 def test_new_file_save_file_review(mock_find_files, mock_read,
                                    mock_prompt_file, mock_prompt_string,
                                    mock_save_file,
-                                   mock_prompt_to_start1,
-                                   mock_prompt_to_start2, mock_echo):
+                                   mock_prompt_to_start1, mock_echo):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
@@ -111,8 +105,8 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
     ]
     command = Command()
     call_command(command, save_policy='new', review_policy='file')
-    assert isinstance(command.save_policy, NewFileSavePolicy)
-    assert isinstance(command.review_policy, FileReviewPolicy)
+    assert isinstance(command.executor.save_policy, NewFileSavePolicy)
+    assert isinstance(command.executor.review_policy, FileReviewPolicy)
 
     # The FileMigration instance that reached the review object
     # should compile to the proper Native syntax
@@ -130,7 +124,6 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
 
 
 @mock.patch(PATH_ECHO)
-@mock.patch(PATH_PROMPT_START2)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_SAVE_FILE, return_value=(True, None))
 @mock.patch(PATH_PROMPT_STRING)
@@ -140,8 +133,7 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
 def test_backup_save_string_review(mock_find_files, mock_read,
                                    mock_prompt_file, mock_prompt_string,
                                    mock_save_file,
-                                   mock_prompt_to_start1,
-                                   mock_prompt_to_start2, mock_echo):
+                                   mock_prompt_to_start1, mock_echo):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
@@ -152,8 +144,8 @@ def test_backup_save_string_review(mock_find_files, mock_read,
     ]
     command = Command()
     call_command(command, save_policy='backup', review_policy='string')
-    assert isinstance(command.save_policy, BackupSavePolicy)
-    assert isinstance(command.review_policy, StringReviewPolicy)
+    assert isinstance(command.executor.save_policy, BackupSavePolicy)
+    assert isinstance(command.executor.review_policy, StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7  # 7 migrated strings
@@ -171,7 +163,6 @@ def test_backup_save_string_review(mock_find_files, mock_read,
 
 
 @mock.patch(PATH_ECHO)
-@mock.patch(PATH_PROMPT_START2)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_SAVE_FILE, return_value=(True, None))
 @mock.patch(PATH_PROMPT_STRING)
@@ -181,8 +172,7 @@ def test_backup_save_string_review(mock_find_files, mock_read,
 def test_replace_save_string_review(mock_find_files, mock_read,
                                     mock_prompt_file, mock_prompt_string,
                                     mock_save_file,
-                                    mock_prompt_to_start1,
-                                    mock_prompt_to_start2, mock_echo):
+                                    mock_prompt_to_start1, mock_echo):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
@@ -193,8 +183,8 @@ def test_replace_save_string_review(mock_find_files, mock_read,
     ]
     command = Command()
     call_command(command, save_policy='replace', review_policy='string')
-    assert isinstance(command.save_policy, ReplaceSavePolicy)
-    assert isinstance(command.review_policy, StringReviewPolicy)
+    assert isinstance(command.executor.save_policy, ReplaceSavePolicy)
+    assert isinstance(command.executor.review_policy, StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7

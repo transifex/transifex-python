@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
-import click
 
+import click
 from transifex.native.rendering import StringRenderer
 
 
@@ -8,7 +8,7 @@ class Color:
     """Convenience class for adding color to console output."""
 
     CYAN = '\033[36m'
-    HIGHLIGHT = '\033[1m'
+    WHITE_BOLD = '\033[1m'
     GREEN = '\033[32m'
     PINK = '\033[91m'
     RED = '\033[31m'
@@ -19,15 +19,18 @@ class Color:
     def format(string):
         """Format the given string, adding color support."""
         return (
-            string.replace('[high]', Color.HIGHLIGHT)
-            .replace('[end]', Color.END)
-            .replace('[cyan]', Color.CYAN)
+            # Context
+            string.replace('[high]', Color.WHITE_BOLD)
+            .replace('[warn]', Color.PINK)
             .replace('[file]', Color.CYAN)
+            .replace('[opt]', Color.PINK)
+            .replace('[prompt]', Color.YELLOW)
+            .replace('[end]', Color.END)  # closing tag for any color tag
+
+            # Colors
+            .replace('[cyan]', Color.CYAN)
             .replace('[green]', Color.GREEN)
             .replace('[red]', Color.RED)
-            .replace('[opt]', Color.PINK)
-            .replace('[warn]', Color.PINK)
-            .replace('[prompt]', Color.YELLOW)
             .replace('[yel]', Color.YELLOW)
         )
 
@@ -35,12 +38,6 @@ class Color:
     def echo(string):
         """Print to the console with color support."""
         print(Color.format(string))
-
-
-def display(*messages):
-    """Print all given strings respecting any color markup."""
-    for msg in messages:
-        Color.echo(msg)
 
 
 def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=None):

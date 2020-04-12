@@ -4,9 +4,10 @@ from mock import mock_open, patch
 from transifex.native.tools.migrations.models import (FileMigration,
                                                       StringMigration)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
-                                                    ReplaceSavePolicy,
                                                     NewFileSavePolicy,
-                                                    NoopSavePolicy, SavePolicy)
+                                                    NoopSavePolicy,
+                                                    ReplaceSavePolicy,
+                                                    SavePolicy)
 
 BUILTINS_MODULE = 'builtins' if sys.version_info >= (3, 0) else '__builtin__'
 

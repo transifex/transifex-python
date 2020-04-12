@@ -9,15 +9,19 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import BaseCommand
 from django.core.management.utils import handle_extensions
 from django.utils.functional import cached_property
-
 from transifex.native.django.management.common import TranslatableFile
-from transifex.native.tools.migrations.review import (FileReviewPolicy,
-    LowConfidenceFileReviewPolicy, LowConfidenceStringReviewPolicy,
-    NoopReviewPolicy, StringReviewPolicy)
+from transifex.native.django.tools.migrations.templatetags import \
+    DjangoTagMigrationBuilder
+from transifex.native.tools.migrations.execution import (REVIEW_POLICY_OPTIONS,
+                                                         SAVE_POLICY_OPTIONS,
+                                                         MigrationExecutor)
+from transifex.native.tools.migrations.review import (
+    FileReviewPolicy, LowConfidenceFileReviewPolicy,
+    LowConfidenceStringReviewPolicy, NoopReviewPolicy, StringReviewPolicy)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
-                                                    ReplaceSavePolicy,
                                                     NewFileSavePolicy,
-                                                    NoopSavePolicy)
+                                                    NoopSavePolicy,
+                                                    ReplaceSavePolicy)
 
 SAVE_POLICY_OPTIONS = {
     NoopSavePolicy.name: 'no changes will be saved\n',
@@ -26,7 +30,8 @@ SAVE_POLICY_OPTIONS = {
     BackupSavePolicy.name: 'migrated content will be saved directly in the '
                            'original file path, and a backup will also be '
                            'saved in <filename>.<extension>.bak\n',
-    ReplaceSavePolicy: 'migrated content will be saved in the original file',
+    ReplaceSavePolicy.name: 'migrated content will be saved in the original '
+                            'file',
 }
 
 REVIEW_POLICY_OPTIONS = {
@@ -44,9 +49,6 @@ REVIEW_POLICY_OPTIONS = {
                                           'string that has a low migration '
                                           'confidence\n',
 }
-from transifex.native.django.tools.migrations.templatetags import DjangoTagMigrationBuilder
-from transifex.native.tools.migrations.execution import (MigrationExecutor,
-    REVIEW_POLICY_OPTIONS, SAVE_POLICY_OPTIONS)
 
 EXTENSIONS = ['html', 'txt', 'py']
 
@@ -85,6 +87,13 @@ class Command(BaseCommand):
             '--review', dest='review_policy', default='file',
             help=(
                 'Determines where the migrated content will be saved: \n' +
+                pretty_options(REVIEW_POLICY_OPTIONS)
+            ),
+        )
+        parser.add_argument(
+            '--mark', dest='mark_policy', default='none',
+            help=(
+                'Determines if anything gets marked for proofreading: \n' +
                 pretty_options(REVIEW_POLICY_OPTIONS)
             ),
         )

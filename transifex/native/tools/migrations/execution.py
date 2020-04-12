@@ -2,13 +2,19 @@ import os
 import sys
 
 from transifex.common.console import Color, pluralized, prompt
+from transifex.native.tools.migrations.mark import (
+    MarkLowConfidenceFilesPolicy, MarkLowConfidenceStringsPolicy,
+    NoopMarkPolicy, create_mark_policy)
 from transifex.native.tools.migrations.models import Confidence
-from transifex.native.tools.migrations.review import NoopReviewPolicy, FileReviewPolicy, \
-    StringReviewPolicy, LowConfidenceFileReviewPolicy, LowConfidenceStringReviewPolicy, \
-    REVIEW_ACCEPT_ALL, REVIEW_REJECT_ALL, REVIEW_EXIT
-from transifex.native.tools.migrations.save import NoopSavePolicy, NewFileSavePolicy, \
-    BackupSavePolicy, ReplaceSavePolicy
-
+from transifex.native.tools.migrations.review import (
+    REVIEW_ACCEPT_ALL, REVIEW_EXIT, REVIEW_REJECT_ALL, FileReviewPolicy,
+    LowConfidenceFileReviewPolicy, LowConfidenceStringReviewPolicy,
+    NoopReviewPolicy, StringReviewPolicy, create_review_policy)
+from transifex.native.tools.migrations.save import (BackupSavePolicy,
+                                                    NewFileSavePolicy,
+                                                    NoopSavePolicy,
+                                                    ReplaceSavePolicy,
+                                                    create_save_policy)
 
 SAVE_POLICY_OPTIONS = {
     NoopSavePolicy.name: 'no changes will be saved\n',
@@ -17,7 +23,8 @@ SAVE_POLICY_OPTIONS = {
     BackupSavePolicy.name: 'migrated content will be saved directly in the '
                            'original file path, and a backup will also be '
                            'saved in <filename>.<extension>.bak\n',
-    ReplaceSavePolicy: 'migrated content will be saved in the original file',
+    ReplaceSavePolicy.name: 'migrated content will be saved in the original '
+                            'file',
 }
 
 REVIEW_POLICY_OPTIONS = {
@@ -34,6 +41,18 @@ REVIEW_POLICY_OPTIONS = {
     LowConfidenceStringReviewPolicy.name: 'you get a chance to review each '
                                           'string that has a low migration '
                                           'confidence\n',
+}
+
+MARK_POLICY_OPTIONS = {
+    NoopMarkPolicy.name: 'nothing will automatically be marked for '
+                         'proofreading\n',
+    MarkLowConfidenceFilesPolicy.name: 'any migrated file that includes '
+                                       'at least one string that has low '
+                                       'migration confidence will be marked '
+                                       'for proofreading\n',
+    MarkLowConfidenceStringsPolicy.name: 'any migrated string that has low '
+                                         'confidence will be marked for '
+                                         'proofreading\n',
 }
 
 
@@ -68,13 +87,28 @@ class MigrationExecutor(object):
         """
         self.options = options
         self.file_migrator_func = file_migrator_func
-        self.save_policy = _create_save_policy(options['save_policy'])
-        self.review_policy = _create_review_policy(
-            options['review_policy']
-        )
+        self.save_policy = create_save_policy(options['save_policy'])
+        self.review_policy = create_review_policy(options['review_policy'])
+        self.mark_policy = create_mark_policy(options['mark_policy'])
         self.stats = {
-            'processed_files': 0, 'migrations': [], 'saved': [], 'errors': [],
+            'processed_files': 0,
+            'migrations': [],
+            'saved': [],
+            'files_marked': 0,
+            'strings_marked': 0,
+            'errors': [],
         }
+
+    def _comment_format(self, path):
+        """Return the comment format suitable for the given file,
+        based on its extension.
+
+        :param unicode path: the path to a migration file
+        :return: a new string, to use with .format()
+        :rtype: unicode
+        """
+        _, extension = os.path.splitext(path)
+        return '# {}\n' if extension == '.py' else '<!-- {} -->'
 
     def migrate_files(self, files):
         """Search all related files, detect Django i18n translate hooks and
@@ -96,11 +130,9 @@ class MigrationExecutor(object):
             if exit_migration:
                 break
 
-            _, extension = os.path.splitext(translatable_file.file)
-            comment_format = (
-                '# {}\n' if extension == '.py' else '<!-- {} -->\n'
-            )
+            comment_format = self._comment_format(translatable_file.file)
             self.review_policy.set_comment_format(comment_format)
+            self.mark_policy.set_comment_format(comment_format)
 
             Color.echo(
                 '\n---- '
@@ -182,6 +214,14 @@ class MigrationExecutor(object):
                             exit_migration = True
                             break
 
+            # If the mark policy says so, give it a chance to mark
+            # each string for proofread
+            if self.mark_policy.should_mark_strings():
+                for string_migration in modified_strings:
+                    marked = self.mark_policy.mark_string(string_migration)
+                    if marked:
+                        self.stats['strings_marked'] += 1
+
             # If the review policy says so, prompt the user for each file
             if accept_remaining_files is False and exit_migration is False:
                 result = self.review_policy.review_file(file_migration)
@@ -205,6 +245,11 @@ class MigrationExecutor(object):
             # Break to exit the outer (file) loop
             if exit_migration is True:
                 break
+
+            # Give a chance to the mark policy to mark the file for proofread
+            marked = self.mark_policy.mark_file(file_migration)
+            if marked:
+                self.stats['files_marked'] += 1
 
             # If the save policy says so, save the changes
             if file_migration.modified_strings:
@@ -261,6 +306,12 @@ class MigrationExecutor(object):
             '[opt]Save policy:[end] [high]{}[end] -> {}'.format(
                 self.options['save_policy'],
                 SAVE_POLICY_OPTIONS[self.options['save_policy']],
+            ).strip()
+        )
+        Color.echo(
+            '[opt]Mark policy:[end] [high]{}[end] -> {}'.format(
+                self.options['mark_policy'],
+                MARK_POLICY_OPTIONS[self.options['mark_policy']],
             ).strip()
         )
 
@@ -329,6 +380,8 @@ class MigrationExecutor(object):
             strings_modified += new_string_count
             if new_string_count:
                 files_modified += 1
+
+        # Files & string migrations
         Color.echo(
             '[high]File migrations created:[end] [warn]{}[end]'.format(
                 files_modified
@@ -339,6 +392,8 @@ class MigrationExecutor(object):
                 strings_modified
             )
         )
+
+        # Files saved
         Color.echo('[high]Files saved:[end] [warn]{}[end]'.format(
             len(stats['saved'])
         ))
@@ -348,6 +403,20 @@ class MigrationExecutor(object):
         ])
         if saved_str:
             Color.echo(saved_str)
+
+        # Files & strings marked
+        Color.echo(
+            '[high]Files marked for proofreading:[end] [warn]{}[end]'.format(
+                stats['files_marked']
+            )
+        )
+        Color.echo(
+            '[high]Strings marked for proofreading:[end] [warn]{}[end]'.format(
+                stats['strings_marked']
+            )
+        )
+
+        # Errors found
         Color.echo('[high]Errors found:[end] [warn]{}[end]'.format(
             len(stats['errors'])
         ))
@@ -359,46 +428,3 @@ class MigrationExecutor(object):
             Color.echo(errors_str)
 
         Color.echo('')
-
-
-def _create_save_policy(policy_id):
-    """Create the save policy object that corresponds to the given ID.
-
-    :param str policy_id: the ID of the policy to create, as expected
-        in the command parameters
-    :return: a SavePolicy subclass
-    :rtype: SavePolicy
-    """
-    policy_id = policy_id.lower()
-    if policy_id == NoopSavePolicy.name:
-        return NoopSavePolicy()
-    elif policy_id == NewFileSavePolicy.name:
-        return NewFileSavePolicy()
-    elif policy_id == BackupSavePolicy.name:
-        return BackupSavePolicy()
-    elif policy_id == ReplaceSavePolicy.name:
-        return ReplaceSavePolicy()
-
-    raise AttributeError('Invalid save policy ID={}'.format(policy_id))
-
-
-def _create_review_policy(policy_id):
-    """Create the review policy object that corresponds to the given ID.
-
-    :param str policy_id: the ID of the policy to create, as expected
-        in the command parameters
-    :return: a ReviewPolicy subclass
-    :rtype: ReviewPolicy
-    """
-    if policy_id == NoopReviewPolicy.name:
-        return NoopReviewPolicy()
-    elif policy_id == FileReviewPolicy.name:
-        return FileReviewPolicy()
-    elif policy_id == StringReviewPolicy.name:
-        return StringReviewPolicy()
-    elif policy_id == LowConfidenceFileReviewPolicy.name:
-        return LowConfidenceFileReviewPolicy()
-    elif policy_id == LowConfidenceStringReviewPolicy.name:
-        return LowConfidenceStringReviewPolicy()
-
-    raise AttributeError('Invalid review policy ID={}'.format(policy_id))

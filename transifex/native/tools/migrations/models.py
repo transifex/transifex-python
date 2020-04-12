@@ -141,9 +141,21 @@ class FileMigration(object):
 
     @property
     def modified_strings(self):
-        """A list of all StringMigration objects with content that was really migrated,
-        for a particular file.
+        """A list of all StringMigration objects with content that was really
+        migrated, for a particular file.
 
         :rtype: List[StringMigration]
         """
         return [string for string in self.strings if string.modified]
+
+    @property
+    def low_confidence_strings(self):
+        """A list of all StringMigration objects with migrated content
+        that has low confidence, for a particular file.
+
+        :rtype: List[StringMigration]
+        """
+        return [
+            x for x in self.modified_strings
+            if x.confidence == Confidence.LOW
+        ]

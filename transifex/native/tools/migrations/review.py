@@ -12,6 +12,9 @@ import sys
 
 from transifex.common.console import Color, prompt
 # The reviewer has decided to reject the changes on a specific string
+from transifex.native.tools.migrations.mark import (MARK_PROOFREAD_FILE,
+                                                    MARK_PROOFREAD_STRING,
+                                                    mark_string)
 from transifex.native.tools.migrations.models import Confidence
 
 # The reviewer has decided to reject the changes on a specific string or file
@@ -45,9 +48,6 @@ EXIT_CHOICE = 'X'  # exit the migration completely
 MARK_CHOICE = 'M'  # mark for later review (inside the file, if saved)
 PRINT_CHAR = 'P'  # print the diff
 
-MARK_REVIEW_STRING = 'Transifex Native: REVIEW_STRING'
-MARK_REVIEW_FILE = 'Transifex Native: REVIEW_FILE'
-
 
 class ReviewPolicy(object):
     """Determines if and how each migration (string or file) will be reviewed
@@ -55,9 +55,10 @@ class ReviewPolicy(object):
 
     It is meant to be subclassed, in order to provide custom functionality.
     """
+    name = None
 
     def __init__(self):
-        # This determines review comments will appear
+        # This determines how review comments will appear
         # inside the migrated file. It is dynamic because different files
         # support different comment formats, e.g.
         # - '# Comment' in Python
@@ -97,10 +98,12 @@ class ReviewPolicy(object):
         (i.e. returns an "accept" directive), but subclasses can provide
         a custom implementation.
 
-        :param StringMigration string_migration: the migration of a single string
-        :param int string_cnt: the current index of the migrated string (0-based)
-        :param int strings_total: the total number of strings in the corresponding
-            file migration
+        :param StringMigration string_migration: the migration of a single
+            string
+        :param int string_cnt: the current index of the migrated string
+            (0-based)
+        :param int strings_total: the total number of strings in the
+            corresponding file migration
         :return: an integer directive that determines what to do with the string
         :rtype: int
         """
@@ -120,9 +123,10 @@ class ReviewPolicy(object):
         """Prompt the user to review the string migration and decide what to do.
 
         :param StringMigration string_migration: the migration object
-        :param int string_cnt: the current index of the migrated string (0-based)
-        :param int strings_total: the total number of strings in the corresponding
-            file migration
+        :param int string_cnt: the current index of the migrated string
+            (0-based)
+        :param int strings_total: the total number of strings in the
+            corresponding file migration
         :return: an integer directive that determines what to do with the string
         :rtype: int
         """
@@ -180,9 +184,10 @@ class ReviewPolicy(object):
                 return REVIEW_EXIT
 
             elif reply == MARK_CHOICE:
-                string_migration.update(
-                    '', self._comment_format.format(MARK_REVIEW_STRING),
-                    append=False,
+                mark_string(
+                    string_migration,
+                    self._comment_format,
+                    MARK_PROOFREAD_STRING,
                 )
                 Color.echo('📝 Change marked for proofreading')
                 return REVIEW_MARK_STRING
@@ -240,9 +245,10 @@ class ReviewPolicy(object):
                     return REVIEW_REJECT_ALL
 
             elif reply == MARK_CHOICE:
-                file_migration.strings[0].update(
-                    '', self._comment_format.format(MARK_REVIEW_FILE),
-                    append=False,
+                mark_string(
+                    file_migration.strings[0],
+                    self._comment_format,
+                    MARK_PROOFREAD_FILE,
                 )
                 Color.echo(
                     '📝 Changes in file accepted & file marked for proofreading'
@@ -257,7 +263,8 @@ class ReviewPolicy(object):
                 for string_migration in modified_strings:
                     if string_migration.confidence == Confidence.LOW:
                         Color.echo('[warn]--- [Low confidence!][end]')
-                    Color.echo('[red]{}[end]'.format(string_migration.original))
+                    Color.echo('[red]{}[end]'.format(
+                        string_migration.original))
                     Color.echo('[green]{}[end]\n'.format(string_migration.new))
 
             elif reply == EXIT_CHOICE:
@@ -349,3 +356,25 @@ class LowConfidenceStringReviewPolicy(ReviewPolicy):
     def review_string(self, string_migration, string_cnt, strings_total):
         if string_migration.confidence == Confidence.LOW:
             return self.prompt_for_string(string_migration, string_cnt, strings_total)
+
+
+def create_review_policy(policy_id):
+    """Create the review policy object that corresponds to the given ID.
+
+    :param str policy_id: the ID of the policy to create, as expected
+        in the command parameters
+    :return: a ReviewPolicy subclass
+    :rtype: ReviewPolicy
+    """
+    policy_classes = {
+        x.name: x
+        for x in [
+            NoopReviewPolicy, FileReviewPolicy, StringReviewPolicy,
+            LowConfidenceFileReviewPolicy, LowConfidenceStringReviewPolicy,
+        ]
+    }
+    try:
+        _class = policy_classes[policy_id.lower()]
+        return _class()
+    except KeyError:
+        raise AttributeError('Invalid review policy ID={}'.format(policy_id))

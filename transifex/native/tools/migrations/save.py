@@ -34,6 +34,8 @@ class SavePolicy(object):
     # Replace the original file with no backup
     IN_PLACE = 3
 
+    name = None
+
     def save_file(self, file_migration):
         """Called when a file migration is ready to be saved.
 
@@ -54,8 +56,8 @@ class SavePolicy(object):
         during the generation of the content.
 
         Usage:
-        >>> _safe_save('file/path.html', lambda: content, file_type='Backup')
-        >>> _safe_save('file/path.html', my_provider.get_content, file_type='Backup')
+        >>> _safe_save('file/path.html', lambda: content, file_type='Backup')  # noqa
+        >>> _safe_save('file/path.html', my_provider.get_content, file_type='Backup')  # noqa
 
         :param basestring path: the path to save to
         :param callable content_func: a callable that should return the content
@@ -168,3 +170,25 @@ class ReplaceSavePolicy(SavePolicy):
             file_migration.compile,
             file_type='Original',
         )
+
+
+def create_save_policy(policy_id):
+    """Create the save policy object that corresponds to the given ID.
+
+    :param str policy_id: the ID of the policy to create, as expected
+        in the command parameters
+    :return: a SavePolicy subclass
+    :rtype: SavePolicy
+    """
+    policy_classes = {
+        x.name: x
+        for x in [
+            NoopSavePolicy, NewFileSavePolicy, BackupSavePolicy,
+            ReplaceSavePolicy,
+        ]
+    }
+    try:
+        _class = policy_classes[policy_id.lower()]
+        return _class()
+    except KeyError:
+        raise AttributeError('Invalid save policy ID={}'.format(policy_id))
