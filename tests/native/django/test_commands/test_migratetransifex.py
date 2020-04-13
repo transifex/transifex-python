@@ -5,8 +5,7 @@ import mock
 from django.core.management import call_command
 from tests.native.django.test_tools.test_migrations.test_templatetags import (
     DJANGO_TEMPLATE, TRANSIFEX_TEMPLATE)
-from transifex.native.django.management.commands.migratetransifex import \
-    Command
+from transifex.native.django.management.commands.transifex import Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.tools.migrations.review import (FileReviewPolicy,
                                                       NoopReviewPolicy,
@@ -49,9 +48,9 @@ There are {counter} {name} objects.
 HTML_COMPILED_1 = TRANSIFEX_TEMPLATE
 
 PATH_FIND_FILES = 'transifex.native.django.management.commands' \
-                  '.migratetransifex.Command._find_files'
+                  '.transifex.Command._find_files'
 PATH_READ_FILE = 'transifex.native.django.management.commands' \
-                 '.migratetransifex.Command._read_file'
+                 '.transifex.Command._read_file'
 PATH_PROMPT_FILE = 'transifex.native.tools.migrations.review.ReviewPolicy' \
                    '.prompt_for_file'
 PATH_PROMPT_STRING = 'transifex.native.tools.migrations.review' \
@@ -62,6 +61,23 @@ PATH_PROMPT_START1 = 'transifex.native.tools.migrations.execution' \
                      '.MigrationExecutor._prompt_to_start'
 PATH_ECHO = 'transifex.native.tools.migrations.execution' \
             '.Color.echo'
+
+
+@mock.patch(PATH_ECHO)
+@mock.patch(PATH_PROMPT_START1)
+@mock.patch(PATH_READ_FILE)
+@mock.patch('os.getcwd')
+def test_dry_run_save_none_review0(mock_cur_dir, mock_read,
+                                   mock_prompt_to_start1, mock_echo):
+    mock_cur_dir.return_value = 'dir1/dir2'
+    mock_read.side_effect = [
+        HTML_SAMPLE_1,  # 1.html
+    ]
+    command = Command()
+    call_command(command, 'migrate', save_policy='none',
+                 review_policy='none', files=['1.html'])
+    assert isinstance(command.executor.save_policy, NoopSavePolicy)
+    assert isinstance(command.executor.review_policy, NoopReviewPolicy)
 
 
 @mock.patch(PATH_ECHO)
@@ -79,7 +95,8 @@ def test_dry_run_save_none_review(mock_find_files, mock_read,
         HTML_SAMPLE_2,  # 1.txt
     ]
     command = Command()
-    call_command(command, save_policy='none', review_policy='none')
+    call_command(command, 'migrate', save_policy='none',
+                 review_policy='none')
     assert isinstance(command.executor.save_policy, NoopSavePolicy)
     assert isinstance(command.executor.review_policy, NoopReviewPolicy)
 
@@ -104,7 +121,7 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
         HTML_SAMPLE_2,  # 1.txt
     ]
     command = Command()
-    call_command(command, save_policy='new', review_policy='file')
+    call_command(command, 'migrate', save_policy='new', review_policy='file')
     assert isinstance(command.executor.save_policy, NewFileSavePolicy)
     assert isinstance(command.executor.review_policy, FileReviewPolicy)
 
@@ -143,7 +160,8 @@ def test_backup_save_string_review(mock_find_files, mock_read,
         HTML_SAMPLE_2,  # 1.txt
     ]
     command = Command()
-    call_command(command, save_policy='backup', review_policy='string')
+    call_command(command, 'migrate', save_policy='backup',
+                 review_policy='string')
     assert isinstance(command.executor.save_policy, BackupSavePolicy)
     assert isinstance(command.executor.review_policy, StringReviewPolicy)
 
@@ -182,7 +200,8 @@ def test_replace_save_string_review(mock_find_files, mock_read,
         HTML_SAMPLE_2,  # 1.txt
     ]
     command = Command()
-    call_command(command, save_policy='replace', review_policy='string')
+    call_command(command, 'migrate', save_policy='replace',
+                 review_policy='string')
     assert isinstance(command.executor.save_policy, ReplaceSavePolicy)
     assert isinstance(command.executor.review_policy, StringReviewPolicy)
 

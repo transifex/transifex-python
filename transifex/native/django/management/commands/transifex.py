@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import fnmatch
 import io
@@ -7,7 +7,7 @@ import os
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandParser
 from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
 from django.utils.functional import cached_property
@@ -15,57 +15,141 @@ from transifex.native import tx
 from transifex.native.django.management.common import (NO_LOCALE_DIR,
                                                        SourceStringCollection,
                                                        TranslatableFile)
+from transifex.native.django.tools.migrations.templatetags import \
+    DjangoTagMigrationBuilder
 from transifex.native.django.utils.templates import \
     extract_transifex_template_strings
 from transifex.native.parsing import Extractor
+from transifex.native.tools.migrations.execution import (MARK_POLICY_OPTIONS,
+                                                         REVIEW_POLICY_OPTIONS,
+                                                         SAVE_POLICY_OPTIONS,
+                                                         MigrationExecutor)
+
+MIGRATE_EXTENSIONS = ['html', 'txt', 'py']
+
+
+def pretty_options(options_dict):
+    items = [(k, v) for k, v in options_dict.items()]
+    return '\n'.join([' - "{}": {}'.format(x[0], x[1]) for x in items])
 
 
 class Command(BaseCommand):
-    """Detects translatable strings in Django templates and Python files,
-      based on the syntax of Transifex Native and pushes them as source strings
-      to Transifex."""
+    """Main `transifex` CLI command that includes the following subcommands:
+
+    - push: Detects translatable strings in Django templates and Python files,
+            based on the syntax of Transifex Native and pushes them as source strings
+            to Transifex.
+
+    - migrate: Migrates files using the Django i18n syntax to Transifex Native syntax.
+
+    Usage Example:
+        `$./manage.py transifex <subcommand> [options]`
+    """
 
     def add_arguments(self, parser):
+        cmd = self
+
+        class SubParser(CommandParser):
+
+            def __init__(self, **kwargs):
+                super(SubParser, self).__init__(cmd, **kwargs)
+
+        # common arguments to all subcommands
         parser.add_argument(
             '--domain', '-d', default='django', dest='domain',
             help='The domain of the message files (default: "django").',
         )
-        parser.add_argument(
+
+        subparsers = parser.add_subparsers(title="subcommands",
+                                           dest="subcommand",
+                                           help="Available subcommands",
+                                           parser_class=SubParser)
+        subparsers.required = True
+        push_parser = subparsers.add_parser('push', help="Detect translatable strings in "
+                                            "Django templates and Python files and push them "
+                                            "as source strings to Transifex")
+        migrate_parser = subparsers.add_parser(
+            'migrate', help="Migrate files using the Django i18n syntax to Transifex Native syntax")
+
+        # push subcommand arguments
+        push_parser.add_argument(
+            '--extension', '-e', dest='extensions', action='append',
+            help='The file extension(s) to examine (default: "html,txt,py", or "js" '
+                 'if the domain is "djangojs"). Separate multiple extensions with '
+                 'commas, or use -e multiple times.',
+        )
+        push_parser.add_argument(
             '--purge', '-p', action='store_true', dest='purge', default=False,
             help='Replace the entire resource content with the pushed content '
                  'of this request. If not provided (the default), then append '
                  'the source content of this request to the existing resource '
                  'content.',
         )
-        parser.add_argument(
+        push_parser.add_argument(
             '--symlinks', '-s', action='store_true', dest='symlinks', default=False,
             help='Follows symlinks to directories when examining source code '
                  'and templates for translation strings.',
         )
+        # migrate subcommand arguments
+        migrate_parser.add_argument(
+            '--file', '-f', dest='files', action='append',
+            help='The relative paths of the files to migrate. Separate '
+                 'multiple paths with commas, or use -f multiple times.',
+        )
+        migrate_parser.add_argument(
+            '--path', '-p', dest='path',
+            help='The path of the files to migrate. Finds files recursively.',
+        )
+        migrate_parser.add_argument(
+            '--save', dest='save_policy', default='new',
+            help=(
+                'Determines where the migrated content will be saved: \n' +
+                pretty_options(SAVE_POLICY_OPTIONS)
+            ),
+        )
+        migrate_parser.add_argument(
+            '--review', dest='review_policy', default='file',
+            help=(
+                'Determines where the migrated content will be saved: \n' +
+                pretty_options(REVIEW_POLICY_OPTIONS)
+            ),
+        )
         parser.add_argument(
-            '--extension', '-e', dest='extensions', action='append',
-            help='The file extension(s) to examine (default: "html,txt,py", or "js" '
-                 'if the domain is "djangojs"). Separate multiple extensions with '
-                 'commas, or use -e multiple times.',
+            '--mark', dest='mark_policy', default='none',
+            help=(
+                'Determines if anything gets marked for proofreading: \n' +
+                pretty_options(MARK_POLICY_OPTIONS)
+            ),
         )
 
     def handle(self, *args, **options):
-        extensions = options['extensions']
-        self.ignore_patterns = []
-        self.purge = options['purge']
-        self.symlinks = options['symlinks']
+        self.subcommand = options['subcommand']
         self.domain = options['domain']
         self.verbosity = options['verbosity']
+        self.ignore_patterns = []
+
+        if self.subcommand == 'push':
+            self.purge = options['purge']
+            self.symlinks = options['symlinks']
+            extensions = options['extensions']
+            if self.domain == 'djangojs':
+                exts = extensions if extensions else ['js']
+            else:
+                exts = extensions if extensions else ['html', 'txt', 'py']
+            func = self.handle_push
+        elif self.subcommand == 'migrate':
+            self.path = options['path']
+            self.files = set(options['files'] or [])
+            exts = MIGRATE_EXTENSIONS
+            func = self.handle_migrate
+        self.extensions = handle_extensions(exts)
+        func(*args, **options)
+
+    def handle_push(self, *args, **options):
         self.locale_paths = []
         self.default_locale_path = None
 
         self.string_collection = SourceStringCollection()
-
-        if self.domain == 'djangojs':
-            exts = extensions if extensions else ['js']
-        else:
-            exts = extensions if extensions else ['html', 'txt', 'py']
-        self.extensions = handle_extensions(exts)
 
         # Create an extractor for Python files, to reuse for all files
         self.python_extractor = Extractor()
@@ -84,6 +168,34 @@ class Command(BaseCommand):
         # Push the strings to the CDS
         self.push_strings()
 
+    def handle_migrate(self, *args, **options):
+        self.stats = {
+            'processed_files': 0, 'migrations': [], 'saved': [], 'errors': [],
+        }
+        self.executor = MigrationExecutor(
+            options, file_migrator_func=self._migrate_file,
+        )
+
+        # Show an intro message
+        self.executor.show_intro()
+
+        # If specific files are defined, use those
+        if self.files:
+            dirpath = os.getcwd()
+            files = [
+                TranslatableFile(dirpath, filename)
+                for filename in self.files
+            ]
+        # Else search the file path for supported files
+        else:
+            files = self._find_files(self.path)
+
+        # Create a reusable migrator for templates code
+        self.django_migration_builder = DjangoTagMigrationBuilder()
+
+        # Execute the migration
+        self.executor.migrate_files(files)
+
     def collect_strings(self):
         """Search all related files, collect and store translatable strings.
 
@@ -95,7 +207,7 @@ class Command(BaseCommand):
             extracted = self._extract_strings(f)
             self.string_collection.extend(extracted)
             self.stats['processed_files'] += 1
-            if len(extracted):
+            if extracted and len(extracted):
                 self.stats['strings'].append((f.file, len(extracted)))
 
         self._show_collect_results()
@@ -192,8 +304,9 @@ class Command(BaseCommand):
             ignored_roots = [os.path.normpath(p) for p in
                              (settings.MEDIA_ROOT, settings.STATIC_ROOT) if p]
 
+        follow_links = self.symlinks if self.subcommand == 'push' else False
         for dirpath, dirnames, filenames in os.walk(root, topdown=True,
-                                                    followlinks=self.symlinks):
+                                                    followlinks=follow_links):
             for dirname in dirnames[:]:
                 if (is_ignored(os.path.normpath(os.path.join(dirpath, dirname)),
                                norm_patterns) or
@@ -203,8 +316,11 @@ class Command(BaseCommand):
                     self.verbose('Ignoring directory %s' % dirname)
                 elif dirname == 'locale':
                     dirnames.remove(dirname)
-                    self.locale_paths.insert(0, os.path.join(os.path.abspath(dirpath),
-                                                             dirname))
+                    if self.subcommand == 'push':
+                        self.locale_paths.insert(0, os.path.join(
+                            os.path.abspath(dirpath),
+                            dirname
+                        ))
             for filename in filenames:
                 file_path = os.path.normpath(os.path.join(dirpath, filename))
                 file_ext = os.path.splitext(filename)[1]
@@ -213,18 +329,22 @@ class Command(BaseCommand):
                     self.verbose('Ignoring file %s in %s' %
                                  (filename, dirpath))
                 else:
-                    locale_dir = None
-                    for path in self.locale_paths:
-                        if os.path.abspath(dirpath).startswith(os.path.dirname(path)):
-                            locale_dir = path
-                            break
-                    if not locale_dir:
-                        locale_dir = self.default_locale_path
-                    if not locale_dir:
-                        locale_dir = NO_LOCALE_DIR
-                    all_files.append(TranslatableFile(
-                        dirpath, filename, locale_dir))
-
+                    if self.subcommand == 'push':
+                        locale_dir = None
+                        for path in self.locale_paths:
+                            if os.path.abspath(dirpath).startswith(os.path.dirname(path)):
+                                locale_dir = path
+                                break
+                        if not locale_dir:
+                            locale_dir = self.default_locale_path
+                        if not locale_dir:
+                            locale_dir = NO_LOCALE_DIR
+                        all_files.append(TranslatableFile(
+                            dirpath, filename, locale_dir))
+                    elif self.subcommand == 'migrate':
+                        all_files.append(
+                            TranslatableFile(dirpath.lstrip('./'), filename)
+                        )
         return sorted(all_files)
 
     def _show_collect_results(self):
@@ -270,6 +390,7 @@ class Command(BaseCommand):
                         errors='\n'.join(errors)
                     )
                 )
+
             else:
                 message = response_content.get('message')
                 details = response_content.get('details')
@@ -293,6 +414,43 @@ class Command(BaseCommand):
                     content=response_content,
                 )
             )
+
+    def _migrate_file(self, translatable_file):
+        """Extract source strings from the given file.
+
+        Supports both Python files and Django template files.
+
+        :param TranslatableFile translatable_file: the file to search
+        :return: an object with the migration info
+        :rtype: FileMigration
+        """
+        self.verbose('Processing file %s in %s' % (
+            translatable_file.file, translatable_file.dirpath
+        ))
+        encoding = (
+            settings.FILE_CHARSET if self.settings_available
+            else 'utf-8'
+        )
+        try:
+            src_data = self._read_file(translatable_file.path, encoding)
+        except UnicodeDecodeError as e:
+            self.verbose(
+                'UnicodeDecodeError: skipped file %s in %s (reason: %s)' % (
+                    translatable_file.file, translatable_file.dirpath, e,
+                )
+            )
+            return None
+
+        _, extension = os.path.splitext(translatable_file.file)
+
+        # Python file
+        if extension == '.py':
+            return None  # TODO
+
+        # Template file
+        return self.django_migration_builder.build_migration(
+            src_data, translatable_file.path, encoding,
+        )
 
     @cached_property
     def settings_available(self):
