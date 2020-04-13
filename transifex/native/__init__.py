@@ -1,10 +1,4 @@
-import six
-from transifex.native.core import TxNative  # nopep8
-
-if six.PY3:
-    unicode_compat = str
-else:
-    unicode_compat = unicode
+from transifex.native.core import TxNative
 
 
 def init(

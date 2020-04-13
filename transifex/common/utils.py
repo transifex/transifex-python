@@ -3,6 +3,12 @@ from datetime import datetime
 from hashlib import md5
 
 import pytz
+import six
+
+if six.PY3:
+    unicode_compat = str
+else:
+    unicode_compat = unicode
 
 
 def generate_key(source_string, context=None):

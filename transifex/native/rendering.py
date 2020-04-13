@@ -6,8 +6,7 @@ from math import ceil
 
 from pyseeyou import format
 from six import string_types
-from transifex.common.utils import import_to_python
-from transifex.native import unicode_compat
+from transifex.common.utils import import_to_python, unicode_compat
 
 logger = logging.getLogger('transifex.rendering')
 logger.addHandler(logging.StreamHandler(sys.stdout))
