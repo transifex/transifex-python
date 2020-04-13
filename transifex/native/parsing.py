@@ -5,11 +5,9 @@ import json
 import re
 
 from six import string_types
-
-from transifex.common.utils import make_hashable
+from transifex.common.utils import generate_key, make_hashable
 from transifex.native import consts
 from transifex.native.consts import KEY_CONTEXT
-from transifex.common.utils import generate_key
 
 # PEP 263 magic comment for source code encodings
 # e.g. "# -*- coding: <encoding name> -*-"
@@ -285,7 +283,8 @@ class TransifexVisitor(ast.NodeVisitor):
                 except Exception as e:
                     print(
                         'Error while visiting node: {}.{}{}: {}'.format(
-                            module, name, (' as ' + as_name if as_name else ''), e
+                            module, name, (' as ' +
+                                           as_name if as_name else ''), e
                         )
                     )
                     continue

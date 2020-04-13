@@ -1,11 +1,11 @@
 import pytest
 from mock import patch
-
-from transifex.native.tools.migrations.models import FileMigration, StringMigration, \
-    Confidence
-from transifex.native.tools.migrations.review import ReviewPolicy, REVIEW_ACCEPT, \
-    FileReviewPolicy, StringReviewPolicy, LowConfidenceStringReviewPolicy, \
-    LowConfidenceFileReviewPolicy
+from transifex.native.tools.migrations.models import (Confidence,
+                                                      FileMigration,
+                                                      StringMigration)
+from transifex.native.tools.migrations.review import (
+    REVIEW_ACCEPT, FileReviewPolicy, LowConfidenceFileReviewPolicy,
+    LowConfidenceStringReviewPolicy, ReviewPolicy, StringReviewPolicy)
 
 
 def test_base_class_policy_accepts_all():
@@ -27,8 +27,10 @@ def test_file_review_policy_prompts_for_file(mock_file_prompt,
     mock_file_prompt.assert_called_once_with(file_migration)
 
     # This policy does not prompt for strings
-    policy.review_string(_string(Confidence.HIGH), string_cnt=1, strings_total=5)
-    policy.review_string(_string(Confidence.LOW), string_cnt=1, strings_total=5)
+    policy.review_string(_string(Confidence.HIGH),
+                         string_cnt=1, strings_total=5)
+    policy.review_string(_string(Confidence.LOW),
+                         string_cnt=1, strings_total=5)
     mock_string_prompt.assert_not_called()
 
 
@@ -49,8 +51,10 @@ def test_low_file_review_policy_prompts_for_file_with_low_conf_strings(
     mock_file_prompt.assert_called_once_with(file_migration)
 
     # This policy does not prompt for strings
-    policy.review_string(_string(Confidence.HIGH), string_cnt=1, strings_total=5)
-    policy.review_string(_string(Confidence.LOW), string_cnt=1, strings_total=5)
+    policy.review_string(_string(Confidence.HIGH),
+                         string_cnt=1, strings_total=5)
+    policy.review_string(_string(Confidence.LOW),
+                         string_cnt=1, strings_total=5)
     mock_string_prompt.assert_not_called()
 
 
@@ -81,8 +85,10 @@ def test_string_review_policy_prompts_for_string(mock_file_prompt,
     policy.review_string(string_migration1, 5, 10)
     string_migration2 = _string(Confidence.LOW)
     policy.review_string(string_migration2, 15, 20)
-    assert mock_string_prompt.call_args_list[0][0] == (string_migration1, 5, 10)
-    assert mock_string_prompt.call_args_list[1][0] == (string_migration2, 15, 20)
+    assert mock_string_prompt.call_args_list[0][0] == (
+        string_migration1, 5, 10)
+    assert mock_string_prompt.call_args_list[1][0] == (
+        string_migration2, 15, 20)
 
     # This policy does not prompt for file reviews
     policy.review_file(_file())

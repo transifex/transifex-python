@@ -1,16 +1,15 @@
+import logging
 import os
 import sys
-import logging
 
 from django.apps import AppConfig
 from django.core.signals import request_finished
 from django.utils.translation import to_locale
-
-from transifex.native.django import settings as native_settings
-from transifex.native.daemon import daemon
 from transifex.native import init, tx
-from transifex.native.rendering import (
-    parse_rendering_policy, parse_error_policy)
+from transifex.native.daemon import daemon
+from transifex.native.django import settings as native_settings
+from transifex.native.rendering import (parse_error_policy,
+                                        parse_rendering_policy)
 
 logger = logging.getLogger('transifex.native.django')
 logger.addHandler(logging.StreamHandler(sys.stdout))

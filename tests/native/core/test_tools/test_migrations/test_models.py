@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from transifex.native.tools.migrations.models import Confidence, StringMigration, \
-    FileMigration
+from transifex.native.tools.migrations.models import (Confidence,
+                                                      FileMigration,
+                                                      StringMigration)
 
 
 class TestConfidence(object):

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-
 from transifex.native.django.tools.migrations.templatetags import \
     DjangoTagMigrationBuilder
 

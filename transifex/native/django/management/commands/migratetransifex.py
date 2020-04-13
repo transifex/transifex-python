@@ -9,18 +9,19 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import BaseCommand
 from django.core.management.utils import handle_extensions
 from django.utils.functional import cached_property
-
 from transifex.common.console import Color
 from transifex.native.django.management.common import TranslatableFile
-from transifex.native.django.tools.migrations.templatetags import DjangoTagMigrationBuilder
+from transifex.native.django.tools.migrations.templatetags import \
+    DjangoTagMigrationBuilder
 from transifex.native.tools.migrations.models import Confidence
-from transifex.native.tools.migrations.review import \
-    LowConfidenceStringReviewPolicy, LowConfidenceFileReviewPolicy, StringReviewPolicy, \
-    FileReviewPolicy, prompt_to_start, REVIEW_ACCEPT_ALL, REVIEW_REJECT_ALL, \
-    NoopReviewPolicy
-from transifex.native.tools.migrations.save import NoopSavePolicy, \
-    NewFileSavePolicy, BackupSavePolicy, InPlaceSavePolicy
-
+from transifex.native.tools.migrations.review import (
+    REVIEW_ACCEPT_ALL, REVIEW_REJECT_ALL, FileReviewPolicy,
+    LowConfidenceFileReviewPolicy, LowConfidenceStringReviewPolicy,
+    NoopReviewPolicy, StringReviewPolicy, prompt_to_start)
+from transifex.native.tools.migrations.save import (BackupSavePolicy,
+                                                    InPlaceSavePolicy,
+                                                    NewFileSavePolicy,
+                                                    NoopSavePolicy)
 
 SAVE_POLICY_OPTIONS = {
     'dry-run': 'no changes will be saved\n',
@@ -97,7 +98,8 @@ class Command(BaseCommand):
         self.files = options['files']
 
         self.save_policy = self._create_save_policy(options['save_policy'])
-        self.review_policy = self._create_review_policy(options['review_policy'])
+        self.review_policy = self._create_review_policy(
+            options['review_policy'])
 
         self.extensions = handle_extensions(['html', 'txt', 'py'])
         self.stats = {
@@ -392,7 +394,8 @@ class Command(BaseCommand):
                 file_ext = os.path.splitext(filename)[1]
                 if file_ext not in self.extensions or is_ignored(file_path,
                                                                  self.ignore_patterns):
-                    self.verbose('Ignoring file %s in %s' % (filename, dirpath))
+                    self.verbose('Ignoring file %s in %s' %
+                                 (filename, dirpath))
                 else:
                     all_files.append(
                         TranslatableFile(dirpath.lstrip('./'), filename)

@@ -54,6 +54,7 @@ def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=Non
         Color.echo('')
 
     if description:
-        Color.echo('[prompt]{description}[end]'.format(description=description))
+        Color.echo('[prompt]{description}[end]'.format(
+            description=description))
 
     return click.prompt(prompt_msg, default=default, type=(vtype or str))

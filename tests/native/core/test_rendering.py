@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import pytest
 from mock import patch
-
-from transifex.native.rendering import SourceStringPolicy, PseudoTranslationPolicy, \
-    StringRenderer, WrappedStringPolicy, ExtraLengthPolicy, ChainedPolicy, \
-    parse_rendering_policy, SourceStringErrorPolicy
+from transifex.native.rendering import (ChainedPolicy, ExtraLengthPolicy,
+                                        PseudoTranslationPolicy,
+                                        SourceStringErrorPolicy,
+                                        SourceStringPolicy, StringRenderer,
+                                        WrappedStringPolicy,
+                                        parse_rendering_policy)
 
 COMPLEX_STRINGS = u"""{gender_of_host, select,
   female {
@@ -139,7 +141,7 @@ class TestStringRenderer(object):
             guest='Joe',
             **params
         )
-    
+
     @patch('transifex.native.rendering.html_escape')
     @patch('transifex.native.rendering.logger')
     def test_error_raises_exception(self, mock_logger, mock_escape):
@@ -168,7 +170,7 @@ class TestStringRenderer(object):
                 escape=True,
                 missing_policy=None,
             )
-        assert str(exc_info.value) == ( 
+        assert str(exc_info.value) == (
             'No string to render and no missing policy defined! '
             '(Source String: `source`)'
         )

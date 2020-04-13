@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 import sys
 
-from transifex.common.console import prompt, Color
-
+from transifex.common.console import Color, prompt
 # The reviewer has decided to reject the changes on a specific string
 from transifex.native.tools.migrations.models import Confidence
 
@@ -47,7 +47,8 @@ def prompt_to_start(total_files):
     :param int total_files: the total number of files to migrate
     """
     Color.echo(
-        '\nFound {} file(s) to check for translatable strings.'.format(total_files)
+        '\nFound {} file(s) to check for translatable strings.'.format(
+            total_files)
     )
     while True:
         reply = prompt(
@@ -262,7 +263,8 @@ class ReviewPolicy(object):
                     ' (the rest of the file is omitted)'
                 )
                 for string_migration in modified_strings:
-                    Color.echo('[red]{}[end]'.format(string_migration.original))
+                    Color.echo('[red]{}[end]'.format(
+                        string_migration.original))
                     Color.echo('[green]{}[end]'.format(string_migration.new))
                     print('')
 

@@ -1,11 +1,10 @@
-from __future__ import unicode_literals, absolute_import
+from __future__ import absolute_import, unicode_literals
 
+import transifex.native.consts as consts
 from django.template import Library, Node, TemplateSyntaxError, Variable
 from django.template.base import TOKEN_BLOCK, Variable
 from django.template.defaulttags import token_kwargs
 from django.utils.safestring import SafeData, mark_safe
-import transifex.native.consts as consts
-
 from transifex.native.django import t
 from transifex.native.parsing import SourceString
 
@@ -92,7 +91,8 @@ def parse_translatable_tag(parser, token):
             raise TemplateSyntaxError(
                 "One-line `{start}` blocks must include a string as their first "
                 "parameter, whereas multi-line `{start}` blocks should end with their "
-                "respective `{end}` tags".format(start=tag_name, end=end_tag_name)
+                "respective `{end}` tags".format(
+                    start=tag_name, end=end_tag_name)
             )
         string = bits[1][1:-1]  # Remove the enclosing quotes
         params = bits[2:]

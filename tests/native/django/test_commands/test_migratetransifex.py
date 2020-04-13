@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+
 import mock
-
-from tests.native.django.test_tools.test_migrations.test_templatetags import \
-    DJANGO_TEMPLATE, TRANSIFEX_TEMPLATE
-from transifex.native.django.management.commands.migratetransifex import Command
 from django.core.management import call_command
-
+from tests.native.django.test_tools.test_migrations.test_templatetags import (
+    DJANGO_TEMPLATE, TRANSIFEX_TEMPLATE)
+from transifex.native.django.management.commands.migratetransifex import \
+    Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.parsing import SourceString
-from transifex.native.tools.migrations.review import NoopReviewPolicy, \
-    FileReviewPolicy, StringReviewPolicy
-from transifex.native.tools.migrations.save import NoopSavePolicy, \
-    NewFileSavePolicy, BackupSavePolicy, InPlaceSavePolicy
+from transifex.native.tools.migrations.review import (FileReviewPolicy,
+                                                      NoopReviewPolicy,
+                                                      StringReviewPolicy)
+from transifex.native.tools.migrations.save import (BackupSavePolicy,
+                                                    InPlaceSavePolicy,
+                                                    NewFileSavePolicy,
+                                                    NoopSavePolicy)
 
 PYTHON_TEMPLATE = u"""
 # -*- coding: utf-8 -*-
@@ -61,7 +64,7 @@ PATH_PROMPT_START1 = 'transifex.native.tools.migrations.review' \
 PATH_PROMPT_START2 = 'transifex.native.django.management.commands' \
                      '.migratetransifex.prompt_to_start'
 PATH_ECHO = 'transifex.native.django.management.commands' \
-             '.migratetransifex.Color.echo'
+    '.migratetransifex.Color.echo'
 
 
 @mock.patch(PATH_ECHO)

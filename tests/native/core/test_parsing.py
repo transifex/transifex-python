@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from transifex.native.parsing import Extractor, SourceString
 
-
 TEMPLATE = u"""
 # -*- coding: utf-8 -*-
 
@@ -120,7 +119,8 @@ class TestExtractor(object):
 
     def _strings(self):
         return [
-            SourceString(u'Le canapé', u'désign', param1='1', param2=2, param3=True),
+            SourceString(u'Le canapé', u'désign',
+                         param1='1', param2=2, param3=True),
             SourceString(
                 u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
                 _charlimit=33,

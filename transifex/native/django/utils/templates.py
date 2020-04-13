@@ -1,10 +1,11 @@
 from __future__ import unicode_literals
 
-from django.template.base import DebugLexer, Lexer, Parser, TOKEN_BLOCK, TOKEN_VAR, TOKEN_TEXT, TOKEN_COMMENT, TRANSLATOR_COMMENT_MARK
+from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
+                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
+                                  DebugLexer, Lexer, Parser)
 from django.utils.encoding import force_text
-
-from transifex.native.django.templatetags.transifex import parse_translatable_tag
-
+from transifex.native.django.templatetags.transifex import \
+    parse_translatable_tag
 
 # Django template consts
 LOAD_TAG = 'load'

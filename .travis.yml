@@ -7,9 +7,15 @@ services:
 
 jobs:
     include:
+        - name: Code quality checks
+          install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
+          script:
+            docker run -it --rm native sh -c 'pre-commit run --files $(git ls-files transifex* tests*)'
         - name: py2.7-dj1.11
           install: docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
           script: docker run -it --rm native pytest --cov --cov-report=term-missing
+          after_success: bash <(curl -s https://codecov.io/bash) -cF python
         - name: py3.6-dj1.11
           install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
           script: docker run -it --rm native pytest --cov --cov-report=term-missing
+          after_success: bash <(curl -s https://codecov.io/bash) -cF python
