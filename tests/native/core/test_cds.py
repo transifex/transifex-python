@@ -53,7 +53,7 @@ class TestCDSHandler(object):
             languages_response,
             [{'code': 'el'}, {'code': 'en'}]
         )
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
         responses.reset()
 
         # wrong payload structure
@@ -263,7 +263,7 @@ class TestCDSHandler(object):
             }
         }
         responses.reset()
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
 
         # test connection_error
         resp = cds_handler.fetch_translations(language_code='el')
@@ -297,7 +297,7 @@ class TestCDSHandler(object):
         )
 
         cds_handler.push_source_strings([], False)
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
 
         # test push with content
         responses.add(
@@ -307,7 +307,7 @@ class TestCDSHandler(object):
 
         source_string = SourceString('some_string')
         cds_handler.push_source_strings([source_string], False)
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
         responses.reset()
 
         # test wrong data format

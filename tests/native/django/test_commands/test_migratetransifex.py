@@ -121,7 +121,7 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
     assert file_migration.compile() == HTML_COMPILED_1
 
     # No string review should have taken place
-    mock_prompt_string.assert_not_called()
+    assert mock_prompt_string.call_count == 0
 
     # The path and content that reached the save object
     # should have the correct values
@@ -156,7 +156,7 @@ def test_backup_save_string_review(mock_find_files, mock_read,
     assert isinstance(command.save_policy, BackupSavePolicy)
     assert isinstance(command.review_policy, StringReviewPolicy)
 
-    mock_prompt_file.assert_not_called()
+    assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7  # 7 migrated strings
 
     # The path and content that reached the save object
@@ -197,7 +197,7 @@ def test_replace_save_string_review(mock_find_files, mock_read,
     assert isinstance(command.save_policy, InPlaceSavePolicy)
     assert isinstance(command.review_policy, StringReviewPolicy)
 
-    mock_prompt_file.assert_not_called()
+    assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7
 
     # The path and content that reached the save object

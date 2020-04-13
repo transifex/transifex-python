@@ -25,7 +25,7 @@ def test_noop_policy_does_not_open_file():
         saved, error_type = policy.save_file(_file_migration())
         assert saved is False
         assert error_type is None
-    m.assert_not_called()
+    assert m.call_count == 0
 
 
 def test_new_file_policy_writes_to_new_file():

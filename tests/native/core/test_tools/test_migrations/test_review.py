@@ -31,7 +31,7 @@ def test_file_review_policy_prompts_for_file(mock_file_prompt,
                          string_cnt=1, strings_total=5)
     policy.review_string(_string(Confidence.LOW),
                          string_cnt=1, strings_total=5)
-    mock_string_prompt.assert_not_called()
+    assert mock_string_prompt.call_count == 0
 
 
 @patch('transifex.native.tools.migrations.review.ReviewPolicy'
@@ -55,7 +55,7 @@ def test_low_file_review_policy_prompts_for_file_with_low_conf_strings(
                          string_cnt=1, strings_total=5)
     policy.review_string(_string(Confidence.LOW),
                          string_cnt=1, strings_total=5)
-    mock_string_prompt.assert_not_called()
+    assert mock_string_prompt.call_count == 0
 
 
 @patch('transifex.native.tools.migrations.review.ReviewPolicy'
@@ -70,7 +70,7 @@ def test_low_file_review_policy_not_prompts_for_file_with_high_conf_strings(
     file_migration.add_string(_string(Confidence.HIGH))
     file_migration.add_string(_string(Confidence.HIGH))
     policy.review_file(file_migration)
-    mock_file_prompt.assert_not_called()
+    assert mock_file_prompt.call_count == 0
 
 
 @patch('transifex.native.tools.migrations.review.ReviewPolicy'
@@ -92,7 +92,7 @@ def test_string_review_policy_prompts_for_string(mock_file_prompt,
 
     # This policy does not prompt for file reviews
     policy.review_file(_file())
-    mock_file_prompt.assert_not_called()
+    assert mock_file_prompt.call_count == 0
 
 
 @patch('transifex.native.tools.migrations.review.ReviewPolicy'
@@ -112,7 +112,7 @@ def test_low_string_review_policy_prompts_for_low_conf_string_only(
 
     # This policy does not prompt for file reviews
     policy.review_file(_file())
-    mock_file_prompt.assert_not_called()
+    assert mock_file_prompt.call_count == 0
 
 
 def test_set_comment_format_exception_for_wrong_format():

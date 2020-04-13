@@ -222,5 +222,5 @@ class TestNative(object):
                                                               mock_cache):
         mytx = self._get_tx()
         mytx.fetch_translations()
-        mock_cds.assert_called_once()
-        mock_cache.assert_called()
+        assert mock_cds.call_count == 1
+        assert mock_cache.call_count > 0
