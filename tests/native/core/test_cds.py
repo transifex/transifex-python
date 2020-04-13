@@ -1,7 +1,7 @@
+from operator import itemgetter
+
 import pytest
 import responses
-
-from operator import itemgetter
 from mock import patch
 from transifex.native.cds import CDSHandler
 from transifex.native.parsing import SourceString
@@ -25,7 +25,7 @@ class TestCDSHandler(object):
     def test_fetch_languages(self, patched_logger):
         cds_host = 'https://some.host'
         cds_handler = CDSHandler(
-            ['el', 'en'], 
+            ['el', 'en'],
             'some_token',
             host=cds_host
         )
@@ -53,7 +53,7 @@ class TestCDSHandler(object):
             languages_response,
             [{'code': 'el'}, {'code': 'en'}]
         )
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
         responses.reset()
 
         # wrong payload structure
@@ -101,7 +101,7 @@ class TestCDSHandler(object):
         assert cds_handler.fetch_languages() == []
         patched_logger.error.assert_called_with(
             'Error retrieving languages from CDS: UnknownError '
-             '(`400 Client Error: Bad Request for url: https://some.host/languages`)'
+            '(`400 Client Error: Bad Request for url: https://some.host/languages`)'
         )
         responses.reset()
 
@@ -130,7 +130,7 @@ class TestCDSHandler(object):
         )
         responses.reset()
 
-        # connection error 
+        # connection error
         assert cds_handler.fetch_languages() == []
         patched_logger.error.assert_called_with(
             'Error retrieving languages from CDS: ConnectionError'
@@ -142,7 +142,7 @@ class TestCDSHandler(object):
     def test_fetch_translations(self, patched_logger):
         cds_host = 'https://some.host'
         cds_handler = CDSHandler(
-            ['el', 'en'], 
+            ['el', 'en'],
             'some_token',
             host=cds_host
         )
@@ -263,7 +263,7 @@ class TestCDSHandler(object):
             }
         }
         responses.reset()
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
 
         # test connection_error
         resp = cds_handler.fetch_translations(language_code='el')
@@ -284,7 +284,7 @@ class TestCDSHandler(object):
     def test_push_source_strings(self, patched_logger):
         cds_host = 'https://some.host'
         cds_handler = CDSHandler(
-            ['el', 'en'], 
+            ['el', 'en'],
             'some_token',
             secret='some_secret',
             host=cds_host
@@ -295,9 +295,9 @@ class TestCDSHandler(object):
             responses.POST, cds_host + '/content/',
             status=200, json={'data': []}
         )
-       
+
         cds_handler.push_source_strings([], False)
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
 
         # test push with content
         responses.add(
@@ -307,7 +307,7 @@ class TestCDSHandler(object):
 
         source_string = SourceString('some_string')
         cds_handler.push_source_strings([source_string], False)
-        patched_logger.error.assert_not_called()
+        assert patched_logger.error.call_count == 0
         responses.reset()
 
         # test wrong data format

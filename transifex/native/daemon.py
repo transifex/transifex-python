@@ -4,7 +4,6 @@ import time
 
 from transifex.native import tx
 
-
 logger = logging.getLogger('transifex.native.threading')
 
 
@@ -38,9 +37,10 @@ class DaemonicThread(threading.Thread):
             try:
                 tx.fetch_translations()
             except Exception as e:
-                logger.exception('Fetching daemon exception: {}'.format(str(e)))
+                logger.exception(
+                    'Fetching daemon exception: {}'.format(str(e)))
             time.sleep(self.interval)
-    
+
     def is_daemon_running(self, log_errors=True, **kwargs):
         """Return whether the daemon is running or not.
 
@@ -53,7 +53,7 @@ class DaemonicThread(threading.Thread):
         is_running = getattr(self, 'is_alive', self.isAlive)()
         if not is_running and log_errors:
             logger.error('Fetching daemon error: The daemon is not running!')
-        return is_running 
+        return is_running
 
     def stop_daemon(self):
         """Set the `should_exit` variable (which should force the thread to

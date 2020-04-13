@@ -1,10 +1,3 @@
-import six
-
-if six.PY3:
-    unicode_compat = str
-else:
-    unicode_compat = unicode
-
 from transifex.native.core import TxNative
 
 

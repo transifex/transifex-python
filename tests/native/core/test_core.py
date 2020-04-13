@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from mock import patch, MagicMock
-
 import pytest
-
+from mock import MagicMock, patch
+from transifex.common.utils import generate_key
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import TRANSIFEX_CDS_HOST
-from transifex.native.core import TxNative, NotInitializedError
+from transifex.native.core import NotInitializedError, TxNative
 from transifex.native.parsing import SourceString
-from transifex.native.rendering import (
-    SourceStringPolicy, PseudoTranslationPolicy,
-    SourceStringErrorPolicy, parse_error_policy
-)
-from transifex.common.utils import generate_key
+from transifex.native.rendering import (PseudoTranslationPolicy,
+                                        SourceStringErrorPolicy,
+                                        SourceStringPolicy, parse_error_policy)
 
 
 class TestSourceString(object):
@@ -225,5 +222,5 @@ class TestNative(object):
                                                               mock_cache):
         mytx = self._get_tx()
         mytx.fetch_translations()
-        mock_cds.assert_called_once()
-        mock_cache.assert_called()
+        assert mock_cds.call_count == 1
+        assert mock_cache.call_count > 0

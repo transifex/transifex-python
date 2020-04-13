@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import pytest
-
 from django.template import TemplateSyntaxError
-
-from transifex.native.django.utils.templates import extract_transifex_template_strings
+from transifex.native.django.utils.templates import \
+    extract_transifex_template_strings
 from transifex.native.parsing import SourceString
 
 # A template to use for tests
@@ -55,7 +54,7 @@ class TestTemplates(object):
             u'{{string1}}',
             u"""
 {% t visit_type='first' username=user.name _context="stuff" _charlimit=10 %}
-{visit_type, select, 
+{visit_type, select,
     first {Welcome, {username}}
     returning {Welcome back, {username}}
 }
@@ -63,7 +62,7 @@ class TestTemplates(object):
         )
         strings = extract_transifex_template_strings(src)
         assert strings[0] == SourceString(
-            u"""{visit_type, select, 
+            u"""{visit_type, select,
     first {Welcome, {username}}
     returning {Welcome back, {username}}
 }""",

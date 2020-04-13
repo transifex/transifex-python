@@ -6,17 +6,18 @@ https://docs.djangoproject.com/en/1.11/topics/i18n/translation/
 
 from __future__ import unicode_literals
 
-from django.template.base import DebugLexer, Lexer, Parser, TOKEN_BLOCK, TOKEN_VAR, \
-    TOKEN_TEXT, TOKEN_COMMENT, TRANSLATOR_COMMENT_MARK
-from django.utils.encoding import force_text
+from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
+                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
+                                  DebugLexer, Lexer, Parser)
 from django.template.defaulttags import token_kwargs
-from django.templatetags.i18n import do_translate, do_block_translate
+from django.templatetags.i18n import do_block_translate, do_translate
+from django.utils.encoding import force_text
 from django.utils.translation import trim_whitespace
-
 from transifex.native.django.utils import templates
 from transifex.native.django.utils.templates import find_filter_identity
-from transifex.native.tools.migrations.models import FileMigration, StringMigration, \
-    Confidence
+from transifex.native.tools.migrations.models import (Confidence,
+                                                      FileMigration,
+                                                      StringMigration)
 
 COMMENT_FOUND = object()
 
@@ -292,7 +293,8 @@ class DjangoTagMigrationBuilder(object):
         # e.g. {# Translators: Do this and that #}
         elif token.token_type == TOKEN_COMMENT:
             self._comment = _retrieve_comment(token.contents)
-            self._current_string_migration = StringMigration(original_string, '')
+            self._current_string_migration = StringMigration(
+                original_string, '')
             return None, None
 
         # A variable was found; copy as is
@@ -338,7 +340,8 @@ class DjangoTagMigrationBuilder(object):
             # String migration was already open, make sure to record
             # that the tag is removed from the migrated result
             if self._current_string_migration:
-                self._current_string_migration.update(original_string, original_string)
+                self._current_string_migration.update(
+                    original_string, original_string)
                 return None, None
             # No open string migration, return a new one
             else:
@@ -382,7 +385,8 @@ class DjangoTagMigrationBuilder(object):
             with_kwargs = token_kwargs(
                 bits[1:], parser, support_legacy=True
             )
-            self._with_kwargs.append({k: v.var for k, v in with_kwargs.items()})
+            self._with_kwargs.append(
+                {k: v.var for k, v in with_kwargs.items()})
         # An {% endwith %} tag was found
         elif tag_name == templates.ENDWITH_TAG:
             self._with_kwargs.pop()
@@ -394,7 +398,8 @@ class DjangoTagMigrationBuilder(object):
             # Create a string migration and start keeping track
             # of all the strings that will be migrated
             # within the following set of tokens that apply
-            self._current_string_migration = StringMigration(original_string, '')
+            self._current_string_migration = StringMigration(
+                original_string, '')
             return None, None
         # An {% endcomment %} tag was found; no need to do anything special,
         # just make sure to record that the tag is removed from the migrated result
@@ -505,8 +510,8 @@ class DjangoTagMigrationBuilder(object):
         # Retrieve any variables inside text, e.g.
         # "This is a {{ var }} and this is {{ another_var }}"
         variables_in_text = (
-                _get_variable_names(blocktrans_node.singular) +
-                _get_variable_names(blocktrans_node.plural)
+            _get_variable_names(blocktrans_node.singular) +
+            _get_variable_names(blocktrans_node.plural)
         )
         for variable in variables_in_text:
             params.setdefault(variable, variable)
@@ -560,6 +565,7 @@ class DjangoTagMigrationBuilder(object):
             return string_migration, consumed_tokens
 
         return (
-            StringMigration(original_string, new_string, confidence=confidence),
+            StringMigration(original_string, new_string,
+                            confidence=confidence),
             consumed_tokens
         )

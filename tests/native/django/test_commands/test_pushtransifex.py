@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import mock
-
-from transifex.native.django.management.commands.pushtransifex import Command
 from django.core.management import call_command
-
+from transifex.native.django.management.commands.pushtransifex import Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.parsing import SourceString
 

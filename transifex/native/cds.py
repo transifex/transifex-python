@@ -1,11 +1,9 @@
+import logging
 import sys
 
-import logging
 import requests
-
-from transifex.native.consts import (
-    KEY_DEVELOPER_COMMENT, KEY_CHARACTER_LIMIT, KEY_TAGS
-)
+from transifex.native.consts import (KEY_CHARACTER_LIMIT,
+                                     KEY_DEVELOPER_COMMENT, KEY_TAGS)
 
 TRANSIFEX_CDS_HOST = 'https://cds.svc.transifex.net'
 
@@ -58,7 +56,8 @@ class CDSHandler(object):
         try:
             response = requests.get(
                 self.host + cds_url,
-                headers={"Authorization": "Bearer {token}".format(token=self.token)}
+                headers={"Authorization": "Bearer {token}".format(
+                    token=self.token)}
             )
 
             if not response.ok:
@@ -74,9 +73,11 @@ class CDSHandler(object):
 
         except (KeyError, ValueError):
             # Compatibility with python2.7 where `JSONDecodeError` doesn't exist
-            logger.error('Error retrieving languages from CDS: Malformed response')
+            logger.error(
+                'Error retrieving languages from CDS: Malformed response')
         except requests.ConnectionError:
-            logger.error('Error retrieving languages from CDS: ConnectionError')
+            logger.error(
+                'Error retrieving languages from CDS: ConnectionError')
         except Exception as e:
             logger.error(
                 'Error retrieving languages from CDS: UnknownError (`{}`)'.format(
@@ -106,12 +107,13 @@ class CDSHandler(object):
                 languages = [language_code]
 
             for language_code in set(languages) & \
-                                 set(self.configured_language_codes):
+                    set(self.configured_language_codes):
                 response = requests.get(
                     self.host + cds_url.format(language_code=language_code),
-                    headers={"Authorization": "Bearer {token}".format(token=self.token)}
+                    headers={"Authorization": "Bearer {token}".format(
+                        token=self.token)}
                 )
-    
+
                 if not response.ok:
                     logger.error(
                         'Error retrieving translations from CDS: `{}`'.format(
@@ -122,12 +124,14 @@ class CDSHandler(object):
 
                 json_content = response.json()
                 translations[language_code] = json_content['data']
-    
+
         except (KeyError, ValueError):
             # Compatibility with python2.7 where `JSONDecodeError` doesn't exist
-            logger.error('Error retrieving translations from CDS: Malformed response')
+            logger.error(
+                'Error retrieving translations from CDS: Malformed response')
         except requests.ConnectionError:
-            logger.error('Error retrieving translations from CDS: ConnectionError')
+            logger.error(
+                'Error retrieving translations from CDS: ConnectionError')
         except Exception as e:
             logger.error(
                 'Error retrieving translations from CDS: UnknownError (`{}`)'.format(
@@ -171,7 +175,8 @@ class CDSHandler(object):
             response.raise_for_status()
 
         except requests.ConnectionError:
-            logger.error('Error pushing source strings to CDS: ConnectionError')
+            logger.error(
+                'Error pushing source strings to CDS: ConnectionError')
         except Exception as e:
             logger.error(
                 'Error pushing source strings to CDS: UnknownError (`{}`)'.format(

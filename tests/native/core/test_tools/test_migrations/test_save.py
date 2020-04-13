@@ -1,18 +1,20 @@
 import sys
 
 from mock import mock_open, patch
-
-from transifex.native.tools.migrations.models import FileMigration, StringMigration
-from transifex.native.tools.migrations.save import NoopSavePolicy, \
-    NewFileSavePolicy, BackupSavePolicy, InPlaceSavePolicy, SavePolicy
-
+from transifex.native.tools.migrations.models import (FileMigration,
+                                                      StringMigration)
+from transifex.native.tools.migrations.save import (BackupSavePolicy,
+                                                    InPlaceSavePolicy,
+                                                    NewFileSavePolicy,
+                                                    NoopSavePolicy, SavePolicy)
 
 BUILTINS_MODULE = 'builtins' if sys.version_info >= (3, 0) else '__builtin__'
 
 
 def _file_migration():
     migration = FileMigration('path/filename.html', 'the content')
-    migration.add_string(StringMigration('the content', 'the migrated content'))
+    migration.add_string(StringMigration(
+        'the content', 'the migrated content'))
     return migration
 
 
@@ -23,7 +25,7 @@ def test_noop_policy_does_not_open_file():
         saved, error_type = policy.save_file(_file_migration())
         assert saved is False
         assert error_type is None
-    m.assert_not_called()
+    assert m.call_count == 0
 
 
 def test_new_file_policy_writes_to_new_file():
@@ -73,7 +75,8 @@ def test_safe_save_handles_io_error(mock_echo):
     policy = SavePolicy()
     m = mock_open()
     with patch(BUILTINS_MODULE + ".open", m, create=True):
-        saved, error_type = policy._safe_save('doesnt-matter', raise_error, 'Dummy')
+        saved, error_type = policy._safe_save(
+            'doesnt-matter', raise_error, 'Dummy')
         assert saved is False
         assert error_type is IOError
 
@@ -88,7 +91,8 @@ def test_safe_save_handles_any_error(mock_echo):
     policy = SavePolicy()
     m = mock_open()
     with patch(BUILTINS_MODULE + ".open", m, create=True):
-        saved, error_type = policy._safe_save('doesnt-matter', raise_error, 'Dummy')
+        saved, error_type = policy._safe_save(
+            'doesnt-matter', raise_error, 'Dummy')
         assert saved is False
         assert error_type is ValueError
 

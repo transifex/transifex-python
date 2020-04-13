@@ -12,11 +12,12 @@ from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
 from django.utils.functional import cached_property
 from transifex.native import tx
-from transifex.native.django.management.common import SourceStringCollection, \
-    NO_LOCALE_DIR, TranslatableFile
+from transifex.native.django.management.common import (NO_LOCALE_DIR,
+                                                       SourceStringCollection,
+                                                       TranslatableFile)
+from transifex.native.django.utils.templates import \
+    extract_transifex_template_strings
 from transifex.native.parsing import Extractor
-
-from transifex.native.django.utils.templates import extract_transifex_template_strings
 
 
 class Command(BaseCommand):
@@ -209,7 +210,8 @@ class Command(BaseCommand):
                 file_ext = os.path.splitext(filename)[1]
                 if file_ext not in self.extensions or is_ignored(file_path,
                                                                  self.ignore_patterns):
-                    self.verbose('Ignoring file %s in %s' % (filename, dirpath))
+                    self.verbose('Ignoring file %s in %s' %
+                                 (filename, dirpath))
                 else:
                     locale_dir = None
                     for path in self.locale_paths:
@@ -220,7 +222,8 @@ class Command(BaseCommand):
                         locale_dir = self.default_locale_path
                     if not locale_dir:
                         locale_dir = NO_LOCALE_DIR
-                    all_files.append(TranslatableFile(dirpath, filename, locale_dir))
+                    all_files.append(TranslatableFile(
+                        dirpath, filename, locale_dir))
 
         return sorted(all_files)
 

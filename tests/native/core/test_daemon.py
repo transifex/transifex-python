@@ -1,6 +1,6 @@
 import time
-from mock import patch
 
+from mock import patch
 from transifex.native import TxNative
 from transifex.native.daemon import DaemonicThread
 
@@ -37,7 +37,8 @@ class TestFetchingDaemon(object):
     @patch('transifex.native.daemon.logger')
     def test_daemon_exception(self, patched_logger, patched_tx):
 
-        patched_tx.fetch_translations.side_effect = Exception('Something went wrong')
+        patched_tx.fetch_translations.side_effect = Exception(
+            'Something went wrong')
 
         tx = TxNative()
         tx.init(['en', 'el'], 'some:token', 'https://some.host')

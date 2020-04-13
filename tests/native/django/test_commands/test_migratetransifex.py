@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+
 import mock
-
-from tests.native.django.test_tools.test_migrations.test_templatetags import \
-    DJANGO_TEMPLATE, TRANSIFEX_TEMPLATE
-from transifex.native.django.management.commands.migratetransifex import Command
 from django.core.management import call_command
-
+from tests.native.django.test_tools.test_migrations.test_templatetags import (
+    DJANGO_TEMPLATE, TRANSIFEX_TEMPLATE)
+from transifex.native.django.management.commands.migratetransifex import \
+    Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.parsing import SourceString
-from transifex.native.tools.migrations.review import NoopReviewPolicy, \
-    FileReviewPolicy, StringReviewPolicy
-from transifex.native.tools.migrations.save import NoopSavePolicy, \
-    NewFileSavePolicy, BackupSavePolicy, InPlaceSavePolicy
+from transifex.native.tools.migrations.review import (FileReviewPolicy,
+                                                      NoopReviewPolicy,
+                                                      StringReviewPolicy)
+from transifex.native.tools.migrations.save import (BackupSavePolicy,
+                                                    InPlaceSavePolicy,
+                                                    NewFileSavePolicy,
+                                                    NoopSavePolicy)
 
 PYTHON_TEMPLATE = u"""
 # -*- coding: utf-8 -*-
@@ -61,7 +64,7 @@ PATH_PROMPT_START1 = 'transifex.native.tools.migrations.review' \
 PATH_PROMPT_START2 = 'transifex.native.django.management.commands' \
                      '.migratetransifex.prompt_to_start'
 PATH_ECHO = 'transifex.native.django.management.commands' \
-             '.migratetransifex.Color.echo'
+    '.migratetransifex.Color.echo'
 
 
 @mock.patch(PATH_ECHO)
@@ -118,7 +121,7 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
     assert file_migration.compile() == HTML_COMPILED_1
 
     # No string review should have taken place
-    mock_prompt_string.assert_not_called()
+    assert mock_prompt_string.call_count == 0
 
     # The path and content that reached the save object
     # should have the correct values
@@ -153,7 +156,7 @@ def test_backup_save_string_review(mock_find_files, mock_read,
     assert isinstance(command.save_policy, BackupSavePolicy)
     assert isinstance(command.review_policy, StringReviewPolicy)
 
-    mock_prompt_file.assert_not_called()
+    assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7  # 7 migrated strings
 
     # The path and content that reached the save object
@@ -194,7 +197,7 @@ def test_replace_save_string_review(mock_find_files, mock_read,
     assert isinstance(command.save_policy, InPlaceSavePolicy)
     assert isinstance(command.review_policy, StringReviewPolicy)
 
-    mock_prompt_file.assert_not_called()
+    assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7
 
     # The path and content that reached the save object

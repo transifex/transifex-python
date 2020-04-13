@@ -3,12 +3,11 @@ from __future__ import unicode_literals
 
 import json
 
+from transifex.common.utils import generate_key
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import CDSHandler
-from transifex.native.rendering import (
-    StringRenderer, SourceStringPolicy, SourceStringErrorPolicy
-)
-from transifex.common.utils import generate_key
+from transifex.native.rendering import (SourceStringErrorPolicy,
+                                        SourceStringPolicy, StringRenderer)
 
 
 class NotInitializedError(Exception):
@@ -114,7 +113,6 @@ class TxNative(object):
                 language_code=language_code,
                 escape=escape, **params
             )
-
 
     def fetch_translations(self):
         """Fetch fresh content from the CDS."""

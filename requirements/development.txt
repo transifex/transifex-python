@@ -1,8 +1,10 @@
 -r base.txt
 
+autopep8
 # Pinned, waiting for a fix for https://github.com/nedbat/coveragepy/issues/883
 coverage==4.5.4
+mock
+pre-commit==1.21.0
 pytest
 pytest-cov
-mock
 responses
