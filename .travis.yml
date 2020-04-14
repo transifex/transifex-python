@@ -1,21 +1,30 @@
 language: generic
 os: linux
 dist: xenial
-
 services:
-  - docker
-
+- docker
 jobs:
-    include:
-        - name: Code quality checks
-          install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          script:
-            docker run -it --rm native sh -c 'pre-commit run --files $(git ls-files transifex* tests*)'
-        - name: py2.7-dj1.11
-          install: docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          script: docker run -it --rm native pytest --cov --cov-report=term-missing
-          after_success: bash <(curl -s https://codecov.io/bash) -cF python
-        - name: py3.6-dj1.11
-          install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          script: docker run -it --rm native pytest --cov --cov-report=term-missing
-          after_success: bash <(curl -s https://codecov.io/bash) -cF python
+  include:
+  - name: Code quality checks
+    install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11
+      -t native -f Dockerfile-tmpl .
+    script: docker run -it --rm native sh -c 'pre-commit run --files $(git ls-files
+      transifex* tests*)'
+  - name: py2.7-dj1.11
+    install: docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11
+      -t native -f Dockerfile-tmpl .
+    script: docker run -it --rm native pytest --cov --cov-report=term-missing
+    after_success: bash <(curl -s https://codecov.io/bash) -cF python
+  - name: py3.6-dj1.11
+    install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11
+      -t native -f Dockerfile-tmpl .
+    script: docker run -it --rm native pytest --cov --cov-report=term-missing
+    after_success: bash <(curl -s https://codecov.io/bash) -cF python
+deploy:
+  provider: pypi
+  user: __token__
+  password:
+    secure: eu+ZW24MgfegJjeTYpSaulNCuMppjcLIJhdNWXNUj3BtUxMFLPeJAsLeWdiI4Aj+jmdI03cSFvZy9T7dOSKniEFWd+VAShc/YNKS1fqVVIFuE+UM1TdbOXqRnKoBedwTZfSHI5RkedP+OtmuCgWtyt6UsgqyQLctQnQ5BdpTYhCJ1KIjKkhV1zPDo8+SDI6MxmcC8U8hkTIw3l1eUeylcm0yqNQzFOe5bj69JqSDWN+dIhCd6lG+S5ivbon6cYms9s6ngHboNmqfrdZXiVDHUPQExTj90PZq4699xN5KsvkBd2tG1o6W52TJ7HvIhj72pVs988FhacS1EnpJBLEuDGIheA4rFk6IA37P3SIPqlLrShe/fuPITAsAyol0P2HIK0WkVoYxFIIeUHpu2Y+lHB2JCXCjdZmd3VrCj7gI5qeSrcPMlNsNOPx1Lz/TRlqYv/EukYVE4HlpkM38fWGW+dxAq1x1aH7qiTpQ8paygeIX7ofg2+yxHtB2ijk9MOIxyuQhIWUN+BLGs0Tv5D/55bPnY8RcRHXTm3id5JrIj+toGiQWdujXtXmvm4JiVo7fPGT3imqQk+RKkJnGW+J14ZZF19ixvL7a1a/v3TnmqYTeerkoez8/PsO6jTPf8uz2cxk4Azc5tORwjRcrU/hDVjmgXbFG6yOlfH7nvrMSmAw=
+  on:
+    tags: true
+    branch: master
