@@ -131,6 +131,7 @@ urlpatterns = [
     url(r'^i18n/', include('django.conf.urls.i18n')),
 ]
 ```
+Last, add `'django.middleware.locale.LocaleMiddleware'` in your `settings.MIDDLEWARE` to enable the functionality.
 
 Now you can test the language picker. Each string will be shown translated in the current language.
 
