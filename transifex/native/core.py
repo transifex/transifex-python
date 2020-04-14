@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 import json
 
-from transifex.common.utils import generate_key
+from transifex.common.utils import generate_key, is_plural
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import CDSHandler
 from transifex.native.rendering import (SourceStringErrorPolicy,
@@ -94,6 +94,14 @@ class TxNative(object):
         else:
             key = generate_key(source_string, _context)
             translation_template = self._cache.get(key, language_code)
+            if (translation_template is not None and
+                    is_plural(source_string) and
+                    translation_template.startswith('{???')):
+                variable_name = source_string[1:source_string.index(',')].\
+                    strip()
+                translation_template = ('{' +
+                                        variable_name +
+                                        translation_template[4:])
 
         # Replace the variables in the ICU translation
         params = params or {}

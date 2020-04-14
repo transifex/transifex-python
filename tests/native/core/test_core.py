@@ -224,3 +224,16 @@ class TestNative(object):
         mytx.fetch_translations()
         assert mock_cds.call_count == 1
         assert mock_cache.call_count > 0
+
+    @patch('transifex.native.core.MemoryCache.get')
+    def test_plural(self, cache_mock):
+        cache_mock.return_value = u'{???, plural, one {ONE} other {OTHER}}'
+        tx = self._get_tx()
+        translation = tx.translate(u'{cnt, plural, one {one} other {other}}',
+                                   u"fr_FR",
+                                   params={'cnt': 1})
+        assert translation == u'ONE'
+        translation = tx.translate(u'{cnt, plural, one {one} other {other}}',
+                                   u"fr_FR",
+                                   params={'cnt': 2})
+        assert translation == u'OTHER'
