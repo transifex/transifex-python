@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/transifex/transifex-python.svg?branch=master)](https://travis-ci.org/transifex/transifex-python)
+[![codecov](https://codecov.io/gh/transifex/transifex-python/branch/master/graph/badge.svg)](https://codecov.io/gh/transifex/transifex-python)
+
 Transifex Python Toolkit
 ------------------------
 
@@ -131,6 +134,7 @@ urlpatterns = [
     url(r'^i18n/', include('django.conf.urls.i18n')),
 ]
 ```
+Last, add `'django.middleware.locale.LocaleMiddleware'` in your `settings.MIDDLEWARE` to enable the functionality.
 
 Now you can test the language picker. Each string will be shown translated in the current language.
 

@@ -8,3 +8,4 @@ pre-commit==1.21.0
 pytest
 pytest-cov
 responses
+codecov

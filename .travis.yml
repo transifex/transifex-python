@@ -8,18 +8,18 @@ jobs:
   - stage: Code quality checks
     install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11
       -t native -f Dockerfile-tmpl .
-    script: docker run -it --rm native sh -c 'pre-commit run --files $(git ls-files
+    script: docker run --rm native sh -c 'pre-commit run --files $(git ls-files
       transifex* tests*)'
   - stage: Test
     name: Test py2.7-dj1.11
     install: docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11
       -t native -f Dockerfile-tmpl .
-    script: docker run -it --rm native pytest --cov --cov-report=term-missing
+    script: docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
   - stage: Test
     name: Test py3.6-dj1.11
     install: docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11
       -t native -f Dockerfile-tmpl .
-    script: docker run -it --rm native pytest --cov --cov-report=term-missing
+    script: docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
   - stage: Deploy to Pypi
     script: skip
     deploy:
@@ -30,3 +30,6 @@ jobs:
       on:
         tags: true
         branch: master
+env:
+  global:
+    secure: v3PJx/G9xo2ftvtdRQj5QOEVhv/Gs5WOazBGsNit/zbxq3Dx/RFXvYhSL+i0yEOsw6g0wgOtc4RWNPl4lD3ZA6/UGWry0A4az+6SOk83ZBa0r/gKG+8KKs4rqPkguWvUod+Clgs+NAYIwRRbymiQNKjMW3pQDxX61/JzzPlV99M/MNpragYt+v1hDvv+pBbDuCdHaYs++qqRRcvfKEyxciP0FhyEK1Fpa275i4XO+O3TI+GTzyvTgxH+tyFTrnsY3tMrf269LuLpQm3GIwWHZExhuckGH9jMjLvKFFEBbDDxy1Sc2fHxmxSZK3dyW/PhuvBUjGO4zujZ2hpHLhpw6iBMWtNHBa2s5AYgePlaKY1h6JBK3V0tNO2PKJBodMlLw8y/RPAiOpboJ8YJQ8c6kBuzfweb+f5lqV+PKzHntrzfs9mbbpOrTq5aNg9MBgjNQkVVOsCDwpPxVmGEeuGum1nGcdAynEd4LjpItx5RBMgZWHkNbgiE0xJDUZpDqbxOnuSBHLL51TpHjqFn4KrLPZV/ou2Y6UJhEIBIZ0i0E5eJB6l+2n3477yAofbyZIUG3kkRJvs5+GByVY2SErRHb7UIf5xXisjYtitrFzDyf1sfNwTvZrw8K4ZII3XUEaJUi6RZPcEcfhqWs7nSVfLER8dPuAIEJ8BvigwspuWI95E=
