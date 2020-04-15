@@ -86,9 +86,26 @@ class TxNative(object):
         """
         self._check_initialization()
 
-        # Try to retrieve the translation
-        # A translation is a serialized source_string with ICU format support,
-        # e.g. '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
+        translation_template = self.get_translation(source_string,
+                                                    language_code,
+                                                    _context,
+                                                    is_source)
+
+        return self.render_translation(translation_template,
+                                       params or {},
+                                       source_string,
+                                       language_code,
+                                       escape)
+
+    def get_translation(self, source_string, language_code, _context,
+                        is_source=False):
+        """ Try to retrieve the translation.
+
+            A translation is a serialized source_string with ICU format
+            support, e.g.
+            '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
+        """
+
         if is_source:
             translation_template = source_string
         else:
@@ -102,9 +119,12 @@ class TxNative(object):
                 translation_template = ('{' +
                                         variable_name +
                                         translation_template[4:])
+        return translation_template
 
-        # Replace the variables in the ICU translation
-        params = params or {}
+    def render_translation(self, translation_template, params, source_string,
+                           language_code, escape=False):
+        """ Replace the variables in the ICU translation """
+
         try:
             return StringRenderer.render(
                 source_string=source_string,
@@ -131,10 +151,10 @@ class TxNative(object):
         """Push the given source strings to the CDS.
 
         :param list strings: a list of SourceString objects
-        :param bool purge: True deletes destination source content not included in
-                           pushed content.
-                           False appends the pushed content to destination source
-                           content.
+        :param bool purge: True deletes destination source content not included
+                           in pushed content.
+                           False appends the pushed content to destination
+                           source content.
         :return: a tuple containing the status code and the content of the
             response
         :rtype: tuple
