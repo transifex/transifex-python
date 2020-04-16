@@ -1,11 +1,14 @@
+from __future__ import unicode_literals
+
 import click
+from transifex.native.rendering import StringRenderer
 
 
 class Color:
     """Convenience class for adding color to console output."""
 
     CYAN = '\033[36m'
-    HIGHLIGHT = '\033[1m'
+    WHITE_BOLD = '\033[1m'
     GREEN = '\033[32m'
     PINK = '\033[91m'
     RED = '\033[31m'
@@ -16,27 +19,25 @@ class Color:
     def format(string):
         """Format the given string, adding color support."""
         return (
-            string.replace('[high]', Color.HIGHLIGHT)
+            # Context
+            string.replace('[high]', Color.WHITE_BOLD)
+            .replace('[warn]', Color.PINK)
+            .replace('[file]', Color.CYAN)
+            .replace('[opt]', Color.PINK)
+            .replace('[prompt]', Color.YELLOW)
+            .replace('[end]', Color.END)  # closing tag for any color tag
+
+            # Colors
             .replace('[cyan]', Color.CYAN)
-            .replace('[end]', Color.END)
             .replace('[green]', Color.GREEN)
             .replace('[red]', Color.RED)
-            .replace('[opt]', Color.PINK)
-            .replace('[warn]', Color.PINK)
-            .replace('[prompt]', Color.YELLOW)
-            .replace('[file]', Color.CYAN)
+            .replace('[yel]', Color.YELLOW)
         )
 
     @staticmethod
     def echo(string):
         """Print to the console with color support."""
         print(Color.format(string))
-
-
-def display(*messages):
-    """Print all given strings respecting any color markup."""
-    for msg in messages:
-        Color.echo(msg)
 
 
 def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=None):
@@ -58,3 +59,26 @@ def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=Non
             description=description))
 
     return click.prompt(prompt_msg, default=default, type=(vtype or str))
+
+
+def pluralized(one, other, cnt_value):
+    """Render an ICU pluralized string with the given parameters.
+
+    :param unicode one: the string for singular
+    :param unicode other: the string for plural
+    :param int cnt_value: the value of the plural counter variable
+    :return: a rendered string that has taken into account the given
+    :rtype: unicode
+    """
+    icu_string = '{cnt, plural, one {[one]} other {[other]}}'\
+        .replace('[one]', one)\
+        .replace('[other]', other)
+
+    return StringRenderer.render(
+        icu_string,
+        string_to_render=icu_string,
+        language_code='en',
+        escape=False,
+        missing_policy=None,
+        cnt=cnt_value,
+    )

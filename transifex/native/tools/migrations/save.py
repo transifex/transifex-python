@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+"""This module contains everything related to the saving functionality
+of a migration from another i18n framework to Transifex Native.
 
+The classes defined here are responsible for saving the migrated content
+to the proper target, saving a backup and so on.
+"""
 from __future__ import unicode_literals
 
 import os
@@ -29,6 +34,8 @@ class SavePolicy(object):
     # Replace the original file with no backup
     IN_PLACE = 3
 
+    name = None
+
     def save_file(self, file_migration):
         """Called when a file migration is ready to be saved.
 
@@ -49,8 +56,8 @@ class SavePolicy(object):
         during the generation of the content.
 
         Usage:
-        >>> _safe_save('file/path.html', lambda: content, file_type='Backup')
-        >>> _safe_save('file/path.html', my_provider.get_content, file_type='Backup')
+        >>> _safe_save('file/path.html', lambda: content, file_type='Backup')  # noqa
+        >>> _safe_save('file/path.html', my_provider.get_content, file_type='Backup')  # noqa
 
         :param basestring path: the path to save to
         :param callable content_func: a callable that should return the content
@@ -66,7 +73,7 @@ class SavePolicy(object):
             with open(path, "w") as f:
                 f.write(content_func())
                 Color.echo(
-                    '✅️ {} saved at [file]{}[end]'.format(file_type, path)
+                    '💾️ {} file saved at [file]{}[end]'.format(file_type, path)
                 )
                 return True, None
         except IOError as e:
@@ -90,17 +97,17 @@ class SavePolicy(object):
 class NoopSavePolicy(SavePolicy):
     """Doesn't save anything to a file, i.e. a dry-run."""
 
+    name = 'none'
+
     def save_file(self, file_migration):
-        Color.echo(
-            'Dry-run: no file was saved (file={})'.format(
-                file_migration.filename
-            )
-        )
+        Color.echo('Dry-run: no file was saved')
         return False, None
 
 
 class NewFileSavePolicy(SavePolicy):
     """Saves the contents to a new file."""
+
+    name = 'new'
 
     def save_file(self, file_migration):
         """Save the new content in a new file.
@@ -116,6 +123,8 @@ class NewFileSavePolicy(SavePolicy):
 
 class BackupSavePolicy(SavePolicy):
     """Saves the contents to the original file, but takes a backup first."""
+
+    name = 'backup'
 
     def save_file(self, file_migration):
         """Save the new content in the original path, but take a backup first.
@@ -146,8 +155,10 @@ class BackupSavePolicy(SavePolicy):
         )
 
 
-class InPlaceSavePolicy(SavePolicy):
+class ReplaceSavePolicy(SavePolicy):
     """Saves the contents to the original file, without taking any backup."""
+
+    name = 'replace'
 
     def save_file(self, file_migration):
         """Save the new content in the original path.
@@ -159,3 +170,25 @@ class InPlaceSavePolicy(SavePolicy):
             file_migration.compile,
             file_type='Original',
         )
+
+
+def create_save_policy(policy_id):
+    """Create the save policy object that corresponds to the given ID.
+
+    :param str policy_id: the ID of the policy to create, as expected
+        in the command parameters
+    :return: a SavePolicy subclass
+    :rtype: SavePolicy
+    """
+    policy_classes = {
+        x.name: x
+        for x in [
+            NoopSavePolicy, NewFileSavePolicy, BackupSavePolicy,
+            ReplaceSavePolicy,
+        ]
+    }
+    try:
+        _class = policy_classes[policy_id.lower()]
+        return _class()
+    except KeyError:
+        raise AttributeError('Invalid save policy ID={}'.format(policy_id))
