@@ -1,9 +1,8 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
 
 from copy import copy
 
 import six
-
 from django.conf import settings
 from django.template import Library, Node, TemplateSyntaxError
 from django.template.base import TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT
@@ -12,6 +11,7 @@ from django.utils.html import escape as escape_html
 from django.utils.safestring import EscapeData, SafeData, mark_safe
 from django.utils.translation import get_language, to_locale
 from transifex.native import tx
+from transifex.native.parsing import SourceString
 
 register = Library()
 
@@ -140,9 +140,23 @@ class TNode(Node):
         else:
             return result
 
+    def _to_source_string(self):
+        if not isinstance(self.source_string.var, six.string_types):
+            return None
+        meta = {}
+        for key, value in self.params.items():
+            if len(value.filters) != 0:
+                continue
+            if isinstance(value.var, six.string_types):
+                meta[key] = value.var
+            elif getattr(value.var, 'literal', None) is not None:
+                meta[key] = value.var.literal
+        _context = meta.pop('_context', None)
+        return SourceString(self.source_string.var, _context, **meta)
+
 
 @register.filter
 def trimmed(value):
-    return' '.join((line.strip()
-                    for line in value.splitlines()
-                    if line.strip()))
+    return ' '.join((line.strip()
+                     for line in value.splitlines()
+                     if line.strip()))

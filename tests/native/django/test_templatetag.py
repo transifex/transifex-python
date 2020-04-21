@@ -2,7 +2,6 @@ from __future__ import unicode_literals
 
 from django.template import Context, Template
 from django.utils import translation
-
 from transifex.common.utils import generate_key
 from transifex.native import tx
 
@@ -12,7 +11,6 @@ def do_test(template_str, context_dict=None, autoescape=True,
     translation.activate(lang_code)
     if context_dict is None:
         context_dict = {}
-    context_dict = dict(context_dict)
     context = Context(dict(context_dict), autoescape=autoescape)
     template = ('{% load transifex %}' + template_str)
     return Template(template).render(context)

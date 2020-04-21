@@ -1,11 +1,8 @@
 from __future__ import unicode_literals
 
-from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
-                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
-                                  DebugLexer, Lexer, Parser)
+from django.template.base import TOKEN_BLOCK, Lexer, Parser
 from django.utils.encoding import force_text
-from transifex.native.django.templatetags.transifex import \
-    parse_translatable_tag
+from transifex.native.django.templatetags.transifex import do_t
 
 # Django template consts
 LOAD_TAG = 'load'
@@ -60,8 +57,10 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
     strings = []
     while parser.tokens:
         token = parser.next_token()
-        if token.token_type == TOKEN_BLOCK:
-            source_string, _ = parse_translatable_tag(parser, token)
+        if (token.token_type == TOKEN_BLOCK and
+                token.split_contents()[0] in ('t', 'ut')):
+            tnode = do_t(parser, token)
+            source_string = tnode._to_source_string()
             if source_string is None:
                 continue
 

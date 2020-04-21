@@ -49,7 +49,7 @@ def make_tests(tag_names, sources, source_filters, params, param_filters,
             context_value) in itertools.product(
                 tag_names, sources, source_filters, params, param_filters,
                 asvars, asvar_filters, blocks, context_values
-            ):
+    ):
         try:
             test = make_test(tag_name, source, source_filter, param,
                              param_filter, asvar, asvar_filter, block,
@@ -113,7 +113,6 @@ def make_test(tag_name, source=None, source_filter=None, param=None,
 def test(template_str, context_dict=None, autoescape=True, i=''):
     if context_dict is None:
         context_dict = {}
-    context_dict = dict(context_dict)
     context = Context(dict(context_dict), autoescape=autoescape)
     template = ('{% load transifex %}' + template_str)
     try:
