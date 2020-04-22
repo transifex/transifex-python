@@ -6,13 +6,13 @@ https://docs.djangoproject.com/en/1.11/topics/i18n/translation/
 
 from __future__ import unicode_literals
 
-from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
-                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
-                                  DebugLexer, Lexer, Parser)
+import six
+from django.template.base import (TOKEN_COMMENT, TOKEN_TEXT, TOKEN_VAR,
+                                  TRANSLATOR_COMMENT_MARK, DebugLexer, Parser)
 from django.template.defaulttags import token_kwargs
 from django.templatetags.i18n import do_block_translate, do_translate
 from django.utils.encoding import force_text
-from django.utils.translation import trim_whitespace
+from django.utils.html import escape as escape_html
 from transifex.native.django.utils import templates
 from transifex.native.django.utils.templates import find_filter_identity
 from transifex.native.tools.migrations.models import (Confidence,
@@ -22,53 +22,12 @@ from transifex.native.tools.migrations.models import (Confidence,
 COMMENT_FOUND = object()
 
 
-def _render_native(str_format, content, params):
-    """Return a string with syntax compatible to Transifex Native template
-    tags.
-
-    The given `params` will be serialized and will be added to the final
-    string, together with `content`, using specific placeholders
-    ('__tx_native_content__' and '__tx_native_params__').
-
-    Usage:
-    >>> _render_native(
-    >>>     '{% t __tx_native_content__ __tx_native_params__%}',
-    >>>     '"Call {name} at {phone_num}"',
-    >>>     {'username': 'john', 'phone_num': '(650) 111-1111'}
-    >>> )
-    <<< {% t "Call {name} at {phone_num}" username="john" phone_num="(650) 111-1111" %}
-
-    This function does not know anything else about how to structure the
-    template tag, so the caller needs to provide a suitable and valid
-    `str_format`.
-
-    :param unicode str_format: the structure of the template tag,
-        as described above
-    :param unicode content: the actual translatable content, that will
-        replace the `__tx_native_content__` placeholder inside `str_format`
-    :param dict params: a dictionary with parameters, that will
-        replace the `__tx_native_params__` placeholder inside `str_format`
-    :return: a new string that follows Transifex Native syntax for template
-        tags
-    :rtype: unicode
-    """
-    rendered_params = {}
-    for key, value in params.items():
+def _render_params(params):
+    result = []
+    for key, value in sorted(params.items(), key=lambda i: i[0]):
         if value and value != COMMENT_FOUND:
-            rendered_params[key] = value
-
-    serialized_params = ' '.join(
-        sorted([
-            '{key}={value}'.format(key=key, value=value)
-            for key, value in rendered_params.items()
-        ])
-    )
-    return str_format.replace(
-        '__tx_native_content__', content
-    ).replace(
-        '__tx_native_params__',
-        ('{} ' if serialized_params else '{}').format(serialized_params)
-    )
+            result.append('='.join((key, six.text_type(value))))
+    return ' '.join(result)
 
 
 def _make_plural(singular, plural, count_var):
@@ -232,8 +191,9 @@ class DjangoTagMigrationBuilder(object):
         parser = Parser(tokens, libraries={}, builtins=[], origin=filename)
 
         # Since no template libraries are loaded when this code is running,
-        # we need to override the find function in order to use the functionality
-        # of the Parser class. The overridden function returns the object as given.
+        # we need to override the find function in order to use the
+        # functionality of the Parser class. The overridden function returns
+        # the object as given.
         # Without the override, a KeyError would be raised inside the parser.
         parser.find_filter = find_filter_identity
 
@@ -246,9 +206,10 @@ class DjangoTagMigrationBuilder(object):
 
             # Parse the current token. This may or may not return a migration.
             # Also it may return a list of tokens that were consumed,
-            # additionally to the current token. If this happens, `_parse_token()`
-            # will have made sure that `parser` has moved forward, consuming those
-            # tokens, so that they don't appear again in the while loop.
+            # additionally to the current token. If this happens,
+            # `_parse_token()` will have made sure that `parser` has moved
+            # forward, consuming those tokens, so that they don't appear again
+            # in the while loop.
             string_migration, extra_consumed_tokens = self._parse_token(
                 token, parser, original_string=src[start:end]
             )
@@ -277,8 +238,8 @@ class DjangoTagMigrationBuilder(object):
             specific line in the template, e.g. contains 'trans "A string"'
         :param django.template.base.Parser parser: the parser object that holds
             information on the whole template document
-        :param unicode original_string: the full string matched in the template,
-            e.g. '{% trans "A string" %}'
+        :param unicode original_string: the full string matched in the
+            template, e.g. '{% trans "A string" %}'
 
         :return: a StringMigration object that contains information about
             the Django and Transifex Native syntax of a specific set of strings
@@ -331,7 +292,8 @@ class DjangoTagMigrationBuilder(object):
         if self._comment == COMMENT_FOUND:
             self._comment = _retrieve_comment(token.contents)
 
-            # Make sure to record that the tag is removed from the migrated result
+            # Make sure to record that the tag is removed from the migrated
+            # result
             if self._current_string_migration:
                 self._current_string_migration.update(original_string, '')
             return None, None
@@ -354,15 +316,17 @@ class DjangoTagMigrationBuilder(object):
         :param django.template.base.parser: the parser object
         :param unicode original_string: the string found in the template
         """
-        # Split the given token into its parts (includes the template tag name),
-        # e.g. "{% trans "This is the title" context "Some context" %}" returns:
-        # ['trans', '"This is the title"', 'context', '"Some context"']
+        # Split the given token into its parts (includes the template tag
+        # name), e.g. "{% trans "This is the title" context "Some context" %}"
+        # returns: ['trans', '"This is the title"', 'context', '"Some
+        # context"']
         bits = token.split_contents()
 
         tag_name = bits[0]
 
         # Right after {% load i18n %} append a {% load transifex %} tag
-        if tag_name == templates.LOAD_TAG and bits[1] == templates.DJANGO_i18n_TAG_NAME:
+        if (tag_name == templates.LOAD_TAG and
+                bits[1] == templates.DJANGO_i18n_TAG_NAME):
             # Make sure there is not already a tag that loads "transifex"
             # by checking all remaining nodes
             for t in parser.tokens:
@@ -370,7 +334,8 @@ class DjangoTagMigrationBuilder(object):
                     templates.LOAD_TAG in t.contents
                     and templates.TRANSIFEX_TAG_NAME in t.contents
                 ):
-                    return StringMigration(original_string, original_string), None
+                    return (StringMigration(original_string, original_string),
+                            None)
 
             string_migration = StringMigration(
                 original_string,
@@ -402,7 +367,8 @@ class DjangoTagMigrationBuilder(object):
                 original_string, '')
             return None, None
         # An {% endcomment %} tag was found; no need to do anything special,
-        # just make sure to record that the tag is removed from the migrated result
+        # just make sure to record that the tag is removed from the migrated
+        # result
         elif tag_name == templates.ENDCOMMENT_TAG:
             if self._current_string_migration:
                 self._current_string_migration.update(original_string, '')
@@ -427,38 +393,39 @@ class DjangoTagMigrationBuilder(object):
         :param django.template.base.parser: the parser object
         :param unicode original_string: the string found in the template
         """
+
         # Use Django's do_translate() method to parse the token
         trans_node = do_translate(parser, token)
 
+        confidence = Confidence.LOW if trans_node.noop else Confidence.HIGH
+
         message_context = trans_node.message_context
-        text = trans_node.filter_expression.var.literal
-        # {% trans "Some text" %}
-        if text:
-            text = '"{}"'.format(text)
-        # {% trans some_var %}
+        # Our SDK supports filter expressions
+        text = trans_node.filter_expression.token
+
+        if isinstance(trans_node.filter_expression.var, six.string_types):
+            literal = trans_node.filter_expression.var
         else:
-            # Our SDK currently does not support variables outside strings,
-            # but we can simulate the same behavior using a placeholder
-            text = '"{var}" var=var'.replace(
-                'var', trans_node.filter_expression.var.var
-            )
+            literal = trans_node.filter_expression.var.literal
+        if (isinstance(literal, six.string_types) and
+                escape_html(literal) != literal):
+            tag_name = "ut"
+        else:
+            tag_name = "t"
 
-        params = {
-            '_context': message_context,
-            '_comment': self._comment,
-        }
-
+        params = {'_context': message_context, '_comment': self._comment}
         # Reset the stored comment, so that it doesn't leak to the next token
         self._comment = None
 
-        return self._final_string_migration(
-            original_string,
-            _render_native(
-                '{% t __tx_native_content__ __tx_native_params__%}',
-                text,
-                params,
-            ),
-        )
+        t_tag = ['{%', tag_name, text, _render_params(params)]
+        if trans_node.asvar:
+            t_tag.extend(['as', trans_node.asvar])
+        t_tag.append('%}')
+        t_tag = ' '.join((thing.strip() for thing in t_tag if thing.strip()))
+
+        return self._final_string_migration(original_string,
+                                            t_tag,
+                                            confidence=confidence)
 
     def _parse_blocktrans(self, token, parser, original_string):
         """Parse a {% blocktrans %} token and return a migration object.
@@ -467,6 +434,7 @@ class DjangoTagMigrationBuilder(object):
         :param django.template.base.parser: the parser object
         :param unicode original_string: the string found in the template
         """
+
         # Use Django's blocktranslate tag function to actually parse
         # the whole tag, so that we easily get all information
         # Internally, the do_block_translate() call will make the parser
@@ -484,16 +452,8 @@ class DjangoTagMigrationBuilder(object):
         singular_text = _render_var_tokens(blocktrans_node.singular)
         plural_text = _render_var_tokens(blocktrans_node.plural)
 
-        # Support the "trimmed" option of {% blocktrans %}
-        if blocktrans_node.trimmed:
-            singular_text = trim_whitespace(singular_text)
-            plural_text = trim_whitespace(plural_text)
-
         # Start building the parameters supported by Transifex Native
-        params = {
-            '_context': message_context,
-            '_comment': self._comment,
-        }
+        params = {'_context': message_context, '_comment': self._comment}
 
         # Plural support in Django works by using the "count" keyword
         counter_var = blocktrans_node.countervar
@@ -506,6 +466,7 @@ class DjangoTagMigrationBuilder(object):
             key: value.token
             for key, value in blocktrans_node.extra_context.items()
         })
+        params = _render_params(params)
 
         # Retrieve any variables inside text, e.g.
         # "This is a {{ var }} and this is {{ another_var }}"
@@ -513,33 +474,46 @@ class DjangoTagMigrationBuilder(object):
             _get_variable_names(blocktrans_node.singular) +
             _get_variable_names(blocktrans_node.plural)
         )
-        for variable in variables_in_text:
-            params.setdefault(variable, variable)
 
         # Reset the stored comment, so that it doesn't leak to the next token
         self._comment = None
 
         # Build the template of the tag for Transifex Native syntax
         is_multiline = '\n' in singular_text or plural_text
-        block_format = (
-            '{% t __tx_native_params__%}__tx_native_content__{% endt %}'
-            if is_multiline
-            else '{% t "__tx_native_content__" __tx_native_params__%}'
-        )
+
+        content = _make_plural(singular_text, plural_text, counter_var)
+        if escape_html(content) != content:
+            tag_name = "ut"
+        else:
+            tag_name = "t"
+
+        t_tag = ['{% ', tag_name]
+        if is_multiline:
+            if blocktrans_node.trimmed:
+                t_tag.append(' |trimmed')
+        else:
+            t_tag.extend([' ', content])
+            if blocktrans_node.trimmed:
+                t_tag.append('|trimmed')
+        if params.strip():
+            t_tag.extend([' ', params])
+        if blocktrans_node.asvar:
+            t_tag.extend([' as ', blocktrans_node.asvar])
+        t_tag.append(' %}')
+        if is_multiline:
+            t_tag.extend([content, '{% end', tag_name, ' %}'])
+        t_tag = ''.join(t_tag)
+
         # Determine the confidence of the migration
-        confidence = Confidence.HIGH if not variables_in_text else Confidence.LOW
+        confidence = (Confidence.HIGH
+                      if not variables_in_text
+                      else Confidence.LOW)
 
         # Create the actual migration
-        return self._final_string_migration(
-            original_string,
-            _render_native(
-                block_format,
-                _make_plural(singular_text, plural_text, counter_var),
-                params,
-            ),
-            consumed_tokens=consumed_tokens,
-            confidence=confidence
-        )
+        return self._final_string_migration(original_string,
+                                            t_tag,
+                                            consumed_tokens=consumed_tokens,
+                                            confidence=confidence)
 
     def _final_string_migration(
         self,
