@@ -4,6 +4,7 @@ from django.core.management import BaseCommand, CommandParser
 
 from .migrate import Migrate
 from .push import Push
+from .try_templatetag import TryTemplatetag
 
 
 class Command(BaseCommand):
@@ -16,13 +17,18 @@ class Command(BaseCommand):
         - migrate: Migrates files using the Django i18n syntax to Transifex
                    Native syntax.
 
+        - try-templatetag: A sandbox to test various invocations of the t/ut
+                           templatetags, especially with regards to escaping.
+
         Usage Example:
             `$./manage.py transifex <subcommand> [options]`
     """
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.subcommands = {'push': Push(), 'migrate': Migrate()}
+        self.subcommands = {'migrate': Migrate(),
+                            'push': Push(),
+                            'try-templatetag': TryTemplatetag()}
 
     def add_arguments(self, parser):
         cmd = self

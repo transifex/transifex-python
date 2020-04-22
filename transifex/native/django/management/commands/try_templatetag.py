@@ -1,13 +1,14 @@
-from __future__ import print_function, unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 
 import itertools
 import json
 import re
 import sys
 
-from django.core.management.base import BaseCommand
 from django.template import Context, Template
 from django.utils import translation
+from transifex.common.console import Color
+from transifex.native.django.management.commands.base import CommandMixin
 
 try:
     raw_input
@@ -18,16 +19,34 @@ else:
 
 
 def fancy_input(text, *choices):
+    """ Multiple choice input
+
+        Given arguments ('Which tag do you want to use?',
+                         ('t', 't', '{% t ... %}'),
+                         ('ut', 'ut', '{% ut ... %}'))
+
+        It will render:
+
+            ===> Which tag do you want to use?
+            .... 1. t                 : {% t ... %}
+            .... 2. ut                : {% ut ... %}
+            .... [examples: "1", "1 3"; empty input for all choices]
+
+        The return value will be a list of "choices", ie the first items in the
+        3-tuples.
+    """
+
     print()
-    print("===> {}".format(text))
+    Color.echo("[yel]===>[end] {}".format(text))
     for i, (_, display, example) in enumerate(choices, 1):
-        line = ".... {}. {:18}".format(i, display)
+        line = "[yel]....[end] [warn]{}[end]. {:18}".format(i, display)
         if example:
-            line += ": {}".format(example)
-        print(line)
+            line += ": [cyan]{}[end]".format(example)
+        Color.echo(line)
 
     while True:
-        print('.... [examples: "1", "1 3"; empty input for all choices]')
+        Color.echo('.... [examples: "[warn]1[end]", "[warn]1 3[end]"; '
+                   '[warn]empty input[end] for all choices]')
         answer = input("===> ")
         if answer.strip() == "":
             return [choice for choice, _, _ in choices]
@@ -43,6 +62,12 @@ def fancy_input(text, *choices):
 
 def make_tests(tag_names, sources, source_filters, params, param_filters,
                asvars, asvar_filters, blocks, context_values):
+    """ Use `itertools.product` to create a set of tests. Each argument should
+        be a list with at least one item (otherwise `product` will return an
+        empty result). It delegates each test creation to the `make_test`
+        method.
+    """
+
     results = []
     for (tag_name, source, source_filter, param, param_filter, asvar,
             asvar_filter, block,
@@ -59,7 +84,7 @@ def make_tests(tag_names, sources, source_filters, params, param_filters,
         else:
             results.append(test)
 
-    # Remove uniques
+    # Remove duplicates
     results = [(template, json.dumps(context))
                for template, context in results]
     results = sorted(set(results))
@@ -71,6 +96,7 @@ def make_tests(tag_names, sources, source_filters, params, param_filters,
 def make_test(tag_name, source=None, source_filter=None, param=None,
               param_filter=None, asvar=None, asvar_filter=None, block=None,
               context_value=None):
+    """ Compose a template and context for testing based on the arguments.  """
 
     if not source and not block:
         raise TypeError("At least one of 'source' or 'block' must be "
@@ -81,9 +107,8 @@ def make_test(tag_name, source=None, source_filter=None, param=None,
     if source:
         if source[0] not in ('"', "'"):
             context_vars.append(source)
-        match = re.search(r'\{[\w_]+\}', source)
-        if match:
-            context_vars.append(match.group()[1:-1])
+        for match in re.findall(r'\{[\w_]+\}', source):
+            context_vars.append(match[1:-1])
         result.append(source)
     if source_filter:
         result.extend(['|', source_filter])
@@ -96,6 +121,8 @@ def make_test(tag_name, source=None, source_filter=None, param=None,
         result.extend([' as ', asvar])
     result.append(' %}')
     if not source and block:
+        for match in re.findall(r'\{[\w_]+\}', block):
+            context_vars.append(match[1:-1])
         result.extend([block, '{% end', tag_name, ' %}'])
     if asvar:
         result.extend(['{{ ', asvar])
@@ -111,6 +138,22 @@ def make_test(tag_name, source=None, source_filter=None, param=None,
 
 
 def test(template_str, context_dict=None, autoescape=True, i=''):
+    """ Use the django templating engine to run a test.
+
+        Arguments:
+
+        :param template_str: The template to render
+        :param context_dict: The context to render the template against
+        :param autoescape:   Pretend the django templating engine was setup
+                             with autoescape or not (in most real use-cases, it
+                             will have been set up with autoescape=True)
+        :param i:            Prepend the output with this in order to help
+                             distinguish tests when multiple are run
+
+        Information about (auto)escaping in django:
+        https://docs.djangoproject.com/en/3.0/ref/templates/language/#automatic-html-escaping  # noqa
+    """
+
     if context_dict is None:
         context_dict = {}
     context = Context(dict(context_dict), autoescape=autoescape)
@@ -120,15 +163,37 @@ def test(template_str, context_dict=None, autoescape=True, i=''):
     except Exception:
         print(template_str, context_dict, autoescape)
         raise
-    print("{i:4}. Template:    {template}".format(i=i, template=template_str))
-    print("      Context:     {context}".format(context=context_dict))
-    print("      Autoescape:  {autoescape}".format(autoescape=autoescape))
-    print("      Result:      {result}".format(result=result))
+    Color.echo("[warn]{i:4}[end]. [cyan]Template[end]:    {template}".
+               format(i=i, template=template_str))
+    Color.echo("      [cyan]Context[end]:     {context}".
+               format(context=context_dict))
+    Color.echo("      [cyan]Autoescape[end]:  {autoescape}".
+               format(autoescape=autoescape))
+    Color.echo("      [cyan]Result[end]:      [green]{result}[end]".
+               format(result=result))
     print()
 
 
-class Command(BaseCommand):
-    def add_arguments(self, parser):
+class TryTemplatetag(CommandMixin):
+    """ Command to help users try cornercases when using our templatetag,
+        especially related to escaping. See the help attribute of main parser
+        in `add_arguments` for details.
+    """
+
+    def add_arguments(self, subparsers):
+        parser = subparsers.add_parser(
+            'try-templatetag',
+            help="""
+                Test the transifex templatetag against multiple variations of
+                test cases.
+
+                We recommend you generate your test cases with the
+                `--interactive` option. At the end, it will provide you with
+                the detailed invocation you would need in order to repeat the
+                same tests, which you can edit to fine-tune your testing.
+            """
+        )
+
         parser.add_argument('-i', '--interactive', action="store_true",
                             dest="interactive",
                             help="Interactive dialog for setting up tests")
@@ -233,7 +298,7 @@ class Command(BaseCommand):
                      '{% t ... %}hello {var}{% endt %}'),
                     ('<xml>hello</xml> {var}',
                      "String with XML",
-                     '{% t ... %}hello {var}{% endt %}'),
+                     '{% t ... %}<xml>hello</xml> {var}{% endt %}'),
                 )
             if context_values == ['']:
                 context_values = fancy_input(
@@ -266,7 +331,7 @@ class Command(BaseCommand):
             test(template, context, autoescape, i)
 
         if options['interactive']:
-            command = [sys.argv[0], sys.argv[1]]
+            command = [sys.argv[0], sys.argv[1], sys.argv[2]]
             command.append("--tag-names={}".format(','.join(tag_names)))
             if sources != ['']:
                 command.append("--sources='{}'".format(','.join(sources)))

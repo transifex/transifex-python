@@ -23,6 +23,15 @@ COMMENT_FOUND = object()
 
 
 def _render_params(params):
+    """ Usage:
+
+        >>> _render_params({'a': "b", 'c': "b"})
+        <<< 'a="b" c="d"'
+
+        Handles some cornercases when values are None or the special value that
+        indicates a comment is expected later in the file.
+    """
+
     result = []
     for key, value in sorted(params.items(), key=lambda i: i[0]):
         if value and value != COMMENT_FOUND:
@@ -126,8 +135,15 @@ def _retrieve_comment(token_contents):
     :rtype: unicode
     """
     mark = '{}:'.format(TRANSLATOR_COMMENT_MARK)
+    result = None
     if token_contents.startswith(mark):
-        return '"{}"'.format(token_contents.replace(mark, '').strip())
+        result = '"{}"'.format(token_contents.replace(mark, '').strip())
+    if result is not None and '\n' in result:
+        # Join multiline comments
+        result = ' '.join((line.strip()
+                           for line in result.splitlines()
+                           if line.strip()))
+    return result
 
 
 class DjangoTagMigrationBuilder(object):
@@ -403,6 +419,11 @@ class DjangoTagMigrationBuilder(object):
         # Our SDK supports filter expressions
         text = trans_node.filter_expression.token
 
+        # Source strings that contain XML symbols should use 'ut'. We determine
+        # whether the string contains XML symbols by testing if an escaping
+        # attempt changes it in any way.
+        # eg `{% trans "a b" %}`            => `{% t "a b" %}`
+        #    `{% trans "<xml>a</xml> b" %}` => `{% ut "<xml>a</xml> b" %}`
         if isinstance(trans_node.filter_expression.var, six.string_types):
             literal = trans_node.filter_expression.var
         else:
@@ -417,6 +438,7 @@ class DjangoTagMigrationBuilder(object):
         # Reset the stored comment, so that it doesn't leak to the next token
         self._comment = None
 
+        # Render the final output
         t_tag = ['{%', tag_name, text, _render_params(params)]
         if trans_node.asvar:
             t_tag.extend(['as', trans_node.asvar])
@@ -480,19 +502,27 @@ class DjangoTagMigrationBuilder(object):
 
         # Build the template of the tag for Transifex Native syntax
         is_multiline = '\n' in singular_text or plural_text
-
         content = _make_plural(singular_text, plural_text, counter_var)
+
+        # Source strings that contain XML symbols should use 'ut'. We determine
+        # whether the string contains XML symbols by testing if an escaping
+        # attempt changes it in any way.
+        # eg `{% blocktrans %}a b{% endblocktrans %}` =>
+        #        `{% t "a b" %}`
+        # eg `{% blocktrans %}<xml>a</xml> b{% endblocktrans %}` =>
+        #        `{% ut "<xml>a</xml> b" %}`
         if escape_html(content) != content:
             tag_name = "ut"
         else:
             tag_name = "t"
 
+        # Render the final output
         t_tag = ['{% ', tag_name]
-        if is_multiline:
+        if is_multiline or '"' in content:
             if blocktrans_node.trimmed:
                 t_tag.append(' |trimmed')
         else:
-            t_tag.extend([' ', content])
+            t_tag.extend([' "', content, '"'])
             if blocktrans_node.trimmed:
                 t_tag.append('|trimmed')
         if params.strip():

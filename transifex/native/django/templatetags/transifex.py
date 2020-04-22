@@ -5,18 +5,52 @@ from copy import copy
 import six
 from django.conf import settings
 from django.template import Library, Node, TemplateSyntaxError
-from django.template.base import TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT
+from django.template.base import (BLOCK_TAG_END, BLOCK_TAG_START,
+                                  COMMENT_TAG_END, COMMENT_TAG_START,
+                                  TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
+                                  TOKEN_VAR, VARIABLE_TAG_END,
+                                  VARIABLE_TAG_START)
 from django.template.defaulttags import token_kwargs
 from django.utils.html import escape as escape_html
 from django.utils.safestring import EscapeData, SafeData, mark_safe
 from django.utils.translation import get_language, to_locale
 from transifex.native import tx
-from transifex.native.parsing import SourceString
 
 register = Library()
 
 
 def do_t(parser, token):
+    """ Parse a transifex translation tag.
+
+        Inline syntax:
+          {% t/ut <source>[|filter...] [key=param[|filter...]...] [as <var>] %}
+
+          <source> can either be a literal string or a variable containing a
+          string. In each case, the string will be considered an ICU template
+          whose parameters will be rendered against the parameters of the tag
+          and the context of the template.
+
+        Block syntax:
+          {% t/ut [|filter...] [key=param[|filter...]...] [as <var>] %}
+            <source>
+          {% endt/ut %}
+
+          <source> can be anything. Django template tokens will not be parsed,
+          but captured verbatim (which will most likely mess up with ICU
+          formatting).
+
+        Arguments:
+
+        :param parser: A django Parser object. Has information about how the
+                       templating engine is setup, what filters and tags are
+                       available and the tokens that haven't yet been processed
+
+        :param token:  A django Token instance. Has information about the
+                       contents of the token we are currently processing
+    """
+
+    # We will gradually "consume" bits left-to-right. At any given moment, the
+    # leftmost bit is the one we need to be processing
     bits = list(token.split_contents())
 
     # {% t ... %}
@@ -37,28 +71,55 @@ def do_t(parser, token):
                 first_arg_is_param or
                 first_arg_is_as)
 
-    params = {}
     if not is_block:
+        # Treat the source string as a full filter expression. Proper
+        # exceptions will be raised if it is not formatted properly
         source_string = parser.compile_filter(bits.pop(0))
     else:
-        block_tokens = []
-        if parser.tokens and parser.tokens[0].token_type == TOKEN_COMMENT:
-            # {% t ... %}{# comment #} ... {% endt %}
-            params['_comment'] = parser.next_token().contents
-        while parser.tokens:
-            token = parser.tokens[0]
-            if token.token_type == TOKEN_TEXT:
-                block_tokens.append(parser.next_token())
-            else:
-                if (token.token_type == TOKEN_BLOCK and
-                        token.split_contents()[0] == "end{}".format(tag_name)):
-                    parser.delete_first_token()
-                    break
-                raise TemplateSyntaxError(
-                    "No template tags allowed within a '{}' block".
-                    format(tag_name)
-                )
-        block = ''.join((token.contents for token in block_tokens))
+        block = []
+        while True:
+            try:
+                # `next_token` removes the first token from the parser's list
+                token = parser.next_token()
+            except IndexError:
+                # We ran out of tokens
+                raise TemplateSyntaxError("'{tag_name}' tag not closed with "
+                                          "'end{tag_name}'".
+                                          format(tag_name=tag_name))
+            if (token.token_type == TOKEN_BLOCK and
+                    token.contents == "end{}".format(tag_name)):
+                break
+
+            # Here we capture the contents of the block verbatim.
+            # Unfortunately, there is some loss of information here: When
+            # django captures a token, it saves the content as
+            # `text[2:-2].strip()`, which means that the size of the
+            # surrounding spaces is lost. This means that we end up capturing
+            # `{%     tag%}` as `{% tag %}`
+            if token.token_type == TOKEN_VAR:
+                block.append(''.join((VARIABLE_TAG_START, ' ', token.contents,
+                                      ' ', VARIABLE_TAG_END)))
+            elif token.token_type == TOKEN_BLOCK:
+                block.append(''.join((BLOCK_TAG_START, ' ', token.contents,
+                                      ' ', BLOCK_TAG_END)))
+            elif token.token_type == TOKEN_COMMENT and token.contents:
+                block.append(''.join((COMMENT_TAG_START, ' ', token.contents,
+                                      ' ', COMMENT_TAG_END)))
+            elif token.token_type == TOKEN_TEXT:
+                block.append(token.contents)
+            else:  # pragma: no cover
+                # Unreachable code
+                raise TemplateSyntaxError("Could not parse body of '{}' tag "
+                                          "block".format(tag_name))
+        block = ''.join(block)
+
+        # Create a dummy filter expression with the provided filters and then
+        # replace its 'var' attribute with the captured text. This effectively
+        # makes
+        # `{% t %}text{% endt %}` equivalent to `{% t "text" %}` and
+        # `{% t |filter %}text{% endt %}` equivalent to `{% t "text"|filter %}`
+        # while allowing the text to contain characters that would be invalid
+        # with the inline syntax, like newlines and `"`
         if first_arg_is_filter:
             source_string = parser.compile_filter('""' + bits.pop(0))
         else:
@@ -70,7 +131,8 @@ def do_t(parser, token):
     params_list = []
     while bits and '=' in bits[0]:
         params_list.append(bits.pop(0))
-    params.update(token_kwargs(params_list, parser, support_legacy=False))
+    # Proper exceptions will be raised if the params are not formatted properly
+    params = token_kwargs(params_list, parser, support_legacy=False)
 
     # {% t "string" as var %}
     #               ^^^^^^
@@ -81,6 +143,11 @@ def do_t(parser, token):
                                       format(' '.join(bits)))
         else:
             asvar = bits[1]
+            del bits[:2]
+
+    if bits:
+        raise TemplateSyntaxError("Unrecognized tail: {}".
+                                  format(' '.join(bits)))
 
     return TNode(tag_name, source_string, params, asvar)
 
@@ -98,16 +165,30 @@ class TNode(Node):
 
     def render(self, context):
         if isinstance(self.source_string.var, six.string_types):
+            # Tag had a string literal or used block syntax
             source_icu_template = self.source_string.var
         else:
+            # We resolve the *variable* of the filter expression, not the
+            # expression itself, because we want to apply the filters to the
+            # *translation* afterwards. Also, we use autoescape=False in order
+            # to ignore django's attempts to escape the source string at this
+            # point because we want to use the raw string to look for a
+            # translation
             safe_context = copy(context)
             safe_context.autoescape = False
             source_icu_template = self.source_string.var.resolve(safe_context)
 
+        # Use both the context and the params to render the translation
         params = context.flatten()
+        # The values of self.params are filter expressions that can be resolved
         params.update({key: value.resolve(context)
                        for key, value in self.params.items()})
         for key, value in list(params.items()):
+            # Django doesn't escape strings until the last moment. For now,
+            # escaped strings are "marked" as escaped, using the EscapeData
+            # class. Because the low-level transifex toolkit doesn't know about
+            # django's escape marking, we perform the escaping manually, if
+            # needed.
             should_escape = (
                 isinstance(value, six.string_types) and
                 ((context.autoescape and not isinstance(value, SafeData)) or
@@ -116,47 +197,47 @@ class TNode(Node):
             if should_escape:
                 params[key] = escape_html(value)
 
+        # Perform the translation in two steps: First, we get the translation
+        # ICU template. Then we perform ICU rendering against 'params'.
+        # Inbetween the two steps, if the tag used was 't' and not 'ut', we
+        # peform escaping on the ICU template.
         is_source = get_language() == settings.LANGUAGE_CODE
         locale = to_locale(get_language())  # e.g. from en-us to en_US
         translation_icu_template = tx.get_translation(
             source_icu_template, locale, params.get('_context', None),
             is_source,
         )
-        if translation_icu_template is None:
-            translation_icu_template = source_icu_template
         if self.tag_name == "t":
+            source_icu_template = escape_html(source_icu_template)
             translation_icu_template = escape_html(translation_icu_template)
 
         result = tx.render_translation(translation_icu_template, params,
                                        source_icu_template, locale,
                                        escape=False)
 
+        # Now we resolve the full source filter expression, after having
+        # replaced its text with the outcome of the translation, in order to
+        # apply the expression's filters to the translation. The translation is
+        # marked as safe in order to prevent further escaping attempts that
+        # would introduce the danger of double escaping (eg `<` => `&amp;lt;`)
         self.source_string.var = mark_safe(result)
         result = self.source_string.resolve(context)
 
         if self.asvar is not None:
+            # Save the translation outcome to a context variable
             context[self.asvar] = result
             return ""
         else:
             return result
 
-    def _to_source_string(self):
-        if not isinstance(self.source_string.var, six.string_types):
-            return None
-        meta = {}
-        for key, value in self.params.items():
-            if len(value.filters) != 0:
-                continue
-            if isinstance(value.var, six.string_types):
-                meta[key] = value.var
-            elif getattr(value.var, 'literal', None) is not None:
-                meta[key] = value.var.literal
-        _context = meta.pop('_context', None)
-        return SourceString(self.source_string.var, _context, **meta)
-
 
 @register.filter
 def trimmed(value):
+    """ Join a multiline string into a single line
+
+            '\n\n  one\ntwo\n\n  three\n  \n   ' => 'one two three'
+    """
+
     return ' '.join((line.strip()
                      for line in value.splitlines()
                      if line.strip()))

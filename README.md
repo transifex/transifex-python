@@ -210,11 +210,9 @@ Both template tags support two styles:
 
    ```
    {% t  [|filters...] [key=param[|filters...]...] [as <var_name>] %}
-     [{# <developer_comment> #}]
      <source>
    {% endt %}
    {% ut [|filters...] [key=param[|filters...]...] [as <var_name>] %}
-     [{# <developer_comment> #}]
      <source>
    {% endut %}
    ```
@@ -235,22 +233,6 @@ Both template tags support two styles:
 
    With the block syntax, however, you can include characters that would be
    problematic with the inline syntax, like quotes (`"`) or newlines.
-
-   No other template tags are allowed inside the block, except an optional
-   comment at the beginning, which will be captured by the tag. So this:
-
-   ```
-   {% t %}
-     {# this is a comment #}
-     this is text
-   {% endt %}
-   ```
-
-   should be identical to this:
-
-   ```
-   {% t "this is text" _comment="this is a comment" %}
-   ```
 
 ##### Plurals and other complex structures
 
@@ -480,7 +462,7 @@ should behave identically:
 _Because of the complexity of the cases with regards to how escaping works, the
 toolkit comes with a django management command that acts as a sandbox for all
 combinations of tags, filters etc. You can invoke it with_
-`./manage.py try_transifex_templatetag --interactive`
+`./manage.py transifex try-templatetag --interactive`
 
 #### Useful filters
 

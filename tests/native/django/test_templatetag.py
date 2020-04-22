@@ -8,6 +8,23 @@ from transifex.native import tx
 
 def do_test(template_str, context_dict=None, autoescape=True,
             lang_code="en-us"):
+    """ Use django's templating engine to render a template against a context
+
+        Arguments:
+
+        :param template_str: The template to render
+        :param context_dict: The context to render the template against
+        :param autoescape:   Pretend the django templating engine was setup
+                             with autoescape or not (in most real use-cases, it
+                             will have been set up with autoescape=True)
+        :param lang_code:    The language to translate to
+
+        :return:             The compilation result
+
+        Information about (auto)escaping in django:
+        https://docs.djangoproject.com/en/3.0/ref/templates/language/#automatic-html-escaping  # noqa
+    """
+
     translation.activate(lang_code)
     if context_dict is None:
         context_dict = {}
