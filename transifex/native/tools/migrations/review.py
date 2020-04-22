@@ -46,7 +46,10 @@ REJECT_CHOICE = 'R'  # reject the change
 REJECT_ALL_CHOICE = 'RR'  # reject all changes
 EXIT_CHOICE = 'X'  # exit the migration completely
 MARK_CHOICE = 'M'  # mark for later review (inside the file, if saved)
-PRINT_CHAR = 'P'  # print the diff
+PRINT_DIFF_CHOICE = 'P'  # print the diff
+PRINT_FILE_WITH_DIFF_CHOICE = 'PP'  # print the whole file with the diff
+PRINT_FILE_CHOICE = 'F'  # print the whole final file
+PRINT_ORIGINAL_CHOICE = 'O'  # print the whole original file
 
 
 class ReviewPolicy(object):
@@ -144,8 +147,15 @@ class ReviewPolicy(object):
                 ),
             )
         )
-        Color.echo('[red]{}[end]'.format(string_migration.original))
-        Color.echo('[green]{}[end]'.format(string_migration.new))
+
+        Color.echo('[red]{}[end]'.format(
+            self._add_line_prefix(string_migration.original, '- '))
+        )
+        Color.echo(
+            '[green]{}[end]'.format(
+                self._add_line_prefix(string_migration.new, '+ ')
+            )
+        )
         while True:
             reply = prompt(
                 Color.format(
@@ -206,8 +216,13 @@ class ReviewPolicy(object):
                     '[opt](A)[end] Accept '
                     '[opt](R)[end] Reject '
                     '[opt](M)[end] Accept & Mark for proofreading '
-                    '[opt](P)[end] Print file diff '
-                    '\n[opt](AA)[end] Accept remaining files '
+                    '\n'
+                    '[opt](P)[end] Print diff only '
+                    '[opt](PP)[end] Print new file with diff '
+                    '[opt](O)[end] Print original file '
+                    '[opt](F)[end] Print new file '
+                    '\n'
+                    '[opt](AA)[end] Accept remaining files '
                     '[opt](X)[end] Exit the migration'
                 ),
                 default=str(ACCEPT_CHOICE),
@@ -255,23 +270,132 @@ class ReviewPolicy(object):
                 )
                 return REVIEW_MARK_STRING
 
-            elif reply == PRINT_CHAR:
+            elif reply == PRINT_DIFF_CHOICE:
                 Color.echo(
                     '[prompt]These are the modified strings[end]'
                     ' (the rest of the file is omitted)'
                 )
+                Color.echo(
+                    '[prompt]-------------------------------------[end]')
+
                 for string_migration in modified_strings:
                     if string_migration.confidence == Confidence.LOW:
                         Color.echo('[warn]--- [Low confidence!][end]')
+
                     Color.echo('[red]{}[end]'.format(
-                        string_migration.original))
-                    Color.echo('[green]{}[end]\n'.format(string_migration.new))
+                        self._add_line_prefix(string_migration.original,
+                                              '- '))
+                               )
+                    Color.echo(
+                        '[green]{}[end]\n'.format(
+                            self._add_line_prefix(string_migration.new,
+                                                  '+ '))
+                    )
+                Color.echo(
+                    '[prompt]-------------------------------------[end]')
+
+            elif reply == PRINT_FILE_WITH_DIFF_CHOICE:
+                Color.echo(
+                    '[prompt]This is the whole file with all strings '
+                    'migrated.[end]'
+                )
+                Color.echo('[prompt]{}[end]'.format('-' * 72))
+
+                for string_migration in file_migration.strings:
+                    if not string_migration.modified:
+                        Color.echo(string_migration.original)
+                    else:
+                        if string_migration.confidence == Confidence.LOW:
+                            Color.echo('[warn]--- [Low confidence!][end]')
+
+                        Color.echo('[red]{}[end]'.format(
+                            self._add_line_prefix(
+                                string_migration.original, '- ')
+                        ))
+
+                        Color.echo('[green]{}[end]'.format(
+                            self._add_line_prefix(
+                                string_migration.new, '+ ')
+                        ))
+
+                Color.echo('[prompt]{}[end]'.format('-' * 72))
+
+            elif reply == PRINT_FILE_CHOICE:
+                Color.echo(
+                    '[prompt]This is the final file[end]'
+                )
+                Color.echo(
+                    '[prompt]-------------------------------------[end]')
+
+                output = []
+                for string_migration in file_migration.strings:
+                    if not string_migration.modified:
+                        output.append(Color.format(string_migration.original))
+                    else:
+                        output.append(
+                            Color.format(
+                                '[green]{}[end]'.format(string_migration.new))
+                        )
+
+                print(
+                    self._add_line_prefix(''.join(output), '', 0)
+                )
+                Color.echo(
+                    '[prompt]-------------------------------------[end]')
+
+            elif reply == PRINT_ORIGINAL_CHOICE:
+                Color.echo(
+                    '[prompt]This is the original file[end]'
+                )
+                Color.echo(
+                    '[prompt]-------------------------------------[end]')
+                print(
+                    self._add_line_prefix(
+                        ''.join(file_migration.original_content), '', 0
+                    )
+                )
+                Color.echo(
+                    '[prompt]-------------------------------------[end]')
 
             elif reply == EXIT_CHOICE:
                 file_migration.revert()
                 Color.echo('❌ Changes in file rejected')
                 Color.echo('❕Exiting the migration')
                 return REVIEW_EXIT
+
+    def _add_line_prefix(self, text, prefix, first_line_num=None):
+        """Add a prefix before each line of the given text.
+
+        Usage:
+        >>> _add_line_prefix('This\nis\nmultiline', '+ ')
+        <<< + This
+        <<< + is
+        <<< + multiline
+
+        :param unicode text: the original text
+        :param unicode prefix: the prefix to add
+        :return: the new string
+        :rtype: unicode
+        """
+        if not text:
+            return ''
+        lines = []
+        split_lines = text.splitlines(True)
+        total_lines = len(split_lines)
+        for n, line in enumerate(split_lines):
+            lines.append(
+                '{line_num}{prefix} {line}'.format(
+                    line_num=(
+                        '{}'.format(first_line_num + n).rjust(
+                            len(str(total_lines)))
+                        if first_line_num is not None
+                        else ''
+                    ),
+                    prefix=prefix,
+                    line=line,
+                )
+            )
+        return ''.join(lines)
 
     def _yes_no(self, description, yes_message=None, no_message=None):
         """Prompts the user to reply to a Yes/No question.
