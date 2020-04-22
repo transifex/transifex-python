@@ -175,39 +175,93 @@ You can use the toolkit both inside Django templates as well as inside views.
 
 #### Internationalization in template code
 
-First of all, near the top of every template in which you want to include localized content, add the following template tag:
+First of all, near the top of every template in which you want to include
+localized content, add the following template tag:
+
 ```
 {% load transifex %}
 ```
 
-Translations in Django templates use a single template tag, `{% t %}`. It translates constant strings or strings that contain both literals and variable content.
+Translations in Django templates use one of two template tags, `{% t %}` and
+`{% ut %}`. They translate strings or variables that contain strings. The
+strings themselves can be constant, or they can contain variables which can be
+resolved either from the parameters of the template tags or the context of the
+template. The difference between the two tags will be addressed later, under
+[XML escaping](#XML-escaping).
 
 ```html
 <p>{% t "This is a great sentence." %}</p>
 <h2>{% t "Welcome, {username}" username=user.name %}</h2>
+<pre>{% t snippet.code  %}</pre>
 ```
 
-##### Context
+#### Inline and block syntax
 
-You can provide contextual information that accompany a string using the special `_context` keyword:
+Both template tags support two styles:
 
-```
-{% t "Contact us" _context="Support page CTA" %}
-```
+1. The inline syntax
 
-Defining context makes it possible to distinguish between two identical source strings and disambiguate the translation.
+   ```
+   {% t  <source>[|filters...] [key=param[|filters...]...] [as <var_name>] %}
+   {% ut <source>[|filters...] [key=param[|filters...]...] [as <var_name>] %}
+   ```
+
+2. The block syntax
+
+   ```
+   {% t  [|filters...] [key=param[|filters...]...] [as <var_name>] %}
+     [{# <developer_comment> #}]
+     <source>
+   {% endt %}
+   {% ut [|filters...] [key=param[|filters...]...] [as <var_name>] %}
+     [{# <developer_comment> #}]
+     <source>
+   {% endut %}
+   ```
+
+   In general, the outcome of the block syntax will be identical to the inline
+   syntax, if you had supplied the block contents as a literal argument. ie
+   this:
+
+   ```
+   {% t ... %}hello world{% endt %}
+   ```
+
+   should be identical to this:
+
+   ```
+   {% t "hello world" ... %}
+   ```
+
+   With the block syntax, however, you can include characters that would be
+   problematic with the inline syntax, like quotes (`"`) or newlines.
+
+   No other template tags are allowed inside the block, except an optional
+   comment at the beginning, which will be captured by the tag. So this:
+
+   ```
+   {% t %}
+     {# this is a comment #}
+     this is text
+   {% endt %}
+   ```
+
+   should be identical to this:
+
+   ```
+   {% t "this is text" _comment="this is a comment" %}
+   ```
 
 ##### Plurals and other complex structures
 
 The Transifex Toolkit supports the [ICU Message Format](http://userguide.icu-project.org/formatparse/messages).
 
-Using the Message Format syntax you can support various types of logic, with the same template tag:
+Using the Message Format syntax you can support various types of logic, with
+the same template tag:
 
 ```
 {% t "{num, plural, one {Found {num} user} other {Found {num} users} }" num=total_users %}
 ```
-
-To write a string that spans multiple lines, use a `{% t %}` tag and close it with an `{% endt %}` tag.
 
 ```
 {% t num=total_users visit_type=user.visit.type username=user.name %}
@@ -220,11 +274,7 @@ To write a string that spans multiple lines, use a `{% t %}` tag and close it wi
 
 A more complex example, using nested rules, is the following:
 ```
-{% t
-  gender_of_host="female"
-  total_guests=current_event.total_guests
-  host=current_event.host.user.name
-  guest=guest.name %}
+{% t gender_of_host="female" total_guests=current_event.total_guests host=current_event.host.user.name guest=guest.name %}
   {gender_of_host, select,
     female {
       {total_guests, plural, offset:1
@@ -254,15 +304,243 @@ A more complex example, using nested rules, is the following:
 {% endt %}
 ```
 
-##### Filters
+#### Parameters
 
-Template filters are fully supported, so you can use something like the following in order to display the total number of items inside a list object or transform a string to uppercase:
+Context variables will be used to render ICU parameters in translations. For
+example, if you have a context variable called `username`, you can render the
+following:
+
+```
+{% t "Hello {username}" %}
+```
+
+You can also pass variables as parameters to the tag:
+
+```
+{% t "Hello {user_name}" user_name=username %}
+```
+
+Template filters are fully supported, so you can use something like the
+following in order to display the total number of items inside a list object or
+transform a string to uppercase:
+
 ```html
 {% t "Found {total} errors." total=result.errors|length %}
 {% t "PROJECT '{name}'" name=project.name|upper %}
 ```
 
-#### Internationalization in Python code
+Several parameter keys can be used in order to annotate the string with
+metadata that will be used in Transifex. The parameter keys that are recognized
+are: `_context`, `_comment`, `_charlimit` and `_tags`. `_context` and `_tags`
+accept a comma-separated list of strings.
+
+```
+{% t "Contact us" _context="Support page CTA" _tags="important,footer" %}
+```
+
+Defining context makes it possible to distinguish between two identical source
+strings and disambiguate the translation.
+
+
+#### Saving the outcome to a variable
+
+Using the `as <var_name>` suffix, instead of displaying the outcome of the
+translation, you will save it in a variable which you can later use however you
+like:
+
+```
+{% t "Your credit card was accepted" as success_msg %}
+{% t "Your credit card was declined" as failure_msg %}
+{% if success %}
+    {{ success_msg }}
+{% else %}
+    {{ failure_msg }}
+{% endif %}
+```
+
+This also works for block syntax:
+
+```
+{% t as text %}
+    Hello world
+{% endt %}
+{{ text }}
+```
+
+#### Applying filters to the source string
+
+Apart from using filters for parameters, you can also apply them on the source
+string:
+
+```
+{% t "Hello {username}"|capitalize %}
+{% t source_string|capitalize %}
+```
+
+The important thing to note here is that the filter will be applied to the
+**translation**, not the source string. For example, if you had the following
+translations in French:
+
+```json
+{
+    "hello": "bonjour",
+    "Hello": "I like pancakes"
+}
+```
+
+and you translate to French using this tag:
+
+```
+{% t "hello"|capitalize %}
+```
+
+You will get `Bonjour`. If the filter had been applied to the source string
+before a translation was looked up, then the second translation would have been
+matched and you would have gotten `I like pancakes`.
+
+Source string filters work with block syntax as well, just make sure you
+prepend the filter(s) with `|`:
+
+```
+{% t |capitalize %}
+    hello world
+{% endt %}
+```
+
+#### XML escaping
+
+Choosing between the `{% t %}` or the `{% ut %}` tags will determine whether
+you want to perform escaping on the **translation** (or the source string if a
+translation isn't available). Using `t` will apply escaping on the translation
+while `ut` will not.
+
+So for example, if you use:
+
+```
+{% t '<a href="{url}" title="help page">click here</a>' %}
+```
+
+Your translators in Transifex will be presented with:
+
+```html
+<a href="{url}" title="help page">click here</a>
+```
+
+but your application will actually render the XML-escaped version of the
+translation (or source string if a translation isn't found):
+
+```xml
+&lt;a href=&quot;https://some.url/&quot; title=&quot;Σελίδα βοήθειας&quot;&gt;Κάντε κλικ εδώ&lt;/a&gt;
+```
+
+If you want to avoid this, you should use the `{% ut %}` tag instead. Just keep
+in mind that your translators would be able to include malicious content in the
+translations, so make sure you have a proofreading process in place.
+
+Escaping of the ICU parameters is not affected by the choice of tag. If a
+context variable is used without specifying a parameter in the tag, then
+whether the variable will be escaped or not depends on the choice of the
+autoescape setting, which is usually set to true. Otherwise, you can apply the
+`|safe` or `|escape` filters on the parameters to specify the behavior you
+want. For example, assuming you have the following translation:
+
+```json
+{"<b>hello</b> {var}": "<b>καλημέρα</b> {var}"}
+```
+
+and the following context variable:
+
+```json
+{"var": "<b>world</b>"}
+```
+
+you can expect the following outcomes:
+
+| Template                                        | Result                                                 |
+| ----------------------------------------------- | ------------------------------------------------------ |
+| `{% t  "<b>hello</b> {var}" var=var\|escape %}` | `&lt;b&gt;καλημέρα&lt;/b&gt; &lt;b&gt;world&lt;/b&gt;` |
+| `{% t  "<b>hello</b> {var}" var=var\|safe   %}` | `&lt;b&gt;καλημέρα&lt;/b&gt; <b>world</b>`             |
+| `{% ut "<b>hello</b> {var}" var=var\|escape %}` | `<b>καλημέρα</b>             &lt;b&gt;world&lt;/b&gt;` |
+| `{% ut "<b>hello</b> {var}" var=var\|safe   %}` | `<b>καλημέρα</b>             <b>world</b>`             |
+
+Because using the above two mechanisms (the choice of tag and applying
+escape-related filters to the parameters) gives you good control over escaping,
+the outcome of the tag is always marked as _safe_ and applying escape-related
+filters to it will not have any effect. This effectively means that the use of
+`|escape` or `|safe` as source string filters or as filters applied to a saved
+translation outcome will be ignored, ie the following examples in each column
+should behave identically:
+
+| Source string filters                    | Saved variable filters                                     |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `{% t/ut <source_string> ... %}`         | `{% t/ut <source_string> ... as text %}{{ text }}`         |
+| `{% t/ut <source_string>\|safe ... %}`   | `{% t/ut <source_string> ... as text %}{{ text\|safe }}`   |
+| `{% t/ut <source_string>\|escape ... %}` | `{% t/ut <source_string> ... as text %}{{ text\|escape }}` |
+
+_Because of the complexity of the cases with regards to how escaping works, the
+toolkit comes with a django management command that acts as a sandbox for all
+combinations of tags, filters etc. You can invoke it with_
+`./manage.py try_transifex_templatetag --interactive`
+
+#### Useful filters
+
+1. `escapejs`
+
+   This filter is provided by Django and is very useful when you want to set
+   translations as the values of javascript variables. Consider the following
+   example:
+
+   ```html
+   <script>var msg = '{% ut "hello world" %}';</script>
+   ```
+
+   If a translation has the single-quote (`'`) character in it, this would
+   break your javascript code as the browser would end up reading something
+   like:
+
+   ```html
+   <script>var msg = 'one ' two';</script>
+   ```
+
+   To counter this, you can use the `escapejs` filter:
+
+   ```html
+   <script>var msg = '{% ut "hello world"|escapejs %}';</script>
+   ```
+
+   In which case your browser would end up reading something like:
+
+   ```html
+   <script>var msg = 'one \u0027 two';</script>
+   ```
+
+   which is the correct way to include a single-quote character in a javascript
+   string literal.
+
+2. `trimmed`
+
+   This is a filter included in our template library, so it will be available
+   to you since you included the library with `{% load transifex %}`. Its
+   purpose is to allow you to split a long source string into multiple lines
+   using the block syntax, without having the splitting appear in the
+   translation outcome. It essentially returns all non-empty lines of the
+   translation joined with a single space. So this:
+
+   ```
+   {% t |trimmed %}
+     First line
+     Second line
+   {% endt %}
+   ```
+
+   would be rendered as
+
+   ```
+   Πρώτη γραμμή Δεύτερη γραμμή
+   ```
+
+
+### Internationalization in Python code
 
 In order to mark translatable strings inside Python code, import a function and wrap your strings with it.
 
