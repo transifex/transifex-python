@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import mock
 from django.core.management import call_command
-from transifex.native.django.management.commands.pushtransifex import Command
+from transifex.native.django.management.commands.transifex import Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.parsing import SourceString
 
@@ -23,17 +23,56 @@ HTML_TEMPLATE = u"""
 """
 
 PATH_FIND_FILES = 'transifex.native.django.management.commands' \
-                  '.pushtransifex.Command._find_files'
+                  '.transifex.Command._find_files'
 PATH_READ_FILE = 'transifex.native.django.management.commands' \
-                 '.pushtransifex.Command._read_file'
+                 '.transifex.Command._read_file'
+PATH_EXTRACT_STRINGS = 'transifex.native.django.management.commands' \
+    '.transifex.Command._extract_strings'
 PATH_PUSH_STRINGS = 'transifex.native.django.management.commands' \
-                    '.pushtransifex.Command.push_strings'
+                    '.transifex.tx.push_source_strings'
+PATH_PUSH_STRINGS2 = 'transifex.native.django.management.commands' \
+    '.transifex.Command.push_strings'
+
+
+@mock.patch(PATH_FIND_FILES)
+@mock.patch(PATH_READ_FILE)
+def test_python_parsing_raises_unicode_error(mock_read, mock_find_files):
+    o = b'\x00\x00'
+    mock_read.side_effect = UnicodeDecodeError(
+        'funnycodec', o, 1, 2, 'This is just a fake reason!')
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+    ]
+
+    command = Command()
+    call_command(command, 'push')
+    # command.string_collection.strings is like: {<key>: <SourceString>}
+    found = command.string_collection.strings.values()
+    assert set(found) == set([])
+
+
+@mock.patch(PATH_FIND_FILES)
+@mock.patch(PATH_EXTRACT_STRINGS)
+def test_python_parsing_no_strings(mock_extract, mock_find_files):
+    mock_extract.return_value = []
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
+        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
+    ]
+
+    command = Command()
+    call_command(command, 'push')
+    # command.string_collection.strings is like: {<key>: <SourceString>}
+    found = command.string_collection.strings.values()
+    assert set(found) == set([])
 
 
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_python_parsing_success(mock_find_files, mock_read, mock_push_strings):
+def test_python_parsing_push_exception(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 500, "content_to_trigger_exception"
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
@@ -92,6 +131,136 @@ def test_python_parsing_success(mock_find_files, mock_read, mock_push_strings):
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
+def test_python_parsing_push_fails(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 500, {
+        'message': 'error message',
+        'details': 'error details',
+    }
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
+        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
+    ]
+    mock_read.side_effect = [
+        # 1.py
+        PYTHON_TEMPLATE.format(
+            _import='import transifex.native',
+            call1='native.translate',
+            call2='native.translate',
+            string1=u'Le canapé',
+            string2=u'Les données',
+        ),
+        # 2.py
+        PYTHON_TEMPLATE.format(
+            _import='import transifex.native as _n',
+            call1='_n.translate',
+            call2='_n.translate',
+            string1=u'Le canapé 2',
+            string2=u'Les données 2',
+        ),
+        # 3.py
+        PYTHON_TEMPLATE.format(
+            _import='from transifex.native import translate',
+            call1='translate',
+            call2='translate',
+            string1=u'Le canapé 3',
+            string2=u'Les données 3',
+        ),
+    ]
+
+    expected = [
+        # 1.py
+        SourceString(u'Le canapé', u'désign1,désign2'),
+        SourceString(
+            u'Les données', u'opération', _comment='comment', _tags='t1,t2',
+            _charlimit=33,
+        ),
+        # 2.py
+        SourceString(u'Le canapé 2', u'désign1,désign2'),
+        SourceString(
+            u'Les données 2', u'opération', _comment='comment', _tags='t1,t2',
+            _charlimit=33,
+        ),
+        # 3.py
+        SourceString(u'Le canapé 3', u'désign1,désign2'),
+        SourceString(
+            u'Les données 3', u'opération', _comment='comment', _tags='t1,t2',
+            _charlimit=33,
+        ),
+    ]
+    compare(expected)
+
+
+@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
+def test_python_parsing_success(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 200, {
+        'created': 0,
+        'updated': 0,
+        'skipped': 0,
+        'deleted': 0,
+        'failed': 0,
+        'errors': [],
+    }
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
+        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
+    ]
+    mock_read.side_effect = [
+        # 1.py
+        PYTHON_TEMPLATE.format(
+            _import='import transifex.native',
+            call1='native.translate',
+            call2='native.translate',
+            string1=u'Le canapé',
+            string2=u'Les données',
+        ),
+        # 2.py
+        PYTHON_TEMPLATE.format(
+            _import='import transifex.native as _n',
+            call1='_n.translate',
+            call2='_n.translate',
+            string1=u'Le canapé 2',
+            string2=u'Les données 2',
+        ),
+        # 3.py
+        PYTHON_TEMPLATE.format(
+            _import='from transifex.native import translate',
+            call1='translate',
+            call2='translate',
+            string1=u'Le canapé 3',
+            string2=u'Les données 3',
+        ),
+    ]
+
+    expected = [
+        # 1.py
+        SourceString(u'Le canapé', u'désign1,désign2'),
+        SourceString(
+            u'Les données', u'opération', _comment='comment', _tags='t1,t2',
+            _charlimit=33,
+        ),
+        # 2.py
+        SourceString(u'Le canapé 2', u'désign1,désign2'),
+        SourceString(
+            u'Les données 2', u'opération', _comment='comment', _tags='t1,t2',
+            _charlimit=33,
+        ),
+        # 3.py
+        SourceString(u'Le canapé 3', u'désign1,désign2'),
+        SourceString(
+            u'Les données 3', u'opération', _comment='comment', _tags='t1,t2',
+            _charlimit=33,
+        ),
+    ]
+    compare(expected)
+
+
+@mock.patch(PATH_PUSH_STRINGS2)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
 def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
@@ -144,7 +313,7 @@ def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
     compare(expected)
 
 
-@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_PUSH_STRINGS2)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
 def test_no_detection_for_non_transifex(mock_find_files, mock_read, mock_push_strings):
@@ -172,7 +341,11 @@ def test_no_detection_for_non_transifex(mock_find_files, mock_read, mock_push_st
             u'{% blocktrans %}Another Django string{% endblocktrans %}',
         ),
     ]
-    compare(expected=[])
+    command = Command()
+    call_command(command, 'push', domain='djangojs')
+    # command.string_collection.strings is like: {<key>: <SourceString>}
+    found = command.string_collection.strings.values()
+    assert set(found) == set([])
 
 
 def compare(expected):
@@ -181,7 +354,7 @@ def compare(expected):
     :param list expected: a list of SourceString objects
     """
     command = Command()
-    call_command(command)
+    call_command(command, 'push')
     # command.string_collection.strings is like: {<key>: <SourceString>}
     found = command.string_collection.strings.values()
     assert set(found) == set(expected)

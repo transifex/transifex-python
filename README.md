@@ -82,7 +82,7 @@ Open a Django template file (e.g. an `.html` file) and add the following:
 
 This command will collect all translatable strings and push them to Transifex.
 ```
-./manage.py pushtransifex
+./manage.py transifex push
 ```
 
 ### 3. Translate content on Transifex
@@ -393,7 +393,7 @@ In order to be able to do so, first make sure your Transifex project secret is i
 as described in the [setup section](#setup), and then simply run:
 
 ```
-./manage.py pushtransifex
+./manage.py transifex push
 ```
 
 This command works in two phases:
