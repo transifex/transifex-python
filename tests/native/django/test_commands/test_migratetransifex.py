@@ -48,9 +48,9 @@ There are {counter} {name} objects.
 HTML_COMPILED_1 = TRANSIFEX_TEMPLATE
 
 PATH_FIND_FILES = 'transifex.native.django.management.commands' \
-                  '.transifex.Command._find_files'
+                  '.base.CommandMixin._find_files'
 PATH_READ_FILE = 'transifex.native.django.management.commands' \
-                 '.transifex.Command._read_file'
+                 '.base.CommandMixin._read_file'
 PATH_PROMPT_FILE = 'transifex.native.tools.migrations.review.ReviewPolicy' \
                    '.prompt_for_file'
 PATH_PROMPT_STRING = 'transifex.native.tools.migrations.review' \
@@ -76,8 +76,10 @@ def test_dry_run_save_none_review0(mock_cur_dir, mock_read,
     command = Command()
     call_command(command, 'migrate', save_policy='none',
                  review_policy='none', files=['1.html'])
-    assert isinstance(command.executor.save_policy, NoopSavePolicy)
-    assert isinstance(command.executor.review_policy, NoopReviewPolicy)
+    assert isinstance(command.subcommands['migrate'].executor.save_policy,
+                      NoopSavePolicy)
+    assert isinstance(command.subcommands['migrate'].executor.review_policy,
+                      NoopReviewPolicy)
 
 
 @mock.patch(PATH_ECHO)
@@ -97,8 +99,10 @@ def test_dry_run_save_none_review(mock_find_files, mock_read,
     command = Command()
     call_command(command, 'migrate', save_policy='none',
                  review_policy='none')
-    assert isinstance(command.executor.save_policy, NoopSavePolicy)
-    assert isinstance(command.executor.review_policy, NoopReviewPolicy)
+    assert isinstance(command.subcommands['migrate'].executor.save_policy,
+                      NoopSavePolicy)
+    assert isinstance(command.subcommands['migrate'].executor.review_policy,
+                      NoopReviewPolicy)
 
 
 @mock.patch(PATH_ECHO)
@@ -122,8 +126,10 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
     ]
     command = Command()
     call_command(command, 'migrate', save_policy='new', review_policy='file')
-    assert isinstance(command.executor.save_policy, NewFileSavePolicy)
-    assert isinstance(command.executor.review_policy, FileReviewPolicy)
+    assert isinstance(command.subcommands['migrate'].executor.save_policy,
+                      NewFileSavePolicy)
+    assert isinstance(command.subcommands['migrate'].executor.review_policy,
+                      FileReviewPolicy)
 
     # The FileMigration instance that reached the review object
     # should compile to the proper Native syntax
@@ -162,8 +168,10 @@ def test_backup_save_string_review(mock_find_files, mock_read,
     command = Command()
     call_command(command, 'migrate', save_policy='backup',
                  review_policy='string')
-    assert isinstance(command.executor.save_policy, BackupSavePolicy)
-    assert isinstance(command.executor.review_policy, StringReviewPolicy)
+    assert isinstance(command.subcommands['migrate'].executor.save_policy,
+                      BackupSavePolicy)
+    assert isinstance(command.subcommands['migrate'].executor.review_policy,
+                      StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7  # 7 migrated strings
@@ -202,8 +210,10 @@ def test_replace_save_string_review(mock_find_files, mock_read,
     command = Command()
     call_command(command, 'migrate', save_policy='replace',
                  review_policy='string')
-    assert isinstance(command.executor.save_policy, ReplaceSavePolicy)
-    assert isinstance(command.executor.review_policy, StringReviewPolicy)
+    assert isinstance(command.subcommands['migrate'].executor.save_policy,
+                      ReplaceSavePolicy)
+    assert isinstance(command.subcommands['migrate'].executor.review_policy,
+                      StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0
     assert mock_prompt_string.call_count == 7
