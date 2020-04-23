@@ -1,39 +1,60 @@
 [![Build Status](https://travis-ci.org/transifex/transifex-python.svg?branch=master)](https://travis-ci.org/transifex/transifex-python)
 [![codecov](https://codecov.io/gh/transifex/transifex-python/branch/master/graph/badge.svg)](https://codecov.io/gh/transifex/transifex-python)
 
-Transifex Python Toolkit
-------------------------
+# Transifex Python Toolkit
 
-Transifex Python Toolkit is a collection of tools that allow you to easily localize your applications using Transifex.
+Transifex Python Toolkit (referred as **the Toolkit** for brevity) is a collection of tools that allow you to easily localize your applications using Transifex (TX). The toolkit features fetching translations over the air (OTA) to your apps.
+
+Using Transifex (TX) the localization workflow typically consists of the following steps:
+1. Find - extract the source strings in your source code
+2. Push them into a Transifex project
+3. In Transifex your source strings get translated by translators in target languages
+4. Retrieve a string translation of a target language from Transifex to display it
+
+Transifex Python Toolkit is used in steps 1, 2, 4 above. Possible usage scenarios:
+* [In a Django web application](#scenario-1-integrate-with-a-django-app) The toolkit is fully integrated in Django framework. It contains utilities to mark your source strings for translation, **retrieve the translated strings** and display translation in templates or views. It also provides special CLI commands for pushing to TX and even migrating your existing template code to the new syntax.
+* [In a Python application](#scenario-2-use-transifex-native-as-a-python-library) In other python applications or frameworks you can utilize the toolkit as a python library. The building blocks are there: you can push your source strings to TX and retrieve translations over the air to display them to your users.
+
+# Generic Features - Supported Functionality
+This section refers to the generic functionality provided by the Toolkit. For implementation details refer to the specific usage scenario detailed in following sections.
+
+- **ICU message Format** (variables, plurals), context, metadata (comment, charlimit, tags) support
+- HTML escaping & un-escaping
+- Automatic fetch of translations over-the-air (OTA) via a background thread
+- Policies to handle missing translations or errors
+- Use of an intermediary service, [CDS](#hosting-translations-on-your-servers),to retrieve translations and an in-toolkit memory cache to serve them fast.
 
 # Installation
+Install the Toolkit to your project
 ```python
 pip install transifex-python
 ```
 
-The toolkit provides a Python interface for preparing your code for localization, as well as a thin Django wrapper for Django apps.
+# Transifex Setup
+Before you begin using the Toolkit, you will also need an account in [Transifex](https://www.transifex.com) and a project.
+To set a project compatible with this toolkit contact [support](https://www.transifex.com/contact/) and you
+will be given a set of credentials (a public token and a secret), that you can use in your code for authentication.
+We will refer to these credentials in the text below as:
+- `project_token` (used for pulling translations from Transifex)
+- `project_secret` (used for pushing source content to Transifex)
 
 
-# Integrate with a Django app
+# Usage Scenarios
+## Scenario 1: Integrate with a Django app
 
 - [Setup](#setup)
 - [Quick guide](#quick-guide)
 - [Detailed usage](#detailed-usage)
-  * [Internationalization in Python code](#internationalization-in-python-code)
   * [Internationalization in template code](#internationalization-in-template-code)
+  * [Internationalization in Python code](#internationalization-in-python-code)
   * [Metadata](#metadata)
-  * [Fetching source content from Transifex](#fetching-source-content-from-transifex)
+  * [Escaped & unescaped strings](#escaped--unescaped-strings)
+  * [Fetching translations from Transifex](#fetching-translations-from-transifex)
   * [Uploading source content to Transifex](#uploading-source-content-to-transifex)
   * [Missing translations](#missing-translations)
- - [Hosting translations on your servers](#hosting-translations-on-your-servers)
- - [Tests](#tests)
+  * [Rendering errors](#rendering-errors)
 
-## Setup
-
-
-Before you begin, you will need an account in [Transifex](https://www.transifex.com) and a project.
-To set a project compatible with this toolkit contact [support](https://www.transifex.com/contact/) and you
-will be given a set of credentials (a public token and a secret), that you can use in your code for authentication.
+### Setup
 
 Add the following entries in the settings file of your Django project.
 
@@ -59,7 +80,7 @@ A list of supported language codes is available [here](https://www.transifex.com
 be declared in the `ll-cc` format, compatible with the `Accept-Language` HTTP header specification, for example
 `pt-br` instead of `pt_BR`.
 
-## Quick guide
+### Quick guide
 
 These are the minimum steps required for testing the Transifex Toolkit with a Django project end-to-end:
 
@@ -68,7 +89,7 @@ These are the minimum steps required for testing the Transifex Toolkit with a Dj
 3. Translate content on Transifex
 4. Display translated content to your users
 
-### 1. Add translation hooks
+#### 1. Add translation hooks
 
 Open a Django template file (e.g. an `.html` file) and add the following:
 ```
@@ -78,26 +99,26 @@ Open a Django template file (e.g. an `.html` file) and add the following:
 <p>{% t "I want to be translated." %}</p>
 ```
 
-### 2. Push source content to Transifex
+#### 2. Push source content to Transifex
 
 This command will collect all translatable strings and push them to Transifex.
 ```
 ./manage.py transifex push
 ```
 
-### 3. Translate content on Transifex
+#### 3. Translate content on Transifex
 
 The next step is for your translators to translate the strings in various languages using Transifex.
 When a translation is added on Transifex, it becomes available over-the-air on your app.
 Please note that it can take a few minutes for the translations to become available on your app.
 
-### 4. Display translated content
+#### 4. Display translated content
 
 The Transifex Toolkit automatically displays translated content in the language currently selected in your Django project.
 
 In order to allow changing the current language, you will need the following:
 
-#### 4.1 A language picker
+##### 4.1 A language picker
 
 Here is an example of how you can add a language picker in your app.
 You can add this on the same HTML file you added the translatable strings before, like so:
@@ -148,11 +169,11 @@ TRANSIFEX_MISSING_POLICY = 'transifex.native.rendering.PseudoTranslationPolicy'
 # _t("Hello, friend") -> returns "Ȟêĺĺø, ƒȓıêñđ"
 ```
 
-## Detailed usage
+### Detailed usage
 
 You can use the toolkit both inside Django templates as well as inside views.
 
-### Internationalization in template code
+#### Internationalization in template code
 
 First of all, near the top of every template in which you want to include localized content, add the following template tag:
 ```
@@ -166,7 +187,7 @@ Translations in Django templates use a single template tag, `{% t %}`. It transl
 <h2>{% t "Welcome, {username}" username=user.name %}</h2>
 ```
 
-#### Context
+##### Context
 
 You can provide contextual information that accompany a string using the special `_context` keyword:
 
@@ -176,7 +197,7 @@ You can provide contextual information that accompany a string using the special
 
 Defining context makes it possible to distinguish between two identical source strings and disambiguate the translation.
 
-#### Plurals and other complex structures
+##### Plurals and other complex structures
 
 The Transifex Toolkit supports the [ICU Message Format](http://userguide.icu-project.org/formatparse/messages).
 
@@ -233,7 +254,7 @@ A more complex example, using nested rules, is the following:
 {% endt %}
 ```
 
-#### Filters
+##### Filters
 
 Template filters are fully supported, so you can use something like the following in order to display the total number of items inside a list object or transform a string to uppercase:
 ```html
@@ -241,7 +262,7 @@ Template filters are fully supported, so you can use something like the followin
 {% t "PROJECT '{name}'" name=project.name|upper %}
 ```
 
-### Internationalization in Python code
+#### Internationalization in Python code
 
 In order to mark translatable strings inside Python code, import a function and wrap your strings with it.
 
@@ -306,7 +327,7 @@ text = t("""
 )
 ```
 
-### Metadata
+#### Metadata
 
 Along with the string and its contexts you can also send optional metadata that can support your localization flow:
 - `_comment`: A comment to the translators
@@ -338,7 +359,7 @@ by reading about [character limits](https://docs.transifex.com/translation/tools
 [tags](https://docs.transifex.com/translation/tools-in-the-editor#section-tags) in Transifex documentation.
 
 
-### Escaped & unescaped strings
+#### Escaped & unescaped strings
 
 Both the `{% t %}` template tag and the `t()` method escape HTML.
 
@@ -362,7 +383,7 @@ ut('<script type="text/javascript">alert({name})</script>', name='<b>Joe</b>')
 # Renders as <script type="text/javascript">alert(&lt;b&gt;Joe&lt;/b&gt;)</script>
 ```
 
-### Fetching translations from Transifex
+#### Fetching translations from Transifex
 
 The Django integration fetches translations **automatically** from Transifex continuously over-the-air (OTA), **without having to restart your server**.
 
@@ -373,7 +394,7 @@ What actually happens is:
 
 This functionality starts with your application. However, it does not start by default when running a Django shell or any `./manage.py <command>` commands, which means that in those cases by default translations will not be available on your application.
 
-#### Advanced
+##### Advanced
 
 Translation are available over the air for your app when the Django server is running and listening for HTTP requests.
 However if you need to run Django shell or Django commands and have Transifex Toolkit provide localized content,
@@ -385,7 +406,7 @@ So, for example, if you want to run a Django shell with translations available &
 FORCE_TRANSLATIONS_SYNC=true ./manage.py shell
 ```
 
-### Uploading source content to Transifex
+#### Uploading source content to Transifex
 
 After the strings have been marked either inside templates or Python code, you can push them to Transifex.
 
@@ -402,7 +423,7 @@ This command works in two phases:
 
 This way, the source strings reach Transifex and become available for translation.
 
-### Missing translations
+#### Missing translations
 
 If a translation on a specific locale is missing, by default the Transifex Toolkit will return the string in the source language. However, you can change that behavior by providing a different "missing policy".
 
@@ -417,7 +438,7 @@ The currently available options are:
 
 You can set the policy with a Django setting named `TRANSIFEX_MISSING_POLICY` and you could easily define a different policy for development and production environments.
 
-#### Source string (default)
+##### Source string (default)
 
 This is the default policy, where the source string will appear when a translation is missing.
 
@@ -426,7 +447,7 @@ TRANSIFEX_MISSING_POLICY = 'transifex.native.rendering.SourceStringPolicy'
 # _t("Hello, friend") -> returns "Hello, friend"
 ```
 
-#### Pseudo translation
+##### Pseudo translation
 
 This is a nice way to do translation QA during development, as pseudo-translated strings stand out and are easy to identify.
 
@@ -437,7 +458,7 @@ TRANSIFEX_MISSING_POLICY = 'transifex.native.rendering.PseudoTranslationPolicy'
 
 It's advised that you do that only for your development environment, as you probably don't want to show pseudo translations to your actual users on production.
 
-#### Source string inside brackets
+##### Source string inside brackets
 
 Another way to show that a string is placeholder text is to show it wrapped around some symbols.
 
@@ -449,7 +470,7 @@ TRANSIFEX_MISSING_POLICY = (
 # _t("Hello, friend") -> returns "[Hello, friend]"
 ```
 
-#### Source string with extra characters
+##### Source string with extra characters
 
 Translations in some locales are typically longer than in English. This policy allows you to do QA for your UI during development and make sure that longer strings can be accommodated by your current UI elements.
 
@@ -461,7 +482,7 @@ TRANSIFEX_MISSING_POLICY = (
 # _t("Hello, friend") -> returns "Hello, friend~#~#~#"
 ```
 
-#### A complex policy
+##### A complex policy
 
 You can also combine multiple policies to get a result that stands out even more visually and also supports features like extra length or something custom you want.
 
@@ -482,7 +503,7 @@ TRANSIFEX_MISSING_POLICY = [
 # _t("Hello, friend") -> returns "{Ȟêĺĺø, ƒȓıêñđ~extra~}"
 ```
 
-#### Custom policy
+##### Custom policy
 
 You can easily create your own policy:
 
@@ -494,7 +515,7 @@ TRANSIFEX_MISSING_POLICY = (
 # _t("Hello, friend") -> returns a custom string
 ```
 
-### Rendering errors
+#### Rendering errors
 
 The Transifex Native solution protects the application from errors caused during rendering. Examples of those could be:
 * Missing variables (variables that exist in the translation but their value is not provided)
@@ -515,6 +536,87 @@ TRANSIFEX_ERROR_POLICY = (
 ```
 
 You can implement your own error policies. The interface can mimic the one described in `AbstractErrorPolicy`, and it is suggest to subclass this for your implementation. The structure & configuration options of error policies mimic the way missing policies are implemented, so you can take a look there as well for inspiration.
+
+## Scenario 2: Use Transifex Native as a python library
+A sample usage of the library is given below where we initialize it and call it's `translate()` method to get a translation: 
+
+```python
+from __future__ import absolute_import
+
+from transifex.native import init, tx
+# Simple case of initializing the library to be able to retrieve
+# en (source language) and el, fr translations
+init('project_token', ['el', 'fr', 'en'], ), 'project_secret')
+# populate toolkit memory cache with translations from CDS service the first time
+tx.fetch_translations() 
+# get a translation of your project strings, the translation is served from cache
+el_translation = tx.translate('my source string', 'el')
+print(el_translation)
+# get a translation with plurals and variable
+translation = tx.translate(
+            u'{cnt, plural, one {{cnt} {gender} duck} other {{cnt} {gender} ducks}}',
+            'el',
+            params={'cnt': 1, 'gender': 'ugly'}
+)
+```
+The `translate()` method can be further parameterized by the following kwargs:
+- `is_source` boolean, False by default, to return the source string if True
+- `escape` boolean, True by default, to HTML escape the translation
+- `_context` either a list[str] or a comma delimited string of the context of the source string in TX
+
+The initialization of the Toolkit we can be further parameterized by:
+- the missing translation policy: what `translation()` returns when an actual translation is missing.
+- the error policy: how translation rendering errors are handled
+- the cds host: point to your CDS server instead of Transifex's
+
+```python
+from transifex.native import init, tx
+
+from transifex.native.rendering import PseudoTranslationPolicy, SourceStringErrorPolicy
+
+# PseudoTranslationPolicy: on missing translation return a string that looks like the
+#                          source string but contains accented characters
+# SourceStringErrorPolicy: if an error happens when trying to render the translation
+#                          default to the source string
+init('project_token', ['el', 'fr', 'en'], ), 'project_secret',
+     cds_host='http://127.0.0.1:10300',  # local dev environment CDS
+     missing_policy=PseudoTranslationPolicy(),
+     error_policy=SourceStringErrorPolicy())
+```
+The available missing policies are `SourceStringPolicy, PseudoTranslationPolicy, WrappedStringPolicy, ExtraLengthPolicy, ChainedPolicy`. For details please look into `transifex.native.rendering` package for all classes that inherit `AbstractRenderingPolicy`. The same package contains the available error policies. Of course you can base on these policies and extend them to cater for your needs. 
+
+We saw that to force fetching all translations from the CDS we called:
+```python
+tx.fetch_translations()
+```
+
+We can further automate this by using a background thread:
+```python
+from transifex.native.daemon import daemon
+# ...
+# start a thread that every interval secs fetches translations in cache
+daemon.start_daemon(interval=30)
+```
+
+Finally let's use the Toolkit to push source strings to Transifex:
+```python
+from transifex.native.parsing import SourceString
+# construct a list of strings to send
+source1 = SourceString(u'Hello stranger', 
+            _context=u'one,two,three',
+            _comment=u'A crucial comment',
+            _charlimit=33,
+            _tags=u' t1,t2 ,  t3')
+source2 = SourceString(u'Hello stranger', 
+            _context=u'context1,context2,context3',
+            _tags=' t1,t2')
+source3 = SourceString(u'{cnt, plural, one {{cnt} {gender} duck} other {{cnt} {gender} ducks}}') 
+# use purge=True only if you want to delete all other Transifex strings 
+# except the ones we send. Alternatively all push strings are appended
+# to those existing in Tx.
+response_code, response_content = tx.push_source_strings([source1, source2, source3], purge=True)
+
+```
 
 # Hosting translations on your servers
 
