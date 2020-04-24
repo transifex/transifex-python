@@ -23,15 +23,15 @@ HTML_TEMPLATE = u"""
 """
 
 PATH_FIND_FILES = 'transifex.native.django.management.commands' \
-                  '.transifex.Command._find_files'
+                  '.base.CommandMixin._find_files'
 PATH_READ_FILE = 'transifex.native.django.management.commands' \
-                 '.transifex.Command._read_file'
+                 '.base.CommandMixin._read_file'
 PATH_EXTRACT_STRINGS = 'transifex.native.django.management.commands' \
-    '.transifex.Command._extract_strings'
+    '.push.Push._extract_strings'
 PATH_PUSH_STRINGS = 'transifex.native.django.management.commands' \
-                    '.transifex.tx.push_source_strings'
+                    '.push.tx.push_source_strings'
 PATH_PUSH_STRINGS2 = 'transifex.native.django.management.commands' \
-    '.transifex.Command.push_strings'
+    '.push.Push.push_strings'
 
 
 @mock.patch(PATH_FIND_FILES)
@@ -47,7 +47,7 @@ def test_python_parsing_raises_unicode_error(mock_read, mock_find_files):
     command = Command()
     call_command(command, 'push')
     # command.string_collection.strings is like: {<key>: <SourceString>}
-    found = command.string_collection.strings.values()
+    found = command.subcommands['push'].string_collection.strings.values()
     assert set(found) == set([])
 
 
@@ -64,7 +64,7 @@ def test_python_parsing_no_strings(mock_extract, mock_find_files):
     command = Command()
     call_command(command, 'push')
     # command.string_collection.strings is like: {<key>: <SourceString>}
-    found = command.string_collection.strings.values()
+    found = command.subcommands['push'].string_collection.strings.values()
     assert set(found) == set([])
 
 
@@ -344,7 +344,7 @@ def test_no_detection_for_non_transifex(mock_find_files, mock_read, mock_push_st
     command = Command()
     call_command(command, 'push', domain='djangojs')
     # command.string_collection.strings is like: {<key>: <SourceString>}
-    found = command.string_collection.strings.values()
+    found = command.subcommands['push'].string_collection.strings.values()
     assert set(found) == set([])
 
 
@@ -356,5 +356,5 @@ def compare(expected):
     command = Command()
     call_command(command, 'push')
     # command.string_collection.strings is like: {<key>: <SourceString>}
-    found = command.string_collection.strings.values()
+    found = command.subcommands['push'].string_collection.strings.values()
     assert set(found) == set(expected)
