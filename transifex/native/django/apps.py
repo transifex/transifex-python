@@ -60,8 +60,6 @@ class NativeConfig(AppConfig):
                     _segments_match(['manage.py', 'runserver'], sys.argv),
                     # Start for gunicorn
                     _segments_match(['gunicorn'], sys.argv),
-                    # Start for celery worker
-                    _segments_match(['celery', 'worker'], sys.argv)
                 ]
             )
 
