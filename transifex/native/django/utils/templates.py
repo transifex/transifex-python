@@ -1,11 +1,10 @@
 from __future__ import unicode_literals
 
-from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
-                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
-                                  DebugLexer, Lexer, Parser)
+import six
+from django.template.base import TOKEN_BLOCK, Lexer, Parser
 from django.utils.encoding import force_text
-from transifex.native.django.templatetags.transifex import \
-    parse_translatable_tag
+from transifex.native.django.templatetags.transifex import do_t
+from transifex.native.parsing import SourceString
 
 # Django template consts
 LOAD_TAG = 'load'
@@ -35,6 +34,29 @@ def find_filter_identity(filter_name):
     return lambda obj: obj
 
 
+def tnode_to_source_string(tnode):
+    """ Convert a parsed TNode to a SourceString instance.
+
+        TNode is what the template tag implementation will return having
+        processed the contents from the template. A SourceString is a data
+        object which exposes information in a useful way for pushing to
+        transifex.
+    """
+
+    if not isinstance(tnode.source_string.var, six.string_types):
+        return None
+    meta = {}
+    for key, value in tnode.params.items():
+        if len(value.filters) != 0:
+            continue
+        if isinstance(value.var, six.string_types):
+            meta[key] = value.var
+        elif getattr(value.var, 'literal', None) is not None:
+            meta[key] = value.var.literal
+    _context = meta.pop('_context', None)
+    return SourceString(tnode.source_string.var, _context, **meta)
+
+
 def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
     """Parse the given template and extract translatable content
     based on the syntax supported by Transifex Native.
@@ -60,8 +82,10 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
     strings = []
     while parser.tokens:
         token = parser.next_token()
-        if token.token_type == TOKEN_BLOCK:
-            source_string, _ = parse_translatable_tag(parser, token)
+        if (token.token_type == TOKEN_BLOCK and
+                token.split_contents()[0] in ('t', 'ut')):
+            tnode = do_t(parser, token)
+            source_string = tnode_to_source_string(tnode)
             if source_string is None:
                 continue
 

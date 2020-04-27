@@ -39,6 +39,12 @@ There are {{ counter }} {{ name }} objects.
 
 <a href="{{ url }}">Text</a>
 {% trans some_other_var %}
+{% trans some_other_var|some_filter %}
+{% trans "try as" as try %}
+{% trans "try with <xml>xml</xml>" %}
+{% blocktrans %}
+    try with <xml>xml</xml>
+{% endblocktrans %}
 """
 
 TRANSIFEX_TEMPLATE = """
@@ -54,7 +60,7 @@ TRANSIFEX_TEMPLATE = """
 
 {% with first=events.first %}
     {% with second=events.second %}
-        {% t another='foo' first=first second=second third=events.third|title %}
+        {% t another='foo' third=events.third|title %}
         The following events were found:
           1. {first}
           2. {second}
@@ -64,7 +70,7 @@ TRANSIFEX_TEMPLATE = """
     {% endwith %}
 {% endwith %}
 
-{% t counter='something'|length name=name %}
+{% t counter='something'|length %}
 {counter, plural, one {
 There is only one {name} object.
 } other {
@@ -72,10 +78,19 @@ There are {counter} {name} objects.
 }}
 {% endt %}
 
-{% t "First sentence. Second paragraph." %}
+{% t |trimmed %}
+  First sentence.
+  Second paragraph.
+{% endt %}
 
 <a href="{{ url }}">Text</a>
-{% t "{some_other_var}" some_other_var=some_other_var %}
+{% t some_other_var %}
+{% t some_other_var|some_filter %}
+{% t "try as" as try %}
+{% ut "try with <xml>xml</xml>" %}
+{% ut %}
+    try with <xml>xml</xml>
+{% endut %}
 """
 
 

@@ -302,12 +302,12 @@ def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
 
         # 1.txt
         SourceString(
-            u'This is a short string', 'c1,c2', _tags='t1,t2', _comment="co1",
-            _charlimit=22,
+            u'\nThis is a short string\n', 'c1,c2', _tags='t1,t2',
+            _comment="co1", _charlimit=22,
         ),
         SourceString(
-            u'This is not a shorter string', 'c1,c2', _tags='t1,t2', _comment="co2",
-            _charlimit=33,
+            u'\nThis is not a shorter string\n', 'c1,c2', _tags='t1,t2',
+            _comment="co2", _charlimit=33,
         ),
     ]
     compare(expected)

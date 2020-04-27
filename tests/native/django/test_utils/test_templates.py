@@ -62,10 +62,12 @@ class TestTemplates(object):
         )
         strings = extract_transifex_template_strings(src)
         assert strings[0] == SourceString(
-            u"""{visit_type, select,
+            u"""
+{visit_type, select,
     first {Welcome, {username}}
     returning {Welcome back, {username}}
-}""",
+}
+""",
             _context='stuff',
             _charlimit=10,
         )

@@ -62,9 +62,6 @@ class StringRenderer(object):
         :rtype: unicode
         """
         try:
-            # Always escape the parameters
-            params = {k: html_escape(v) for k, v in params.items()}
-
             if not string_to_render and not missing_policy:
                 raise Exception(
                     "No string to render and no missing policy defined!"
