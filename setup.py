@@ -25,6 +25,6 @@ setup(
     ],
     url='https://github.com/transifex/transifex-python',
     install_requires=[
-        'pyseeyou', 'pytz', 'requests', 'six', 'click'
+        'pyseeyou', 'pytz', 'requests', 'six', 'click', 'asttokens'
     ],
 )

@@ -15,17 +15,6 @@ from transifex.native.tools.migrations.save import (BackupSavePolicy,
                                                     NoopSavePolicy,
                                                     ReplaceSavePolicy)
 
-PYTHON_TEMPLATE = u"""
-# -*- coding: utf-8 -*-
-
-{_import}
-
-{call1}(u'{string1}', u'désign1,désign2', param1='1', param2=2, param3=True)
-{call2}(
-    u'{string2}', u'opération', _comment='comment', _tags='t1,t2', _charlimit=33,
-)
-"""
-
 HTML_SAMPLE_1 = DJANGO_TEMPLATE
 HTML_SAMPLE_2 = """
 {% load i18n %}
@@ -47,6 +36,124 @@ There are {counter} {name} objects.
 """
 HTML_COMPILED_1 = TRANSIFEX_TEMPLATE
 
+PYTHON_SAMPLE = """
+from something import gettext
+from django.utils.translation import ugettext as _
+from django.utils.translation import ungettext as _pl
+from django.utils.translation import pgettext as _ctx
+from django.utils.translation import ugettext as ug, to_locale, get_language_info as lang_info
+from django.utils import translation as _trans
+import django
+import django.utils
+import django.something_else
+from django import utils as _utils
+
+
+# A comment
+aa = 34
+bb = aa + round(33.3)
+
+_('This is "nice"')
+_('This is %s') % something
+_('This is %s and %s %s %s') % (3, something, "lit'eral", r"lit\'eral")
+_('This is %s') % (3 * 15)
+_('Hello! %(name)s %(last_name)s %(age)s %(gender)s') % {'name': 'You', 'last_name': user.last_name, 'age': 33, 'gender': gender}
+_('This is %s and %s') % ("\\'", r"\\'")
+_('This is %(foo)s and %(bar)s') % {'foo': foo, 'bar': 'bar'}
+_('This is %(foo)s and %(bar)s') % dict(foo=foo, bar='bar')
+_('This is %s') % obj.something('else', 'is', 'happening')
+
+plural = _pl('One fish', plural='Many fishes', number=number)
+django.utils.translation.ugettext('Hello!')
+
+_utils.translation.ugettext(**dict(message='Hello!'))
+zero = _trans.ugettext('This is the zero')
+first = _(message='This is the first')
+plural = _pl('This is', 'These are', 3)
+plural = _pl('One fish', plural='Many fishes', number=number)
+plural = _pl(number=number, plural='Many "fishes', singular="One 'fish")
+plural = _pl(number=number, plural='Many fishes', singular="One 'fish")
+
+
+withcontext1 = _ctx('Some context', 'This is a message')
+withcontext2 = _ctx(**dict(context='Some context', message='This is a message'))
+
+do_something(
+    django.utils.translation.ngettext('Hello!', 'Hellos!', 2),
+    _('Aha! %(name)s %(last_name)s') % {'name': 'You', 'last_name': user.last_name},
+    some_var,
+    another=_('Yay %s %s') % [something, 33]
+)
+
+# Add an import statement after function calls
+from django import utils as _utils
+from django.utils.translation import ngettext as _ng
+
+
+class MyClass(object):
+
+    def myfunc(self, text1, text2):
+        send_message(_('Foo %(t1)s - %(t2)s') % {'t1': text1, 't2': text2})
+"""
+
+PYTHON_SAMPLE_MIGRATED = """
+from something import gettext
+from transifex.native.django import t
+from django.utils.translation import to_locale, get_language_info as lang_info
+from django.utils import translation as _trans
+import django
+import django.utils
+import django.something_else
+from django import utils as _utils
+
+
+# A comment
+aa = 34
+bb = aa + round(33.3)
+
+t('This is "nice"')
+t('This is {variable_1}', variable_1=something)
+t('This is {variable_1} and {variable_2} {variable_3} {variable_4}', variable_1=3, variable_2=something, variable_3="lit'eral", variable_4="lit'eral")
+t('This is {variable_1}', variable_1=(3 * 15))
+t('Hello! {name} {last_name} {age} {gender}', name='You', last_name=user.last_name, age=33, gender=gender)
+t('This is {variable_1} and {variable_2}', variable_1="'", variable_2='\\'')
+t('This is {foo} and {bar}', foo=foo, bar='bar')
+t('This is {foo} and {bar}', __txnative_fixme="dict(foo=foo, bar='bar')")
+t('This is {variable_1}', variable_1=obj.something('else', 'is', 'happening'))
+
+plural = t('{cnt, one {One fish} other {Many fishes}}', cnt=number)
+t('Hello!')
+
+t('Hello!')
+zero = t('This is the zero')
+first = t('This is the first')
+plural = t('{cnt, one {This is} other {These are}}', cnt=3)
+plural = t('{cnt, one {One fish} other {Many fishes}}', cnt=number)
+plural = t("{cnt, one {One 'fish} other {Many \\"fishes}}", cnt=number)
+plural = t("{cnt, one {One 'fish} other {Many fishes}}", cnt=number)
+
+
+withcontext1 = t('This is a message', _context='Some context')
+withcontext2 = t('This is a message', _context='Some context')
+
+do_something(
+    t('{cnt, one {Hello!} other {Hellos!}}', cnt=2),
+    t('Aha! {name} {last_name}', name='You', last_name=user.last_name),
+    some_var,
+    another=t('Yay {variable_1} {variable_2}', variable_1=something, variable_2=33)
+)
+
+# Add an import statement after function calls
+from django import utils as _utils
+
+
+class MyClass(object):
+
+    def myfunc(self, text1, text2):
+        send_message(t('Foo {t1} - {t2}', t1=text1, t2=text2))
+"""
+
+
 PATH_FIND_FILES = ('transifex.native.django.management.utils.base.'
                    'CommandMixin._find_files')
 PATH_READ_FILE = ('transifex.native.django.management.utils.base.CommandMixin.'
@@ -59,16 +166,13 @@ PATH_SAVE_FILE = 'transifex.native.tools.migrations.save.SavePolicy' \
                  '._safe_save'
 PATH_PROMPT_START1 = 'transifex.native.tools.migrations.execution' \
                      '.MigrationExecutor._prompt_to_start'
-PATH_ECHO = 'transifex.native.tools.migrations.execution' \
-            '.Color.echo'
 
 
-@mock.patch(PATH_ECHO)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_READ_FILE)
 @mock.patch('os.getcwd')
 def test_dry_run_save_none_review0(mock_cur_dir, mock_read,
-                                   mock_prompt_to_start1, mock_echo):
+                                   mock_prompt_to_start1):
     mock_cur_dir.return_value = 'dir1/dir2'
     mock_read.side_effect = [
         HTML_SAMPLE_1,  # 1.html
@@ -82,19 +186,18 @@ def test_dry_run_save_none_review0(mock_cur_dir, mock_read,
                       NoopReviewPolicy)
 
 
-@mock.patch(PATH_ECHO)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
 def test_dry_run_save_none_review(mock_find_files, mock_read,
-                                  mock_prompt_to_start1, mock_echo):
+                                  mock_prompt_to_start1):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
     ]
     mock_read.side_effect = [
         HTML_SAMPLE_1,  # 1.html
-        HTML_SAMPLE_2,  # 1.txt
+        HTML_SAMPLE_2,  # 1.txt,
     ]
     command = Command()
     call_command(command, 'migrate', save_policy='none',
@@ -105,7 +208,6 @@ def test_dry_run_save_none_review(mock_find_files, mock_read,
                       NoopReviewPolicy)
 
 
-@mock.patch(PATH_ECHO)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_SAVE_FILE, return_value=(True, None))
 @mock.patch(PATH_PROMPT_STRING)
@@ -115,14 +217,16 @@ def test_dry_run_save_none_review(mock_find_files, mock_read,
 def test_new_file_save_file_review(mock_find_files, mock_read,
                                    mock_prompt_file, mock_prompt_string,
                                    mock_save_file,
-                                   mock_prompt_to_start1, mock_echo):
+                                   mock_prompt_to_start1):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
+        TranslatableFile('dir4/dir5', '1.py', 'locdir1'),
     ]
     mock_read.side_effect = [
         HTML_SAMPLE_1,  # 1.html
         HTML_SAMPLE_2,  # 1.txt
+        PYTHON_SAMPLE,  # 1.py
     ]
     command = Command()
     call_command(command, 'migrate', save_policy='new', review_policy='file')
@@ -131,22 +235,29 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
     assert isinstance(command.subcommands['migrate'].executor.review_policy,
                       FileReviewPolicy)
 
-    # The FileMigration instance that reached the review object
-    # should compile to the proper Native syntax
-    file_migration = mock_prompt_file.call_args[0][0]
-    assert file_migration.compile() == HTML_COMPILED_1
+    # The first FileMigration instance that reached the review object
+    # should compile to the proper Native syntax (1.html)
+    file_migration1 = mock_prompt_file.call_args_list[0][0][0]
+    assert file_migration1.compile() == HTML_COMPILED_1
+
+    # The same for 1.py
+    file_migration2 = mock_prompt_file.call_args_list[1][0][0]
+    assert file_migration2.compile() == PYTHON_SAMPLE_MIGRATED
 
     # No string review should have taken place
     assert mock_prompt_string.call_count == 0
 
     # The path and content that reached the save object
     # should have the correct values
-    assert mock_save_file.call_args[0][0] == 'dir1/dir2/1__native.html'
-    migration_compile = mock_save_file.call_args[0][1]
+    assert mock_save_file.call_args_list[0][0][0] == 'dir1/dir2/1__native.html'
+    migration_compile = mock_save_file.call_args_list[0][0][1]
     assert migration_compile() == HTML_COMPILED_1
 
+    assert mock_save_file.call_args_list[1][0][0] == 'dir4/dir5/1__native.py'
+    migration_compile = mock_save_file.call_args_list[1][0][1]
+    assert migration_compile() == PYTHON_SAMPLE_MIGRATED
 
-@mock.patch(PATH_ECHO)
+
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_SAVE_FILE, return_value=(True, None))
 @mock.patch(PATH_PROMPT_STRING)
@@ -156,7 +267,7 @@ def test_new_file_save_file_review(mock_find_files, mock_read,
 def test_backup_save_string_review(mock_find_files, mock_read,
                                    mock_prompt_file, mock_prompt_string,
                                    mock_save_file,
-                                   mock_prompt_to_start1, mock_echo):
+                                   mock_prompt_to_start1):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),
@@ -188,7 +299,6 @@ def test_backup_save_string_review(mock_find_files, mock_read,
     assert migration_compile() == HTML_COMPILED_1
 
 
-@mock.patch(PATH_ECHO)
 @mock.patch(PATH_PROMPT_START1)
 @mock.patch(PATH_SAVE_FILE, return_value=(True, None))
 @mock.patch(PATH_PROMPT_STRING)
@@ -198,7 +308,7 @@ def test_backup_save_string_review(mock_find_files, mock_read,
 def test_replace_save_string_review(mock_find_files, mock_read,
                                     mock_prompt_file, mock_prompt_string,
                                     mock_save_file,
-                                    mock_prompt_to_start1, mock_echo):
+                                    mock_prompt_to_start1):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
         TranslatableFile('dir4/dir5', '1.txt', 'locdir1'),

@@ -14,6 +14,7 @@ from transifex.native.tools.migrations.models import Confidence
 
 MARK_PROOFREAD_STRING = 'Transifex Native: PROOFREAD_STRING'
 MARK_PROOFREAD_FILE = 'Transifex Native: PROOFREAD_FILE'
+MARK_ARGUMENT_FIXME = '__txnative_fixme'
 
 
 def mark_string(string_migration, comment_format, mark):

@@ -1,5 +1,6 @@
+asttokens>=2.0.4
+click
 pyseeyou==1.0.0
+pytz
 requests==2.22.0
 six==1.14.0
-pytz
-click

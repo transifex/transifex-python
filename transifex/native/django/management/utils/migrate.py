@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 import os
 
+import transifex.native.tools.migrations.gettext as gettext
 from django.conf import settings
 from django.core.management.utils import handle_extensions
 from transifex.native.django.management.common import TranslatableFile
@@ -13,11 +14,62 @@ from transifex.native.tools.migrations.execution import (MARK_POLICY_OPTIONS,
                                                          REVIEW_POLICY_OPTIONS,
                                                          SAVE_POLICY_OPTIONS,
                                                          MigrationExecutor)
+from transifex.native.tools.migrations.gettext import (GettextMethods,
+                                                       GettextMigrationBuilder)
 
 MIGRATE_EXTENSIONS = ['html', 'txt', 'py']
 
 
+GETTEXT_FUNCTIONS = {
+    gettext.GETTEXT: (
+        'django.utils.translation.gettext',
+        [('message', gettext.KEYWORD_STRING)],
+    ),
+    gettext.UGETTEXT: (
+        'django.utils.translation.ugettext',
+        [('message', gettext.KEYWORD_STRING)],
+    ),
+    gettext.NGETTEXT: (
+        'django.utils.translation.ngettext',
+        [
+            ('singular', gettext.KEYWORD_ONE),
+            ('plural', gettext.KEYWORD_OTHER),
+            ('number', gettext.KEYWORD_CNT),
+        ]
+    ),
+    gettext.UNGETTEXT: (
+        'django.utils.translation.ungettext',
+        [
+            ('singular', gettext.KEYWORD_ONE),
+            ('plural', gettext.KEYWORD_OTHER),
+            ('number', gettext.KEYWORD_CNT),
+        ]
+    ),
+    gettext.PGETTEXT: (
+        'django.utils.translation.pgettext',
+        [
+            ('context', gettext.KEYWORD_CONTEXT),
+            ('message', gettext.KEYWORD_STRING),
+        ]
+    ),
+    gettext.NPGETTEXT: (
+        'django.utils.translation.npgettext',
+        [
+            ('context', gettext.KEYWORD_CONTEXT),
+            ('singular', gettext.KEYWORD_ONE),
+            ('plural', gettext.KEYWORD_OTHER),
+            ('number', gettext.KEYWORD_CNT),
+        ]
+    ),
+}
+
+# This is the import statement that will replace gettext imports
+T_IMPORT = 'from transifex.native.django import t'
+
+
 class Migrate(CommandMixin):
+    """Migrate files using the Django i18n syntax to Transifex Native syntax."""
+
     def add_arguments(self, subparsers):
         parser = subparsers.add_parser(
             'migrate',
@@ -80,6 +132,10 @@ class Migrate(CommandMixin):
 
         # Create a reusable migrator for templates code
         self.django_migration_builder = DjangoTagMigrationBuilder()
+        self.gettext_migration_builder = GettextMigrationBuilder(
+            methods=GettextMethods(**GETTEXT_FUNCTIONS),
+            import_statement=T_IMPORT,
+        )
 
         # Execute the migration
         self.executor.migrate_files(files)
@@ -114,7 +170,9 @@ class Migrate(CommandMixin):
 
         # Python file
         if extension == '.py':
-            return None  # TODO
+            return self.gettext_migration_builder.build_migration(
+                src_data, translatable_file.path,
+            )
 
         # Template file
         return self.django_migration_builder.build_migration(

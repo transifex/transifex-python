@@ -25,6 +25,7 @@ class Color:
             .replace('[file]', Color.CYAN)
             .replace('[opt]', Color.PINK)
             .replace('[prompt]', Color.YELLOW)
+            .replace('[error]', Color.RED)
             .replace('[end]', Color.END)  # closing tag for any color tag
 
             # Colors
@@ -35,9 +36,12 @@ class Color:
         )
 
     @staticmethod
-    def echo(string):
+    def echo(string, new_line=True):
         """Print to the console with color support."""
-        print(Color.format(string))
+        if new_line:
+            print(Color.format(string))
+        else:
+            print(Color.format(string)),
 
 
 def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=None):

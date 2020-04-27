@@ -5,7 +5,8 @@ from transifex.native.tools.migrations.models import (Confidence,
                                                       StringMigration)
 from transifex.native.tools.migrations.review import (
     REVIEW_ACCEPT, FileReviewPolicy, LowConfidenceFileReviewPolicy,
-    LowConfidenceStringReviewPolicy, ReviewPolicy, StringReviewPolicy)
+    LowConfidenceStringReviewPolicy, ReviewPolicy, StringReviewPolicy,
+    add_line_prefix)
 
 
 def test_base_class_policy_accepts_all():
@@ -120,6 +121,15 @@ def test_set_comment_format_exception_for_wrong_format():
     policy = ReviewPolicy()
     with pytest.raises(ValueError):
         policy.set_comment_format('{')
+
+
+def test_add_line_prefix():
+    text = "This\nis\ngood"
+    assert add_line_prefix(text, '+ ') == "+ This\n+ is\n+ good"
+    assert add_line_prefix(text, '+ ', 99) == \
+        "99 + This\n100 + is\n101 + good"
+    assert add_line_prefix('', '+ ') == ''
+    assert add_line_prefix(None, '+ ') is None
 
 
 def _string(confidence=Confidence.HIGH):

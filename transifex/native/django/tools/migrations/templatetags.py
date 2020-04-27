@@ -147,7 +147,7 @@ def _retrieve_comment(token_contents):
 
 
 class DjangoTagMigrationBuilder(object):
-    """Parses Django templates and creates test_migrations for each template.
+    """Parses Django templates and creates file migrations for each template.
 
     A migration is an object that describes the changes that need to be made
     in order to change a template file that uses the Django i18n syntax
