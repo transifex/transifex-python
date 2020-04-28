@@ -13,22 +13,22 @@ class TestMemoryCache(object):
         cache = MemoryCache()
         cache.update(
             {
-                'en': {
+                'en': (True, {
                     'table': {
                         'string': u'A table'
                     },
                     'chair': {
                         'string': u'A chair'
                     },
-                },
-                'el': {
+                }),
+                'el': (True, {
                     'table': {
                         'string': u'Ένα τραπέζι'
                     },
                     'chair': {
                         'string': u'Μια καρέκλα'
                     },
-                },
+                }),
             },
         )
         assert cache.get('table', 'en') == u'A table'
