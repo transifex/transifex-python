@@ -30,7 +30,7 @@ Install the Toolkit to your project
 pip install transifex-python
 ```
 
-# Transifex Setup
+## Transifex Setup
 Before you begin using the Toolkit, you will also need an account in [Transifex](https://www.transifex.com) and a project.
 To set a project compatible with this toolkit contact [support](https://www.transifex.com/contact/) and you
 will be given a set of credentials (a public token and a secret), that you can use in your code for authentication.
@@ -39,7 +39,8 @@ We will refer to these credentials in the text below as:
 - `project_secret` (used for pushing source content to Transifex)
 
 
-# Usage Scenarios
+# Use-case Scenarios
+
 ## Scenario 1: Integrate with a Django app
 
 - [Setup](#setup)
@@ -47,8 +48,6 @@ We will refer to these credentials in the text below as:
 - [Detailed usage](#detailed-usage)
   * [Internationalization in template code](#internationalization-in-template-code)
   * [Internationalization in Python code](#internationalization-in-python-code)
-  * [Metadata](#metadata)
-  * [Escaped & unescaped strings](#escaped--unescaped-strings)
   * [Fetching translations from Transifex](#fetching-translations-from-transifex)
   * [Uploading source content to Transifex](#uploading-source-content-to-transifex)
   * [Missing translations](#missing-translations)
@@ -195,7 +194,7 @@ template. The difference between the two tags will be addressed later, under
 <pre>{% t snippet.code  %}</pre>
 ```
 
-#### Inline and block syntax
+##### Inline and Block syntax
 
 Both template tags support two styles:
 
@@ -286,7 +285,7 @@ A more complex example, using nested rules, is the following:
 {% endt %}
 ```
 
-#### Parameters
+##### Parameters
 
 Context variables will be used to render ICU parameters in translations. For
 example, if you have a context variable called `username`, you can render the
@@ -324,7 +323,7 @@ Defining context makes it possible to distinguish between two identical source
 strings and disambiguate the translation.
 
 
-#### Saving the outcome to a variable
+##### Saving the outcome to a variable
 
 Using the `as <var_name>` suffix, instead of displaying the outcome of the
 translation, you will save it in a variable which you can later use however you
@@ -349,7 +348,7 @@ This also works for block syntax:
 {{ text }}
 ```
 
-#### Applying filters to the source string
+##### Applying filters to the source string
 
 Apart from using filters for parameters, you can also apply them on the source
 string:
@@ -389,7 +388,7 @@ prepend the filter(s) with `|`:
 {% endt %}
 ```
 
-#### XML escaping
+##### XML escaping
 
 Choosing between the `{% t %}` or the `{% ut %}` tags will determine whether
 you want to perform escaping on the **translation** (or the source string if a
@@ -464,7 +463,7 @@ toolkit comes with a django management command that acts as a sandbox for all
 combinations of tags, filters etc. You can invoke it with_
 `./manage.py transifex try-templatetag --interactive`
 
-#### Useful filters
+##### Useful filters
 
 1. `escapejs`
 
@@ -522,7 +521,7 @@ combinations of tags, filters etc. You can invoke it with_
    ```
 
 
-### Internationalization in Python code
+#### Internationalizing in Python code
 
 In order to mark translatable strings inside Python code, import a function and wrap your strings with it.
 
@@ -587,16 +586,12 @@ text = t("""
 )
 ```
 
-#### Metadata
+##### Metadata
 
 Along with the string and its contexts you can also send optional metadata that can support your localization flow:
 - `_comment`: A comment to the translators
 - `_charlimit`: The maximum length of characters for the translation
 - `_tags`: Comma separated _tags that accompany the source string
-
-```
-{% t "A string" _comment="Developer comment" _charlimit=30 _tags="t1,t2" %}
-```
 
 ```python
 t(
@@ -619,20 +614,12 @@ by reading about [character limits](https://docs.transifex.com/translation/tools
 [tags](https://docs.transifex.com/translation/tools-in-the-editor#section-tags) in Transifex documentation.
 
 
-#### Escaped & unescaped strings
+##### Escaping & unescaping strings
 
-Both the `{% t %}` template tag and the `t()` method escape HTML.
-
-If you want to display unescaped text, you can use `{% ut %}` and `ut()` respectively. This way, the source & translation string will **not** be escaped, however any variables that replace placeholders in the string will be escaped.
-Use the unescape tag and method carefully, because otherwise, you might be prone to XSS attacks.
-
-```html
-{% t "<script type="text/javascript">alert({name})</script>" name="<b>Joe</b>" %}
-# Renders as &lt;script type=&quot;text/javascript&quot;&gt;alert(&lt;b&gt;Joe&lt;/b&gt;)&lt;/script&gt;
-
-{% ut "<script type="text/javascript">alert({name})</script>" name="<b>Joe</b>" %}
-# Renders as <script type="text/javascript">alert(&lt;b&gt;Joe&lt;/b&gt;)</script>
-```
+The `t()` method escapes HTML. If you want to display unescaped text, you can
+use `ut()`. This way, the source & translation string will **not** be escaped,
+however any variables that replace placeholders in the string will be escaped.
+Use the method wisely, because otherwise, you might be prone to XSS attacks.
 
 ```python
 from transifex.native.django import t, ut
