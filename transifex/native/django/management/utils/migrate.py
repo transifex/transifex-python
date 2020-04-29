@@ -5,14 +5,14 @@ import os
 from django.conf import settings
 from django.core.management.utils import handle_extensions
 from transifex.native.django.management.common import TranslatableFile
+from transifex.native.django.management.utils.base import (CommandMixin,
+                                                           pretty_options)
 from transifex.native.django.tools.migrations.templatetags import \
     DjangoTagMigrationBuilder
 from transifex.native.tools.migrations.execution import (MARK_POLICY_OPTIONS,
                                                          REVIEW_POLICY_OPTIONS,
                                                          SAVE_POLICY_OPTIONS,
                                                          MigrationExecutor)
-
-from .base import CommandMixin, pretty_options
 
 MIGRATE_EXTENSIONS = ['html', 'txt', 'py']
 

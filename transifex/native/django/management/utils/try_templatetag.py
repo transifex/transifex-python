@@ -8,7 +8,7 @@ import sys
 from django.template import Context, Template
 from django.utils import translation
 from transifex.common.console import Color
-from transifex.native.django.management.commands.base import CommandMixin
+from transifex.native.django.management.utils.base import CommandMixin
 
 try:
     raw_input
