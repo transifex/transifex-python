@@ -386,7 +386,8 @@ def test_safe_and_escape_filter_on_block_ignored():
 
 def test_escaping_is_done_on_translation():
     hello_key = generate_key('hello', None)
-    tx._cache.update({'fr': {hello_key: {'string': "<xml>bonjour</xml>"}}})
+    tx._cache.update(
+        {'fr': (True, {hello_key: {'string': "<xml>bonjour</xml>"}})})
     assert (do_test('{% t "hello" %}', lang_code="fr") ==
             '&lt;xml&gt;bonjour&lt;/xml&gt;')
 
@@ -395,8 +396,15 @@ def test_source_filter_is_applied_on_translation():
     # 'hello' => 'bonjour', 'HELLO' => 'I like pancakes'
     hello_key = generate_key('hello', None)
     HELLO_key = generate_key('HELLO', None)
-    tx._cache.update({'fr': {hello_key: {'string': "bonjour"},
-                             HELLO_key: {'string': "I like pancakes"}}})
+    tx._cache.update(
+        {'fr': (
+            True,
+            {
+                hello_key: {'string': "bonjour"},
+                HELLO_key: {'string': "I like pancakes"}
+            }
+        )})
+
     assert do_test('{% t "hello"|upper %}', lang_code="fr") == "BONJOUR"
     # If the filter was applied on the source string, we would get
     # 'I like pancakes'

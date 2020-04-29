@@ -27,6 +27,21 @@ MAPPING = {
 }
 
 
+class EtagStore(object):
+    """ Manges etags """
+
+    # Probably we need to a duration policy here
+
+    def __init__(self):
+        self._mem = {}
+
+    def set(self, key, value):
+        self._mem[key] = value
+
+    def get(self, key):
+        return self._mem.get(key, '')
+
+
 class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
@@ -42,6 +57,7 @@ class CDSHandler(object):
         self.token = token
         self.secret = secret
         self.host = host or TRANSIFEX_CDS_HOST
+        self.etags = EtagStore()
 
     def fetch_languages(self):
         """Fetch the languages defined in the CDS for the specific project.
@@ -89,9 +105,12 @@ class CDSHandler(object):
 
     def fetch_translations(self, language_code=None):
         """Fetch all translations for the given organization/project/(resource)
-        associated with the current token.
+        associated with the current token. Returns a tuple of refresh flag and
+        a dictionary of the fetched translations per language.
+        Refresh flag is going to be true whenever fresh data has been acquired
+        false otherwise.
 
-        :return: a dictionary with all corresponding translations
+        :return: a dictionary of (refresh_flag, translations) tuples
         :rtype: dict
         """
 
@@ -108,10 +127,15 @@ class CDSHandler(object):
 
             for language_code in set(languages) & \
                     set(self.configured_language_codes):
+
+                req_headers = {"Authorization": "Bearer {token}".format(
+                    token=self.token),
+                    "If-None-Match": self.etags.get(language_code)
+                }
+
                 response = requests.get(
                     self.host + cds_url.format(language_code=language_code),
-                    headers={"Authorization": "Bearer {token}".format(
-                        token=self.token)}
+                    headers=req_headers
                 )
 
                 if not response.ok:
@@ -122,8 +146,16 @@ class CDSHandler(object):
                     )
                     response.raise_for_status()
 
-                json_content = response.json()
-                translations[language_code] = json_content['data']
+                # etags indicate that no translation have been updated
+                if response.status_code == 304:
+                    translations[language_code] = (False, {})
+                else:
+                    self.etags.set(
+                        language_code, response.headers.get('ETag', ''))
+                    json_content = response.json()
+                    translations[language_code] = (
+                        True, json_content['data']
+                    )
 
         except (KeyError, ValueError):
             # Compatibility with python2.7 where `JSONDecodeError` doesn't exist

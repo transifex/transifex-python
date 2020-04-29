@@ -201,22 +201,22 @@ class TestCDSHandler(object):
 
         resp = cds_handler.fetch_translations()
         assert resp == {
-            'el': {
+            'el': (True, {
                 'key1': {
                     'string': 'key1_el'
                 },
                 'key2': {
                     'string': 'key2_el'
                 },
-            },
-            'en': {
+            }),
+            'en': (True, {
                 'key1': {
                     'string': 'key1_en'
                 },
                 'key2': {
                     'string': 'key2_en'
                 },
-            }
+            })
         }
         responses.reset()
 
@@ -253,14 +253,14 @@ class TestCDSHandler(object):
 
         resp = cds_handler.fetch_translations(language_code='el')
         assert resp == {
-            'el': {
+            'el': (True, {
                 'key1': {
                     'string': 'key1_el'
                 },
                 'key2': {
                     'string': 'key2_el'
                 },
-            }
+            })
         }
         responses.reset()
         assert patched_logger.error.call_count == 0
@@ -270,6 +270,77 @@ class TestCDSHandler(object):
         patched_logger.error.assert_called_with(
             'Error retrieving translations from CDS: ConnectionError'
         )
+
+    @responses.activate
+    @patch('transifex.native.cds.logger')
+    def test_fetch_translations_etags_management(self, patched_logger):
+
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+            host=cds_host
+        )
+
+        # add response for languages
+        responses.add(
+            responses.GET, cds_host + '/languages',
+            json={
+                "data": [
+                    {
+                        "code": "el",
+                    },
+                    {
+                        "code": "en",
+                    },
+                ],
+                "meta": {
+                    "some_key": "some_value"
+                }
+            }, status=200
+        )
+
+        # add response for translations
+        responses.add(
+            responses.GET, cds_host + '/content/el',
+            json={
+                'data': {
+                    'key1': {
+                        'string': 'key1_el'
+                    },
+                    'key2': {
+                        'string': 'key2_el'
+                    },
+                },
+                'meta': {
+                    "some_key": "some_value"
+                }
+            },
+            status=200,
+            headers={'ETag': 'some_unique_tag_is_here'}
+        )
+
+        responses.add(
+            responses.GET, cds_host + '/content/en',
+            json={
+                # whatever, we don't care about the content of json repsone atm.
+            },
+            status=304
+        )
+
+        resp = cds_handler.fetch_translations()
+        assert resp == {
+            'el': (True, {
+                'key1': {
+                    'string': 'key1_el'
+                },
+                'key2': {
+                    'string': 'key2_el'
+                },
+            }),
+            'en': (False, {})
+        }
+        assert cds_handler.etags.get('el') == 'some_unique_tag_is_here'
 
     def test_push_source_strings_no_secret(self):
         cds_handler = CDSHandler(

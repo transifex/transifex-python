@@ -32,16 +32,20 @@ class AbstractCache(object):
 
         where `data` is expected to be structured like:
         {
-            'fr': {
+            'fr': (True, {
                 'key1': '...',
                 'key2': '...',
-            },
-            'de': {
+            }),
+            'de': (True, {
                 'key1': '...',
                 'key2': '...',
                 'key3': '...',
-            },
+            }),
+            'gr': (False, {}),
         }
+
+        Hint: the boolean values in the tuples above refer to whether local
+        cache should be updated or not
 
         :param dict data: the translation data
         """
@@ -60,11 +64,16 @@ class MemoryCache(AbstractCache):
         :param dict data: the data to use in the cache, formatted as
             explained in AbstractCache.update()
         """
-        for lang_code, translations in data.items():
-            self._translations_by_lang[lang_code] = {
-                'translations': translations,
-                'last_update': now()
-            }
+        for lang_code, data in data.items():
+            should_update, translations = data
+            if should_update:
+                self._translations_by_lang[lang_code] = {
+                    'translations': translations,
+                    'last_update': now()
+                }
+            else:
+                # updated existing records to be aligned
+                self._translations_by_lang[lang_code]['last_update'] = now()
 
     def get(self, key, language_code):
         retrieved_translation = None
