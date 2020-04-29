@@ -47,10 +47,10 @@ There are {counter} {name} objects.
 """
 HTML_COMPILED_1 = TRANSIFEX_TEMPLATE
 
-PATH_FIND_FILES = 'transifex.native.django.management.commands' \
-                  '.base.CommandMixin._find_files'
-PATH_READ_FILE = 'transifex.native.django.management.commands' \
-                 '.base.CommandMixin._read_file'
+PATH_FIND_FILES = ('transifex.native.django.management.utils.base.'
+                   'CommandMixin._find_files')
+PATH_READ_FILE = ('transifex.native.django.management.utils.base.CommandMixin.'
+                  '_read_file')
 PATH_PROMPT_FILE = 'transifex.native.tools.migrations.review.ReviewPolicy' \
                    '.prompt_for_file'
 PATH_PROMPT_STRING = 'transifex.native.tools.migrations.review' \

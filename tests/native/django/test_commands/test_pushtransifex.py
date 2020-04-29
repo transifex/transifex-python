@@ -22,16 +22,16 @@ HTML_TEMPLATE = u"""
 {content}
 """
 
-PATH_FIND_FILES = 'transifex.native.django.management.commands' \
-                  '.base.CommandMixin._find_files'
-PATH_READ_FILE = 'transifex.native.django.management.commands' \
-                 '.base.CommandMixin._read_file'
-PATH_EXTRACT_STRINGS = 'transifex.native.django.management.commands' \
-    '.push.Push._extract_strings'
-PATH_PUSH_STRINGS = 'transifex.native.django.management.commands' \
-                    '.push.tx.push_source_strings'
-PATH_PUSH_STRINGS2 = 'transifex.native.django.management.commands' \
-    '.push.Push.push_strings'
+PATH_FIND_FILES = ('transifex.native.django.management.utils.base.'
+                   'CommandMixin._find_files')
+PATH_READ_FILE = ('transifex.native.django.management.utils.base.CommandMixin.'
+                  '_read_file')
+PATH_EXTRACT_STRINGS = ('transifex.native.django.management.utils.push.Push.'
+                        '_extract_strings')
+PATH_PUSH_STRINGS = ('transifex.native.django.management.utils.push.tx.'
+                     'push_source_strings')
+PATH_PUSH_STRINGS2 = ('transifex.native.django.management.utils.push.Push.'
+                      'push_strings')
 
 
 @mock.patch(PATH_FIND_FILES)

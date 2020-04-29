@@ -8,11 +8,10 @@ from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
 from transifex.native import tx
 from transifex.native.django.management.common import SourceStringCollection
+from transifex.native.django.management.utils.base import CommandMixin
 from transifex.native.django.utils.templates import \
     extract_transifex_template_strings
 from transifex.native.parsing import Extractor
-
-from .base import CommandMixin
 
 
 class Push(CommandMixin):

@@ -1,10 +1,10 @@
 from __future__ import absolute_import, unicode_literals
 
 from django.core.management import BaseCommand, CommandParser
-
-from .migrate import Migrate
-from .push import Push
-from .try_templatetag import TryTemplatetag
+from transifex.native.django.management.utils.migrate import Migrate
+from transifex.native.django.management.utils.push import Push
+from transifex.native.django.management.utils.try_templatetag import \
+    TryTemplatetag
 
 
 class Command(BaseCommand):
