@@ -37,7 +37,7 @@ def now():
 
     :rtype: datetime
     """
-    return datetime.utcnow().replace(tzinfo=pytz.utc)
+    return datetime.utcnow().replace(tzinfo=pytz.utc)  # pragma no cover
 
 
 def import_to_python(import_str):

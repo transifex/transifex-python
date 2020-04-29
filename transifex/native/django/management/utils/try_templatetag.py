@@ -15,7 +15,7 @@ try:
 except NameError:
     pass
 else:
-    input = raw_input  # noqa
+    input = raw_input  # pragma no cover  # noqa
 
 
 def fancy_input(text, *choices):

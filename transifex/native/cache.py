@@ -64,16 +64,11 @@ class MemoryCache(AbstractCache):
         :param dict data: the data to use in the cache, formatted as
             explained in AbstractCache.update()
         """
-        for lang_code, data in data.items():
-            should_update, translations = data
+        for lang_code, (should_update, translations) in data.items():
             if should_update:
                 self._translations_by_lang[lang_code] = {
                     'translations': translations,
-                    'last_update': now()
                 }
-            else:
-                # updated existing records to be aligned
-                self._translations_by_lang[lang_code]['last_update'] = now()
 
     def get(self, key, language_code):
         retrieved_translation = None
