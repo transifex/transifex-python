@@ -209,7 +209,10 @@ class TNode(Node):
         )
         if self.tag_name == "t":
             source_icu_template = escape_html(source_icu_template)
-            translation_icu_template = escape_html(translation_icu_template)
+            if translation_icu_template is not None:
+                translation_icu_template = escape_html(
+                    translation_icu_template
+                )
 
         result = tx.render_translation(translation_icu_template, params,
                                        source_icu_template, locale,
