@@ -45,6 +45,14 @@ There are {{ counter }} {{ name }} objects.
 {% blocktrans %}
     try with <xml>xml</xml>
 {% endblocktrans %}
+
+{% comment "Optional note" %}
+    <p>Commented out text with {{ create_date|date:"c" }}</p>
+{% endcomment %}
+{# This is not related to translations #}
+{% something %}
+{% comment %}This is a non-translator comment{% endcomment %}
+{% comment %}Translators: This is an orphan translator comment{% endcomment %}
 """
 
 TRANSIFEX_TEMPLATE = """
@@ -91,6 +99,13 @@ There are {counter} {name} objects.
 {% ut %}
     try with <xml>xml</xml>
 {% endut %}
+
+{% comment "Optional note" %}
+    <p>Commented out text with {{ create_date|date:"c" }}</p>
+{% endcomment %}
+{# This is not related to translations #}
+{% something %}
+{% comment %}This is a non-translator comment{% endcomment %}
 """
 
 

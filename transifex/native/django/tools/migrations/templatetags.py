@@ -268,11 +268,15 @@ class DjangoTagMigrationBuilder(object):
 
         # A comment tag was found, so we need to retrieve the comment text
         # e.g. {# Translators: Do this and that #}
+        # If it's a generic (non-translator) comment, ignore
         elif token.token_type == TOKEN_COMMENT:
-            self._comment = _retrieve_comment(token.contents)
-            self._current_string_migration = StringMigration(
-                original_string, '')
-            return None, None
+            comment = _retrieve_comment(token.contents)
+
+            if comment:
+                self._comment = comment
+                self._current_string_migration = StringMigration(
+                    original_string, '')
+                return None, None
 
         # A variable was found; copy as is
         elif token.token_type == TOKEN_VAR:
@@ -372,23 +376,30 @@ class DjangoTagMigrationBuilder(object):
         elif tag_name == templates.ENDWITH_TAG:
             self._with_kwargs.pop()
 
-        # A {% comment %} tag was found; expect the actual
-        # comment text to follow shortly
+        # A {% comment %} tag was found; If this is a translation comment,
+        # expect the actual comment text to follow shortly
         elif tag_name == templates.COMMENT_TAG:
-            self._comment = COMMENT_FOUND
-            # Create a string migration and start keeping track
-            # of all the strings that will be migrated
-            # within the following set of tokens that apply
-            self._current_string_migration = StringMigration(
-                original_string, '')
-            return None, None
-        # An {% endcomment %} tag was found; no need to do anything special,
-        # just make sure to record that the tag is removed from the migrated
-        # result
+            next_token = parser.tokens[0] if parser.tokens else None
+            if next_token.token_type == TOKEN_TEXT:
+                comment = _retrieve_comment(next_token.contents)
+                if comment:
+                    self._comment = COMMENT_FOUND
+                    # Create a string migration and start keeping track
+                    # of all the strings that will be migrated
+                    # within the following set of tokens that apply
+                    self._current_string_migration = StringMigration(
+                        original_string, '')
+                    return None, None
+
+        # An {% endcomment %} tag was found
         elif tag_name == templates.ENDCOMMENT_TAG:
-            if self._current_string_migration:
-                self._current_string_migration.update(original_string, '')
-            return None, None
+            # No need to do anything special, just make sure to record
+            # that the tag is removed from the migrated result
+            # If a translation comment wasn't open, ignore it
+            if self._comment is not None:
+                if self._current_string_migration:
+                    self._current_string_migration.update(original_string, '')
+                return None, None
 
         # A {% trans %} tag was found
         elif tag_name in templates.TRANSLATE_TAGS:
