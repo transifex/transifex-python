@@ -4,6 +4,7 @@ from django.template import Context, Template
 from django.utils import translation
 from transifex.common.utils import generate_key
 from transifex.native import tx
+from transifex.native.rendering import SourceStringPolicy
 
 
 def do_test(template_str, context_dict=None, autoescape=True,
@@ -382,6 +383,26 @@ def test_safe_and_escape_filter_on_block_ignored():
                     {'var': "<xml>world</xml>"},
                     autoescape=True) ==
             '&lt;xml&gt;hello&lt;/xml&gt; &lt;xml&gt;world&lt;/xml&gt;')
+
+
+def test_translates():
+    hello_key = generate_key('hello', None)
+    tx._cache.update({'fr': (True, {hello_key: {'string': "bonjour"}})})
+    assert do_test('{% t "hello" %}', lang_code="fr") == "bonjour"
+
+
+def test_translation_missing():
+    old_missing_policy = tx._missing_policy
+    tx._missing_policy = SourceStringPolicy()
+
+    tx._cache._translations_by_lang = {}
+    assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
+
+    hello_key = generate_key('hello', None)
+    tx._cache.update({'fr': (True, {hello_key: {'string': None}})})
+    assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
+
+    tx._missing_policy = old_missing_policy
 
 
 def test_escaping_is_done_on_translation():
