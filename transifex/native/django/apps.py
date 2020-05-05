@@ -94,7 +94,11 @@ class NativeConfig(AppConfig):
             )
             tx.fetch_translations()
             logger.info('Starting daemon for OTA translations update')
-            daemon.start_daemon()
+
+            sync_interval = native_settings.TRANSIFEX_SYNC_INTERVAL or 10*60
+            daemon.start_daemon(
+                interval=sync_interval
+            )
             request_finished.connect(daemon.is_daemon_running)
         else:
             logger.info(

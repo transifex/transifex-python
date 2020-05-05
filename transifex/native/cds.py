@@ -118,16 +118,15 @@ class CDSHandler(object):
 
         translations = {}
 
-        try:
+        if not language_code:
+            languages = [lang['code'] for lang in self.fetch_languages()]
+        else:
+            languages = [language_code]
 
-            if not language_code:
-                languages = [lang['code'] for lang in self.fetch_languages()]
-            else:
-                languages = [language_code]
+        for language_code in set(languages) & \
+                set(self.configured_language_codes):
 
-            for language_code in set(languages) & \
-                    set(self.configured_language_codes):
-
+            try:
                 req_headers = {"Authorization": "Bearer {token}".format(
                     token=self.token),
                     "If-None-Match": self.etags.get(language_code)
@@ -157,19 +156,22 @@ class CDSHandler(object):
                         True, json_content['data']
                     )
 
-        except (KeyError, ValueError):
-            # Compatibility with python2.7 where `JSONDecodeError` doesn't exist
-            logger.error(
-                'Error retrieving translations from CDS: Malformed response')
-        except requests.ConnectionError:
-            logger.error(
-                'Error retrieving translations from CDS: ConnectionError')
-        except Exception as e:
-            logger.error(
-                'Error retrieving translations from CDS: UnknownError (`{}`)'.format(
-                    str(e)
-                )
-            )
+            except (KeyError, ValueError):
+                # Compatibility with python2.7 where `JSONDecodeError` doesn't exist
+                logger.error(
+                    'Error retrieving translations from CDS: Malformed response')  # pragma no cover
+                translations[language_code] = (False, {})  # pragma no cover
+            except requests.ConnectionError:
+                logger.error(
+                    'Error retrieving translations from CDS: ConnectionError')
+                translations[language_code] = (False, {})
+            except Exception as e:
+                logger.error(
+                    'Error retrieving translations from CDS: UnknownError (`{}`)'.format(
+                        str(e)
+                    )
+                )  # pragma no cover
+                translations[language_code] = (False, {})
 
         return translations
 

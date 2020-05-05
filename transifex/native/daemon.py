@@ -13,7 +13,7 @@ class DaemonicThread(threading.Thread):
     daemon = True
     should_exit = False
 
-    def start_daemon(self, interval=10):
+    def start_daemon(self, interval):
         """Start the daemon.
 
         Calls `threading.Thread.start()` to schedule execution in a different thread.

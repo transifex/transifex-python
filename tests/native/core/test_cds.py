@@ -3,6 +3,7 @@ from operator import itemgetter
 import pytest
 import responses
 from mock import patch
+from requests import ConnectionError as CdsConnectionError
 from transifex.native.cds import CDSHandler
 from transifex.native.parsing import SourceString
 
@@ -142,7 +143,7 @@ class TestCDSHandler(object):
     def test_fetch_translations(self, patched_logger):
         cds_host = 'https://some.host'
         cds_handler = CDSHandler(
-            ['el', 'en'],
+            ['el', 'en', 'fr'],
             'some_token',
             host=cds_host
         )
@@ -157,6 +158,9 @@ class TestCDSHandler(object):
                     },
                     {
                         "code": "en",
+                    },
+                    {
+                        "code": "fr",
                     },
                 ],
                 "meta": {
@@ -199,6 +203,11 @@ class TestCDSHandler(object):
             }, status=200
         )
 
+        # add response bad status response for a language here
+        responses.add(
+            responses.GET, cds_host + '/content/fr', status=404
+        )
+
         resp = cds_handler.fetch_translations()
         assert resp == {
             'el': (True, {
@@ -216,11 +225,13 @@ class TestCDSHandler(object):
                 'key2': {
                     'string': 'key2_en'
                 },
-            })
+            }),
+            'fr': (False, {})  # that is due to the error status in response
         }
+
         responses.reset()
 
-        # test fetch_languages fails
+        # test fetch_languages fails with connection error
         responses.add(responses.GET, cds_host + '/languages', status=500)
         resp = cds_handler.fetch_translations()
         assert resp == {}
@@ -270,6 +281,7 @@ class TestCDSHandler(object):
         patched_logger.error.assert_called_with(
             'Error retrieving translations from CDS: ConnectionError'
         )
+        assert resp == {'el': (False, {})}
 
     @responses.activate
     @patch('transifex.native.cds.logger')

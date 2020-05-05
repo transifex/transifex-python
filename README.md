@@ -73,6 +73,7 @@ USE_L10N = True
 # as found in the Transifex UI under your project
 TRANSIFEX_TOKEN = <project_token>  # used for pulling translations from Transifex
 TRANSIFEX_SECRET = <project_secret>  # used for pushing source content to Transifex
+TRANSIFEX_SYNC_INTERVAL = <seconds> # used for defining the daemon running interval in seconds
 ```
 
 A list of supported language codes is available [here](https://www.transifex.com/explore/languages/) and should
@@ -785,7 +786,7 @@ TRANSIFEX_ERROR_POLICY = (
 You can implement your own error policies. The interface can mimic the one described in `AbstractErrorPolicy`, and it is suggest to subclass this for your implementation. The structure & configuration options of error policies mimic the way missing policies are implemented, so you can take a look there as well for inspiration.
 
 ## Scenario 2: Use Transifex Native as a python library
-A sample usage of the library is given below where we initialize it and call it's `translate()` method to get a translation: 
+A sample usage of the library is given below where we initialize it and call it's `translate()` method to get a translation:
 
 ```python
 from __future__ import absolute_import
@@ -795,7 +796,7 @@ from transifex.native import init, tx
 # en (source language) and el, fr translations
 init('project_token', ['el', 'fr', 'en'], ), 'project_secret')
 # populate toolkit memory cache with translations from CDS service the first time
-tx.fetch_translations() 
+tx.fetch_translations()
 # get a translation of your project strings, the translation is served from cache
 el_translation = tx.translate('my source string', 'el')
 print(el_translation)
@@ -830,7 +831,7 @@ init('project_token', ['el', 'fr', 'en'], ), 'project_secret',
      missing_policy=PseudoTranslationPolicy(),
      error_policy=SourceStringErrorPolicy())
 ```
-The available missing policies are `SourceStringPolicy, PseudoTranslationPolicy, WrappedStringPolicy, ExtraLengthPolicy, ChainedPolicy`. For details please look into `transifex.native.rendering` package for all classes that inherit `AbstractRenderingPolicy`. The same package contains the available error policies. Of course you can base on these policies and extend them to cater for your needs. 
+The available missing policies are `SourceStringPolicy, PseudoTranslationPolicy, WrappedStringPolicy, ExtraLengthPolicy, ChainedPolicy`. For details please look into `transifex.native.rendering` package for all classes that inherit `AbstractRenderingPolicy`. The same package contains the available error policies. Of course you can base on these policies and extend them to cater for your needs.
 
 We saw that to force fetching all translations from the CDS we called:
 ```python
@@ -849,16 +850,16 @@ Finally let's use the Toolkit to push source strings to Transifex:
 ```python
 from transifex.native.parsing import SourceString
 # construct a list of strings to send
-source1 = SourceString(u'Hello stranger', 
+source1 = SourceString(u'Hello stranger',
             _context=u'one,two,three',
             _comment=u'A crucial comment',
             _charlimit=33,
             _tags=u' t1,t2 ,  t3')
-source2 = SourceString(u'Hello stranger', 
+source2 = SourceString(u'Hello stranger',
             _context=u'context1,context2,context3',
             _tags=' t1,t2')
-source3 = SourceString(u'{cnt, plural, one {{cnt} {gender} duck} other {{cnt} {gender} ducks}}') 
-# use purge=True only if you want to delete all other Transifex strings 
+source3 = SourceString(u'{cnt, plural, one {{cnt} {gender} duck} other {{cnt} {gender} ducks}}')
+# use purge=True only if you want to delete all other Transifex strings
 # except the ones we send. Alternatively all push strings are appended
 # to those existing in Tx.
 response_code, response_content = tx.push_source_strings([source1, source2, source3], purge=True)
