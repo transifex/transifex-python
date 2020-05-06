@@ -1,6 +1,5 @@
-import sys
-
 from mock import mock_open, patch
+from transifex.common._compat import BUILTINS_MODULE
 from transifex.native.tools.migrations.models import (FileMigration,
                                                       StringMigration)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
@@ -8,8 +7,6 @@ from transifex.native.tools.migrations.save import (BackupSavePolicy,
                                                     NoopSavePolicy,
                                                     ReplaceSavePolicy,
                                                     SavePolicy)
-
-BUILTINS_MODULE = 'builtins' if sys.version_info >= (3, 0) else '__builtin__'
 
 
 def _file_migration():

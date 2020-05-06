@@ -4,7 +4,7 @@ import ast
 import re
 from collections import namedtuple
 
-from six import string_types
+from transifex.common._compat import string_types
 from transifex.common.utils import generate_key, make_hashable
 from transifex.native import consts
 from transifex.native.consts import KEY_CONTEXT

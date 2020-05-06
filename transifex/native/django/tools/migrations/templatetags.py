@@ -6,13 +6,13 @@ https://docs.djangoproject.com/en/1.11/topics/i18n/translation/
 
 from __future__ import unicode_literals
 
-import six
 from django.template.base import (TOKEN_COMMENT, TOKEN_TEXT, TOKEN_VAR,
                                   TRANSLATOR_COMMENT_MARK, DebugLexer, Parser)
 from django.template.defaulttags import token_kwargs
 from django.templatetags.i18n import do_block_translate, do_translate
 from django.utils.encoding import force_text
 from django.utils.html import escape as escape_html
+from transifex.common._compat import string_types, text_type
 from transifex.native.django.utils import templates
 from transifex.native.django.utils.templates import find_filter_identity
 from transifex.native.tools.migrations.models import (Confidence,
@@ -35,7 +35,7 @@ def _render_params(params):
     result = []
     for key, value in sorted(params.items(), key=lambda i: i[0]):
         if value and value != COMMENT_FOUND:
-            result.append('='.join((key, six.text_type(value))))
+            result.append('='.join((key, text_type(value))))
     return ' '.join(result)
 
 
@@ -435,11 +435,11 @@ class DjangoTagMigrationBuilder(object):
         # attempt changes it in any way.
         # eg `{% trans "a b" %}`            => `{% t "a b" %}`
         #    `{% trans "<xml>a</xml> b" %}` => `{% ut "<xml>a</xml> b" %}`
-        if isinstance(trans_node.filter_expression.var, six.string_types):
+        if isinstance(trans_node.filter_expression.var, string_types):
             literal = trans_node.filter_expression.var
         else:
             literal = trans_node.filter_expression.var.literal
-        if (isinstance(literal, six.string_types) and
+        if (isinstance(literal, string_types) and
                 escape_html(literal) != literal):
             tag_name = "ut"
         else:

@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
-import six
 from django.template.base import TOKEN_BLOCK, Lexer, Parser
 from django.utils.encoding import force_text
+from transifex.common._compat import string_types
 from transifex.native.django.templatetags.transifex import do_t
 from transifex.native.parsing import SourceString
 
@@ -43,13 +43,13 @@ def tnode_to_source_string(tnode):
         transifex.
     """
 
-    if not isinstance(tnode.source_string.var, six.string_types):
+    if not isinstance(tnode.source_string.var, string_types):
         return None
     meta = {}
     for key, value in tnode.params.items():
         if len(value.filters) != 0:
             continue
-        if isinstance(value.var, six.string_types):
+        if isinstance(value.var, string_types):
             meta[key] = value.var
         elif getattr(value.var, 'literal', None) is not None:
             meta[key] = value.var.literal

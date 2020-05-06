@@ -5,8 +5,8 @@ import xml.sax.saxutils as saxutils
 from math import ceil
 
 from pyseeyou import format
-from six import string_types
-from transifex.common.utils import import_to_python, unicode_compat
+from transifex.common._compat import string_types, text_type
+from transifex.common.utils import import_to_python
 
 logger = logging.getLogger('transifex.rendering')
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -171,7 +171,7 @@ class PseudoTranslationPolicy(AbstractRenderingPolicy):
 
         :rtype: unicode
         """
-        return unicode_compat(source_string).translate(PseudoTranslationPolicy.TABLE)
+        return text_type(source_string).translate(PseudoTranslationPolicy.TABLE)
 
 
 class WrappedStringPolicy(AbstractRenderingPolicy):
