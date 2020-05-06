@@ -72,8 +72,7 @@ class CDSHandler(object):
         try:
             response = requests.get(
                 self.host + cds_url,
-                headers={"Authorization": "Bearer {token}".format(
-                    token=self.token)}
+                headers=self._get_headers(),
             )
 
             if not response.ok:
@@ -127,14 +126,11 @@ class CDSHandler(object):
                 set(self.configured_language_codes):
 
             try:
-                req_headers = {"Authorization": "Bearer {token}".format(
-                    token=self.token),
-                    "If-None-Match": self.etags.get(language_code)
-                }
-
                 response = requests.get(
                     self.host + cds_url.format(language_code=language_code),
-                    headers=req_headers
+                    headers=self._get_headers(
+                        etag=self.etags.get(language_code)
+                    )
                 )
 
                 if not response.ok:
@@ -198,9 +194,7 @@ class CDSHandler(object):
         try:
             response = requests.post(
                 self.host + cds_url,
-                headers={"Authorization": "Bearer {token}:{secret}".format(
-                    token=self.token, secret=self.secret)
-                },
+                headers=self._get_headers(use_secret=True),
                 json={
                     'data': data,
                     'meta': {'purge': purge},
@@ -240,3 +234,24 @@ class CDSHandler(object):
             data['meta']['context'] = source_string.context
 
         return source_string.key, data
+
+    def _get_headers(self, use_secret=False, etag=None):
+        """Return the headers to use when making requests.
+
+        :param bool use_secret: if True, the Bearer authorization header
+            will also include the secret, otherwise it will only use the token
+        :param str etag: an optional etag to include
+        :return: a dictionary with all headers
+        :rtype: dict
+        """
+        headers = {
+            'Authorization': 'Bearer {token}{secret}'.format(
+                token=self.token,
+                secret=(':' + self.secret if use_secret else '')
+            ),
+            'Accept-Encoding': 'gzip',
+        }
+        if etag:
+            headers['If-None-Match'] = etag
+
+        return headers
