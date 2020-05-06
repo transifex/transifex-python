@@ -44,8 +44,6 @@ class GettextMethods(object):
     For each 3rd-party framework that uses gettext for localization, we need
     to pass different paths and arguments, so that calls to these methods
     are properly migrated.
-
-    It also contains
     """
 
     def __init__(self, **kwargs):
