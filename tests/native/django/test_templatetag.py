@@ -38,6 +38,15 @@ def test_simple():
     assert do_test('{% t "hello world" %}') == "hello world"
 
 
+def test_equal_sign():
+    # '=' in first arg means parameter and thus block syntax
+    assert do_test('{% t var="world" %}hello {var}{% endt %}') == "hello world"
+
+    # '=' in first arg when first arg is a string literal means it is not a
+    # parameter and thus inline syntax
+    assert do_test('{% t "hello=world" %}') == "hello=world"
+
+
 def test_escaping_with_t_tag_and_autoescape():
     # t-tag and autoescape means both XMLs are escaped
     assert (do_test('{% t "<xml>hello</xml> {var}" %}',

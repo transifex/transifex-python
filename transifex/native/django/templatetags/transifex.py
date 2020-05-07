@@ -61,8 +61,14 @@ def do_t(parser, token):
     has_args = bool(bits)
     # {% t |escapejs ... %} ... {% endt %}
     first_arg_is_filter = has_args and bits[0].startswith('|')
+    # {% t "hello world" ... %}
+    first_arg_is_string_literal = (has_args and
+                                   bits[0][0] in ('"', "'") and
+                                   bits[0][0] == bits[0][-1])
     # {% t var=var ... %}
-    first_arg_is_param = has_args and '=' in bits[0]
+    first_arg_is_param = (has_args and
+                          not first_arg_is_string_literal and
+                          '=' in bits[0])
     # {% t as text %}
     first_arg_is_as = has_args and bits[0] == "as"
 
