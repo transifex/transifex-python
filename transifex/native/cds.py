@@ -3,7 +3,8 @@ import sys
 
 import requests
 from transifex.native.consts import (KEY_CHARACTER_LIMIT,
-                                     KEY_DEVELOPER_COMMENT, KEY_TAGS)
+                                     KEY_DEVELOPER_COMMENT, KEY_OCCURRENCES,
+                                     KEY_TAGS)
 
 TRANSIFEX_CDS_HOST = 'https://cds.svc.transifex.net'
 
@@ -24,6 +25,7 @@ MAPPING = {
     KEY_DEVELOPER_COMMENT: 'developer_comment',
     KEY_CHARACTER_LIMIT: 'character_limit',
     KEY_TAGS: 'tags',
+    KEY_OCCURRENCES: 'occurrences',
 }
 
 

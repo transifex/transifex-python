@@ -4,7 +4,7 @@ from django.template.base import TOKEN_BLOCK, Lexer, Parser
 from django.utils.encoding import force_text
 from transifex.common._compat import string_types
 from transifex.native.django.templatetags.transifex import do_t
-from transifex.native.parsing import SourceString
+from transifex.native.parsing import SourceString, consts
 
 # Django template consts
 LOAD_TAG = 'load'
@@ -42,7 +42,6 @@ def tnode_to_source_string(tnode):
         object which exposes information in a useful way for pushing to
         transifex.
     """
-
     if not isinstance(tnode.source_string.var, string_types):
         return None
     meta = {}
@@ -86,6 +85,9 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
                 token.split_contents()[0] in ('t', 'ut')):
             tnode = do_t(parser, token)
             source_string = tnode_to_source_string(tnode)
+            if token.lineno and origin:
+                source_string.occurrences = [
+                    "{}:{}".format(origin, token.lineno)]
             if source_string is None:
                 continue
 

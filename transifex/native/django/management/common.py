@@ -47,6 +47,8 @@ class SourceStringCollection(object):
         key = generate_key(source_string.string, source_string.context)
         if key not in self.strings:
             self.strings[key] = source_string
+        else:
+            self.strings[key].occurrences = source_string.occurrences
 
     def extend(self, source_strings):
         """Add multiple strings to the collection.

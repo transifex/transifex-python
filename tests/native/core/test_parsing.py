@@ -81,8 +81,20 @@ class TestExtractor(object):
             call1='_m1.module2.module3.myfunc',
             call2='_m1.module2.module3.myfunc',
         )
+
+        # mocking gets a little bit different here shifting occurrences
+        expected = [
+            SourceString(u'Le canapé', u'désign',
+                         param1='1', param2=2, param3=True,
+                         _occurrences=['myfile.py:6']),
+            SourceString(
+                u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
+                _charlimit=33, _occurrences=['myfile.py:7']
+            ),
+        ]
+
         results = ex.extract_strings(src, 'myfile.py')
-        assert results == self._strings()
+        assert results == expected
 
     def test_exceptions_on_import(self):
         src = TEMPLATE.format(
@@ -120,9 +132,10 @@ class TestExtractor(object):
     def _strings(self):
         return [
             SourceString(u'Le canapé', u'désign',
-                         param1='1', param2=2, param3=True),
+                         param1='1', param2=2, param3=True,
+                         _occurrences=['myfile.py:8'], ),
             SourceString(
                 u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
-                _charlimit=33,
+                _charlimit=33, _occurrences=['myfile.py:9'],
             ),
         ]

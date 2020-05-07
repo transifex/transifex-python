@@ -1,11 +1,12 @@
 -r base.txt
 
 autopep8
+codecov
 # Pinned, waiting for a fix for https://github.com/nedbat/coveragepy/issues/883
 coverage==4.5.4
+ipdb
 mock
 pre-commit==1.21.0
 pytest
 pytest-cov
 responses
-codecov

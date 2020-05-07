@@ -88,7 +88,6 @@ class Push(CommandMixin):
             self.stats['processed_files'] += 1
             if extracted and len(extracted):
                 self.stats['strings'].append((f.file, len(extracted)))
-
         self._show_collect_results()
 
     def push_strings(self):
@@ -131,7 +130,6 @@ class Push(CommandMixin):
             return None
 
         _, extension = os.path.splitext(translatable_file.file)
-
         # Python file
         if extension == '.py':
             return self.python_extractor.extract_strings(

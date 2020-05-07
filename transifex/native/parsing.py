@@ -7,7 +7,7 @@ from collections import namedtuple
 from transifex.common._compat import string_types
 from transifex.common.utils import generate_key, make_hashable
 from transifex.native import consts
-from transifex.native.consts import KEY_CONTEXT
+from transifex.native.consts import KEY_CONTEXT, KEY_OCCURRENCES
 
 # PEP 263 magic comment for source code encodings
 # e.g. "# -*- coding: <encoding name> -*-"
@@ -32,7 +32,7 @@ class SourceString(object):
     def __init__(self, string, _context=None, **meta):
         """Constructor.
 
-        :param unicode string: the source string
+        :param unicode string: the source string  # check ./consts.py
         :param unicode _context: an optional context that accompanies
             the source string
         """
@@ -43,6 +43,18 @@ class SourceString(object):
             else None
         )  # type: list
         self.meta = self._transform_meta(meta)
+
+    @property
+    def occurrences(self):
+        """An optional occurrence field, shows were the string is located
+
+        :rtype: unicode
+        """
+        return self.meta.get(consts.KEY_OCCURRENCES, [])
+
+    @occurrences.setter
+    def occurrences(self, value):
+        self.meta.setdefault(consts.KEY_OCCURRENCES, []).extend(value)
 
     @property
     def developer_comment(self):
@@ -152,11 +164,18 @@ class Extractor(object):
             tree = ast.parse(src)
             visitor = CallDetectionVisitor(self._functions)
             visitor.visit(tree)
-            return parse_source_strings(visitor.function_calls)
+            source_strings, linenos = parse_source_strings(
+                visitor.function_calls)
+            # add file path to the string occurrence along with already
+            # included number
         except Exception as e:
             # Store an exception for this particular file
             self.errors.append((origin, e))
-            return []
+            source_strings, linenos = [], []
+
+        for src_str, lineno in zip(source_strings, linenos):
+            src_str.occurrences = ["{}:{}".format(origin, lineno)]
+        return source_strings
 
 
 class CallDetectionVisitor(ast.NodeVisitor):
@@ -380,21 +399,24 @@ def parse_source_strings(nodes):
     objects.
 
     :param list nodes: a list of Node objects
+
+    :return:  a tuple of the source_strings along with the corresponding linenos
+    :rtype: tuple
     """
     strings = []
+    string_linenos = []
     for node in nodes:
         try:
             string = node.args[0].s
             # Context could be passed as an argument, e.g. t('str', 'context')
             context = node.args[1].s if len(node.args) > 1 else None
-
             # Find all custom parameters, e.g. developer comments etc
             params = {}
             for keyword in node.keywords:
                 name, value = render_keyword(keyword)
                 if value is not None:
                     params[name] = value
-
+            string_linenos.append(node.lineno)
             # If no context was found before, maybe it was passed as a kwarg
             if context is None:
                 context = params.pop(KEY_CONTEXT, None)
@@ -407,7 +429,7 @@ def parse_source_strings(nodes):
                 )
             )
 
-    return strings
+    return strings, string_linenos
 
 
 def render_keyword(keyword):
