@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
 import ast
-import json
 import re
+from collections import namedtuple
 
 from six import string_types
 from transifex.common.utils import generate_key, make_hashable
@@ -12,7 +12,7 @@ from transifex.native.consts import KEY_CONTEXT
 # PEP 263 magic comment for source code encodings
 # e.g. "# -*- coding: <encoding name> -*-"
 
-ENCODING_PATTERN = re.compile('#.*coding[:=]\s*utf-?8', re.IGNORECASE)
+ENCODING_PATTERN = re.compile(r'#.*coding[:=]\s*utf-?8', re.IGNORECASE)
 
 
 # A list of the translate functions that TxNative supports,
@@ -20,6 +20,9 @@ ENCODING_PATTERN = re.compile('#.*coding[:=]\s*utf-?8', re.IGNORECASE)
 DEFAULT_MODULES = [
     'transifex.native.translate',
 ]
+
+
+Import = namedtuple('Import', ('module', 'function', 'node'))
 
 
 class SourceString(object):
@@ -125,8 +128,8 @@ class Extractor(object):
             nodes = func_path.split('.')
             if len(nodes) < 2:
                 raise ValueError(
-                    'Function path must contain at least a module and a function, '
-                    'e.g. "my_module.translate"'
+                    'Function path must contain at least a module and'
+                    'a function, e.g. "my_module.translate"'
                 )
             self._functions.append(
                 ('.'.join(nodes[:-1]), nodes[-1])
@@ -136,7 +139,8 @@ class Extractor(object):
         """Parse the given Python file string and extract translatable content.
 
         :param unicode src: a chunk of Python code
-        :param str origin: the filename of the code, i.e. the filename it came from
+        :param str origin: the filename of the code, i.e. the filename
+            it came from
         :return: a list of SourceString objects
         :rtype: list
         """
@@ -145,23 +149,21 @@ class Extractor(object):
         src = ENCODING_PATTERN.sub('# ', src)
         try:
             tree = ast.parse(src)
-            visitor = TransifexVisitor(self._functions)
+            visitor = CallDetectionVisitor(self._functions)
             visitor.visit(tree)
-            return visitor.source_strings
+            return parse_source_strings(visitor.function_calls)
         except Exception as e:
             # Store an exception for this particular file
             self.errors.append((origin, e))
             return []
 
 
-class TransifexVisitor(ast.NodeVisitor):
-    """A visitor subclass that detects calls to TxNative translate methods
-    and creates SourceString objects from them.
+class CallDetectionVisitor(ast.NodeVisitor):
+    """A visitor subclass that detects externally-defined imports and
+    function methods and stores them.
 
-    Detects the source string, as well as the context and any key/value
-    parameters, if they exist.
-
-    For each Python file, a separate instance of TransifexVisitor is created.
+    Subclasses can provide additional functionality that takes the imports
+    and function calls and does something more useful with them.
 
     NOTE: in order for a function call to be detected, the corresponding
     `import` statement must appear before in the syntax tree. If we want
@@ -183,24 +185,48 @@ class TransifexVisitor(ast.NodeVisitor):
         :param list registered_calls: a list of 2-tuples each with information
             on how to detect the imports and the calls
         """
-        super(TransifexVisitor, self).__init__()
-        self.source_strings = []
+        super(CallDetectionVisitor, self).__init__()
 
         # Contains a list of module/function pairs in dot notation
-        # that have been registered externally.
+        # that are provided in the constructor. These are the imports
+        # and function calls that the visitor will detect as being
+        # "of interest".
         # Example: [('a.b', 'translate'), ('foo', 'trans')]
         self._registered_calls = registered_calls
 
         # Dynamically populated when parsing import statements,
-        # this list will contain the module/function pars that are
-        # actually found in the current syntax tree (e.g. in a specific Python file).
-        # This way, only calls that are actually made to TxNative-related functions
-        # will be matched for each file, instead of matching any function that
-        # has a name identical to what TxNative provides (e.g. a `translate()` method
-        # of another module).
-        # Support 'as' syntax, e.g. import translate as _trans
-        # Example: [('a.b', 'translate_string'), ('foo', '_trans')]
-        self._supported_calls = []
+        # this list will contain the module/function pairs that are
+        # actually found in the current syntax tree (e.g. in a specific
+        # Python file). This way, only calls that are actually made to
+        # registered functions will be matched for each file, instead
+        # of matching any function that has a name identical to what
+        # a certain module provides (e.g. a `translate()` method of
+        # another module).
+        # Supports 'as' syntax, e.g. import translate as _trans
+        # Contains `Import` objects.
+        self.imports = []
+
+        # This dictionary will contain all imports per Import/ImportFrom node.
+        # It stores all imports, not only those that correspond to registered
+        # calls.
+        # For example, with the following statements:
+        #   from a.b.c import gettext as _, e, d as _d
+        # it will become:
+        #   {
+        #       <ImportFrom>: {
+        #           'module': 'a.b.c',
+        #           'imports': [('gettext', '_'), ('e', None), ('d', '_d')],
+        #       },
+        #   }
+        self.imports_per_node = {}
+
+        # For each detected function call that matches the detected imports
+        # an ast.Call object will be stored here
+        self.function_calls = []
+
+        # We store each % operation here to process later, by its proceeding
+        # function call node
+        self.modulos = {}
 
     def visit_Import(self, node):
         """Support the 'import native as _native' type of imports.
@@ -232,8 +258,8 @@ class TransifexVisitor(ast.NodeVisitor):
                 '{}.{}'.format(as_name, remaining_module_path).rstrip('.')
             )
 
-            self._supported_calls.append(
-                (remaining_module_path, func_name)
+            self.imports.append(
+                Import(remaining_module_path, func_name, node)
             )
 
     def visit_ImportFrom(self, node):
@@ -244,9 +270,18 @@ class TransifexVisitor(ast.NodeVisitor):
         takes an import statement that looks like this:
             >>> from a.b import c as _c
         and comes up with a tuple like this:
-            >>> ('_c.d', 'translate')
+            >>> ('_c.d', 'translate', <ImportFrom node>)
         """
         self.generic_visit(node)
+
+        # Store the information for each part of the import
+        imports_in_node = {'module': node.module, 'imports': []}
+        for name_obj in node.names:
+            name = name_obj.name
+            as_name = name_obj.asname
+            import_unit = (name, as_name)
+            if import_unit not in imports_in_node['imports']:
+                imports_in_node['imports'].append(import_unit)
 
         # Loop through all registered module/function calls,
         # e.g. transifex.native.django.t
@@ -266,8 +301,8 @@ class TransifexVisitor(ast.NodeVisitor):
                 as_name = name_obj.asname
 
                 try:
-                    # The full function call in the code is identical to the
-                    # registered function name, e.g. it's `ut('...')`
+                    # If the full function call in the code is identical to the
+                    # registered function name, e.g. it's `t('...')`
                     if name == registered_func_name:
                         registered_func_name = as_name or name
                         remaining_module_path = ''
@@ -284,14 +319,21 @@ class TransifexVisitor(ast.NodeVisitor):
                     print(
                         'Error while visiting node: {}.{}{}: {}'.format(
                             module, name, (' as ' +
-                                           as_name if as_name else ''), e
+                                           as_name if as_name else ''),
+                            e
                         )
                     )
                     continue
 
-                self._supported_calls.append(
-                    (remaining_module_path, registered_func_name)
+                # Store this import
+                # Note that because self._registered_calls is a list,
+                # we might append Import multiple objects with the same `node`
+                self.imports.append(
+                    Import(remaining_module_path, registered_func_name, node)
                 )
+
+        if imports_in_node:
+            self.imports_per_node[node] = imports_in_node
 
     def visit_Call(self, node):
         """Extract a source string from a "translate" function call.
@@ -304,86 +346,124 @@ class TransifexVisitor(ast.NodeVisitor):
         """
         self.generic_visit(node)
 
-        # Find the full module/function path of the current calling node,
-        # e.g. 'a.b.c.translate'.
-        # The way to retrieve the module name and function name
-        # differs a lot depending on the level of nesting, so try...catch blocks
-        # are used in order to cover all cases
-        modules = []
-        try:
-            current_node = node.func.value
-            current_func_name = node.func.attr
-            # Module nesting can be indefinite, so we need to follow it
-            # to the end
-            while True:
-                try:
-                    modules.insert(0, current_node.attr)
-                    current_node = current_node.value
-                except AttributeError:
-                    modules.insert(0, current_node.id)
-                    break
-        except AttributeError:
-            try:
-                current_func_name = node.func.id
-            except AttributeError:
-                try:
-                    current_func_name = node.func.attr
-                except AttributeError as e:
-                    raise AttributeError(
-                        'Invalid module/function format on line {} col {}: {}'.format(
-                            node.lineno, node.col_offset, e
-                        )
-                    )
-
-        current_module_path = '.'.join(modules)
+        current_module_path, current_func_name = get_func_parts(node)
 
         # Check against all supported function calls and if there is a match
-        # create a SourceString with the parsed information
-        for module_path, func_name in self._supported_calls:
-            if module_path == current_module_path and func_name == current_func_name:
-                try:
-                    string = node.args[0].s
-                    # Context could be passed as an argument, e.g. t('str', 'context')
-                    context = node.args[1].s if len(node.args) > 1 else None
+        # add the node for later processing
+        for import_obj in self.imports:
+            module_path = import_obj.module
+            func_name = import_obj.function
 
-                    # Find all custom parameters, e.g. developer comments etc
-                    params = {}
-                    for keyword in node.keywords:
-                        name, value = self._render_keyword(keyword)
-                        if value is not None:
-                            params[name] = value
+            if module_path == current_module_path \
+                    and func_name == current_func_name:
+                self.function_calls.append(node)
 
-                    # If no context was found before, maybe it was passed as a kwarg
-                    if context is None:
-                        context = params.pop(KEY_CONTEXT, None)
+    def visit_BinOp(self, node):
+        """Store % operations to process later.
 
-                    source_string = SourceString(string, context, **params)
-                    self.source_strings.append(source_string)
-                except Exception as e:
-                    raise AttributeError(
-                        'Invalid module/function format on line {} col {}: {}'.format(
-                            node.lineno, node.col_offset, e
-                        )
-                    )
-
-    def _render_keyword(self, keyword):
-        """Render the given keyword to a proper value.
-
-        Processes Keyword objects and returns the keyword name along with
-        a value of their corresponding type, i.e. a string, a number or a boolean.
-
-        :param Keyword keyword: the keyword object
-        :return: a tuple like (<key>, <value>)
-        :rtype: tuple
+        We don't process them here because in _(...) % (...) statements
+        the _(...) node hasn't been processed yet when the modulo operation
+        is processed.
         """
-        if isinstance(keyword.value, ast.Str):
-            val = keyword.value.s
-        elif isinstance(keyword.value, ast.Num):
-            val = keyword.value.n
-        elif (isinstance(keyword.value, ast.Name)
-              and keyword.value.id in ('True', 'False')):
-            val = keyword.value.id == 'True'
+        if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Call):
+            func_call = node.left
+            self.visit_Call(func_call)
+            if self.function_calls and self.function_calls[-1] == func_call:
+                self.modulos[func_call] = node
         else:
-            val = None
+            self.generic_visit(node)
 
-        return keyword.arg, val
+
+def parse_source_strings(nodes):
+    """Parse the given function call nodes and return a list of SourceString
+    objects.
+
+    :param list nodes: a list of Node objects
+    """
+    strings = []
+    for node in nodes:
+        try:
+            string = node.args[0].s
+            # Context could be passed as an argument, e.g. t('str', 'context')
+            context = node.args[1].s if len(node.args) > 1 else None
+
+            # Find all custom parameters, e.g. developer comments etc
+            params = {}
+            for keyword in node.keywords:
+                name, value = render_keyword(keyword)
+                if value is not None:
+                    params[name] = value
+
+            # If no context was found before, maybe it was passed as a kwarg
+            if context is None:
+                context = params.pop(KEY_CONTEXT, None)
+
+            strings.append(SourceString(string, context, **params))
+        except Exception as e:
+            raise AttributeError(
+                'Invalid module/function format on line {} col {}: {}'.format(
+                    node.lineno, node.col_offset, e
+                )
+            )
+
+    return strings
+
+
+def render_keyword(keyword):
+    """Render the given keyword to a proper value.
+
+    Processes Keyword objects and returns the keyword name along with
+    a value of their corresponding type, i.e. a string, a number
+    or a boolean.
+
+    :param Keyword keyword: the keyword object
+    :return: a tuple like (<key>, <value>)
+    :rtype: tuple
+    """
+    if isinstance(keyword.value, ast.Str):
+        val = keyword.value.s
+    elif isinstance(keyword.value, ast.Num):
+        val = keyword.value.n
+    elif (isinstance(keyword.value, ast.Name)
+          and keyword.value.id in ('True', 'False')):
+        val = keyword.value.id == 'True'
+    else:
+        val = None
+
+    return keyword.arg, val
+
+
+def get_func_parts(node):
+    # Find the full module/function path of the current calling node,
+    # e.g. 'a.b.c.translate'.
+    # The way to retrieve the module name and function name
+    # differs a lot depending on the level of nesting, so try...catch blocks
+    # are used in order to cover all cases
+    modules = []
+    try:
+        current_node = node.func.value
+        current_func_name = node.func.attr
+        # Module nesting can be indefinite, so we need to follow it
+        # to the end
+        while True:
+            try:
+                modules.insert(0, current_node.attr)
+                current_node = current_node.value
+            except AttributeError:
+                modules.insert(0, current_node.id)
+                break
+    except AttributeError:
+        try:
+            current_func_name = node.func.id
+        except AttributeError:
+            try:
+                current_func_name = node.func.attr
+            except AttributeError as e:
+                raise AttributeError(
+                    'Invalid module/function format on line {} '
+                    'col {}: {}'.format(node.lineno, node.col_offset, e)
+                )
+
+    current_module_path = '.'.join(modules)
+
+    return current_module_path, current_func_name

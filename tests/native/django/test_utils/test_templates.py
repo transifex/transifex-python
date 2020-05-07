@@ -39,7 +39,8 @@ class TestTemplates(object):
         src = TEMPLATE.replace(
             u'{{string1}}',
             u'{%t "Le canapé" '
-            u'_context="furniture" _comment="_comment" _charlimit=10 _tags="t1,t2" %}'
+            u'_context="furniture" _comment="_comment" _charlimit=10 '
+            u'_tags="t1,t2" %}'
         )
         strings = extract_transifex_template_strings(src)
         assert strings == [
