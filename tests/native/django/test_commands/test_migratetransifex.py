@@ -39,7 +39,7 @@ HTML_COMPILED_1 = TRANSIFEX_TEMPLATE
 PYTHON_SAMPLE = """
 from something import gettext
 from django.utils.translation import ugettext as _
-from django.utils.translation import ungettext as _pl
+from django.utils.translation import something as smth, ungettext as _pl
 from django.utils.translation import pgettext as _ctx
 from django.utils.translation import ugettext as ug, to_locale, get_language_info as lang_info
 from django.utils import translation as _trans
@@ -99,6 +99,7 @@ class MyClass(object):
 PYTHON_SAMPLE_MIGRATED = """
 from something import gettext
 from transifex.native.django import t
+from django.utils.translation import something as smth
 from django.utils.translation import to_locale, get_language_info as lang_info
 from django.utils import translation as _trans
 import django
