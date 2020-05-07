@@ -469,26 +469,33 @@ class Transformer(object):
                     or func_name != import_obj.function:
                 continue
 
-            name = import_obj.node.names[0].name
-            asname = import_obj.node.names[0].asname or name
+            full_path = None
+            for import_unit in import_obj.node.names:
+                name = import_unit.name
+                asname = import_unit.asname or name
+                if func_name != asname:
+                    continue
 
-            try:
-                module = import_obj.node.module
-            except AttributeError:
-                module = None
+                try:
+                    module = import_obj.node.module
+                except AttributeError:
+                    module = None
 
-            if not module_path:
-                full_path = '{module}.{name}'.format(module=module, name=name)
-            else:
-                full_path = '{module}{path}.{func}'.format(
-                    module=('{}.'.format(module) if module else ''),
-                    path=module_path.replace(
-                        asname,
-                        name,
-                        1,
-                    ),
-                    func=func_name
-                )
+                if not module_path:
+                    full_path = '{module}.{name}'.format(
+                        module=module, name=name)
+                else:
+                    full_path = '{module}{path}.{func}'.format(
+                        module=('{}.'.format(module) if module else ''),
+                        path=module_path.replace(
+                            asname,
+                            name,
+                            1,
+                        ),
+                        func=func_name
+                    )
+                break
+
             gettext_type = self._methods.gettext_type_from_path(full_path)
             new_func_name, args = self._methods.tx_native_details_from_type(
                 gettext_type
