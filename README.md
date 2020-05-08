@@ -2,54 +2,20 @@
 [![codecov](https://codecov.io/gh/transifex/transifex-python/branch/master/graph/badge.svg)](https://codecov.io/gh/transifex/transifex-python)
 
 # Transifex Python Toolkit
+
+### Index
+
 - [Overview](#overview)
   * [Introduction](#introduction)
-    + [Usage Scenarios](#usage-scenarios)
   * [Features](#features)
   * [Authentication](#authentication)
   * [Hosting Translations](#hosting-translations)
 - [Supported Frameworks](#supported-frameworks)
   * [Django](#django)
-    + [Installation](#installation)
-    + [Configuration](#configuration)
-    + [Quickstart](#quickstart)
-      - [Add Translation Hooks](#add-translation-hooks)
-        * [Django template simple example](#django-template-simple-example)
-        * [Django view simple example](#django-view-simple-example)
-      - [Push Source Content to Transifex](#push-source-content-to-transifex)
-      - [Translate Content on Transifex](#translate-content-on-transifex)
-      - [Display Translated Content](#display-translated-content)
-    + [Use in Templates and Views](#use-in-templates-and-views)
-      - [Internationalization in Template Code](#internationalization-in-template-code)
-      - [Inline and Block Syntax](#inline-and-block-syntax)
-      - [Localization Syntax](#localization-syntax)
-      - [Passing Parameters](#passing-parameters)
-      - [Outcome as Variable](#outcome-as-variable)
-      - [Applying Filters](#applying-filters)
-      - [XML Escaping](#xml-escaping)
-      - [Internationalization in Python Code](#internationalization-in-python-code)
-    + [Uploading source content to Transifex](#uploading-source-content-to-transifex)
-    + [Fetching translations from Transifex](#fetching-translations-from-transifex)
-    + [Missing translations](#missing-translations)
-      - [Source string (default)](#source-string--default-)
-      - [Pseudo translation](#pseudo-translation)
-      - [Source string inside brackets](#source-string-inside-brackets)
-      - [Source string with extra characters](#source-string-with-extra-characters)
-      - [A complex policy](#a-complex-policy)
-      - [Custom policy](#custom-policy)
-    + [Advanced](#advanced)
-    + [Error Handling](#error-handling)
-      - [Custom Error Policies](#custom-error-policies)
-    + [Tests](#tests)
   * [Python](#python)
-    + [Installation](#installation-1)
-    + [Quickstart](#quickstart-1)
-      - [Initialization](#initialization)
-      - [Missing Policies](#missing-policies)
-      - [Automation in Background Thread](#automation-in-background-thread)
-      - [Fetch Translations from CDS](#fetch-translations-from-cds)
-      - [Push Source Strings to Transifex](#push-source-strings-to-transifex)
 - [License](#license)
+
+---
 
 # Overview
 
@@ -88,7 +54,7 @@ This section refers to the generic functionality provided by the Toolkit. For im
 - Policies to handle missing translations or errors
 - Use of an intermediary service, [CDS](#hosting-translations), to retrieve translations and an in-toolkit memory cache to serve them fast.
 
-## Authentication
+### Authentication
 
 Before you begin using the Toolkit, you will also need an account in [Transifex](https://www.transifex.com) and a project.
 
@@ -118,7 +84,19 @@ TRANSIFEX_CDS_HOST = 'https://cds.example.com'
 
 ## Django
 
-### Installation
++ [Setup](#setup)
++ [Quickstart](#quickstart)
++ [Use in Templates and Views](#use-in-templates-and-views)
++ [Uploading source content to Transifex](#uploading-source-content-to-transifex)
++ [Fetching translations from Transifex](#fetching-translations-from-transifex)
++ [Missing translations](#missing-translations)
++ [Advanced](#advanced)
++ [Error Handling](#error-handling)
++ [Tests](#tests)
+
+### Setup
+
+#### Installation
 
 **Transifex Python Toolkit** supports the following versions:
 
@@ -135,7 +113,7 @@ You can also find the toolkit in PyPi: [Transifex Python toolkit](https://pypi.o
 
 With the toolkit installed in your project see next how to [configure your project](#configuration).
 
-### Configuration
+#### Configuration
 
 Add the following entries in the settings file of your Django project.
 
@@ -277,6 +255,19 @@ Here is an example of how you can add a **language picker** in your application:
 > - https://docs.djangoproject.com/en/3.0/topics/i18n/translation/#how-django-discovers-language-preference
 
 ### Use in Templates and Views
+
+#### Contents
+
+- [Internationalization in Template Code](#internationalization-in-template-code)
+- [Inline and Block Syntax](#inline-and-block-syntax)
+- [Localization Syntax](#localization-syntax)
+- [Passing Parameters](#passing-parameters)
+- [Outcome as Variable](#outcome-as-variable)
+- [Applying Filters](#applying-filters)
+- [XML Escaping](#xml-escaping)
+- [Internationalization in Python Code](#internationalization-in-python-code)
+
+---
 
 You can use the toolkit both inside Django templates as well as inside views.
 
@@ -895,7 +886,14 @@ Use `pytest -s` to enable interactive debugging.
 
 ## Python
 
-### Installation
+### Contents
+
+- [Setup](#setup-1)
+- [Quickstart](#quickstart-1)
+
+---      
+
+### Setup
 
 **Transifex Python Toolkit** supports the following versions:
 
