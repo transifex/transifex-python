@@ -38,9 +38,10 @@ HTML_COMPILED_1 = TRANSIFEX_TEMPLATE
 
 PYTHON_SAMPLE = """
 from something import gettext
-from django.utils.translation import ugettext as _
-from django.utils.translation import something as smth, ungettext as _pl
+from django.utils.translation import ugettext as _, ugettext_lazy as _lazy
+from django.utils.translation import something as smth, ungettext as _pl, ungettext_lazy as _lazypl
 from django.utils.translation import pgettext as _ctx
+from django.utils.translation import pgettext_lazy as _lazyctx
 from django.utils.translation import ugettext as ug, to_locale, get_language_info as lang_info
 from django.utils import translation as _trans
 import django
@@ -62,8 +63,10 @@ _('This is %s and %s') % ("\\'", r"\\'")
 _('This is %(foo)s and %(bar)s') % {'foo': foo, 'bar': 'bar'}
 _('This is %(foo)s and %(bar)s') % dict(foo=foo, bar='bar')
 _('This is %s') % obj.something('else', 'is', 'happening')
+_lazy('Hello! %(name)s %(last_name)s %(age)s %(gender)s') % {'name': 'You', 'last_name': user.last_name, 'age': 33, 'gender': gender}
 
 plural = _pl('One fish', plural='Many fishes', number=number)
+plural = _lazypl('One fish', plural='Many fishes', number=number)
 django.utils.translation.ugettext('Hello!')
 
 _utils.translation.ugettext(**dict(message='Hello!'))
@@ -77,6 +80,7 @@ plural = _pl(number=number, plural='Many fishes', singular="One 'fish")
 
 withcontext1 = _ctx('Some context', 'This is a message')
 withcontext2 = _ctx(**dict(context='Some context', message='This is a message'))
+withcontext3 = _lazyctx('Some context', 'This is a message')
 
 do_something(
     django.utils.translation.ngettext('Hello!', 'Hellos!', 2),
@@ -98,7 +102,7 @@ class MyClass(object):
 
 PYTHON_SAMPLE_MIGRATED = """
 from something import gettext
-from transifex.native.django import t
+from transifex.native.django import lazyt, t
 from django.utils.translation import something as smth
 from django.utils.translation import to_locale, get_language_info as lang_info
 from django.utils import translation as _trans
@@ -121,8 +125,10 @@ t('This is {variable_1} and {variable_2}', variable_1="'", variable_2='\\'')
 t('This is {foo} and {bar}', foo=foo, bar='bar')
 t('This is {foo} and {bar}', __txnative_fixme="dict(foo=foo, bar='bar')")
 t('This is {variable_1}', variable_1=obj.something('else', 'is', 'happening'))
+lazyt('Hello! {name} {last_name} {age} {gender}', name='You', last_name=user.last_name, age=33, gender=gender)
 
 plural = t('{cnt, one {One fish} other {Many fishes}}', cnt=number)
+plural = lazyt('{cnt, one {One fish} other {Many fishes}}', cnt=number)
 t('Hello!')
 
 t('Hello!')
@@ -136,6 +142,7 @@ plural = t("{cnt, one {One 'fish} other {Many fishes}}", cnt=number)
 
 withcontext1 = t('This is a message', _context='Some context')
 withcontext2 = t('This is a message', _context='Some context')
+withcontext3 = lazyt('This is a message', _context='Some context')
 
 do_something(
     t('{cnt, one {Hello!} other {Hellos!}}', cnt=2),
