@@ -3,7 +3,6 @@ from operator import itemgetter
 import pytest
 import responses
 from mock import patch
-from requests import ConnectionError as CdsConnectionError
 from transifex.native.cds import CDSHandler
 from transifex.native.parsing import SourceString
 
@@ -426,3 +425,29 @@ class TestCDSHandler(object):
             for x in ('Unprocessable Entity', 'None')
         ]
         assert patched_logger.error.call_args[0][0] in messages
+
+    def test_get_headers(self):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+            secret='some_secret',
+            host=cds_host
+        )
+        assert cds_handler._get_headers() == {
+            'Authorization': 'Bearer some_token',
+            'Accept-Encoding': 'gzip',
+        }
+
+        assert cds_handler._get_headers(use_secret=True) == {
+            'Authorization': 'Bearer some_token:some_secret',
+            'Accept-Encoding': 'gzip',
+        }
+
+        headers = cds_handler._get_headers(
+            use_secret=True, etag='something')
+        assert headers == {
+            'Authorization': 'Bearer some_token:some_secret',
+            'Accept-Encoding': 'gzip',
+            'If-None-Match': 'something'
+        }
