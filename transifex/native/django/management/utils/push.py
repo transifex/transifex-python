@@ -61,8 +61,10 @@ class Push(CommandMixin):
         # Create an extractor for Python files, to reuse for all files
         self.python_extractor = Extractor()
         # Support `t()` and `ut()` calls made on the Django module.
-        self.python_extractor.register_functions('transifex.native.django.t',
-                                                 'transifex.native.django.ut')
+        self.python_extractor.register_functions(
+            'transifex.native.django.t',
+            'transifex.native.django.ut',
+            'transifex.native.django.lazyt')
 
         self.stats = {'processed_files': 0, 'strings': []}
 

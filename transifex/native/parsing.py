@@ -19,6 +19,7 @@ ENCODING_PATTERN = re.compile(r'#.*coding[:=]\s*utf-?8', re.IGNORECASE)
 # in the syntax of module.deeper_module..function
 DEFAULT_MODULES = [
     'transifex.native.translate',
+    'transifex.native.lazy_translate',
 ]
 
 
