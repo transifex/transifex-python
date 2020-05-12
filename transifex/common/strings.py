@@ -4,6 +4,8 @@ from __future__ import unicode_literals
 # i.e. matches "This is 'something" but not "This is \' something"
 import re
 
+from transifex.common._compat import PY3, binary_type, text_type
+
 VAR_FORMAT = 'variable_{cnt}'
 
 RE_SINGLE_QUOTE = r"(?<!\\)\'"
@@ -24,7 +26,7 @@ def printf_to_format_style(string):
     <<< ('This is {foo} and {bar}', ['foo', 'bar'])
 
     :param unicode string: the source string
-    :return: a tuple, containing the new string (with Transifex Native syntax)
+    :return: a tuple, containing the new string (with str.format() syntax)
         and a list of the names of all variables
     :rtype: tuple
     """
@@ -36,7 +38,7 @@ def printf_to_format_style(string):
         Also stores the found variable inside `obj`.
 
         :param match: a regex match object
-        :return: a new string using ICU placeholder syntax
+        :return: a new string using str.format() placeholder syntax
         :rtype: str
         """
         # [2:-2] means from '%(foo)s' -> get 'foo'
@@ -59,7 +61,7 @@ def printf_to_format_style(string):
         Also stores the found variable inside `obj`.
 
         :param match: a regex match object
-        :return: a new string using ICU placeholder syntax
+        :return: a new string using str.format() placeholder syntax
         :rtype: str
         """
         var = VAR_FORMAT.format(cnt=str(obj['cnt']))
@@ -86,12 +88,11 @@ def alt_quote(quote, string):
     '"' (double quote)
     >>> alt_quote('"', 'This is a " string')
     "'" (single quote)
-    >>> alt_quote('"', 'This is a \" string')
+    >>> alt_quote('"', r'This is a \" string')
     '"' (double quote)
 
-
-    :param unicode quote: either ' or ", the preferred quote to use for wrapping
-        `string`
+    :param unicode quote: either ' or ", the preferred quote to use for
+        wrapping `string`
     :param unicode string: the string that will be wrapped in quotes
     :return: a new string
     :rtype: unicode
@@ -102,3 +103,130 @@ def alt_quote(quote, string):
     if re.search(pattern, string) and not re.search(pattern_alt, string):
         return alternate
     return quote
+
+
+class LazyString(object):
+    """Can be used instead of a string instance when delayed evaluation
+    is desired.
+
+    Upon instantiation, the caller needs to provide a function along
+    with any parameters, that will be used when the string value will be
+    evaluated.
+
+    Lazy evaluation is achieved through Pythons magic methods `__str__`
+    and `__unicode__`.
+
+    Usage:
+    In the following example, the value of 'foo' and 'bar' is not available
+    # when the string is declared (mapping is empty). However, mapping is only
+    # accessed
+    >>> mapping = {}
+    >>> string = LazyString(lambda x: '{}={}'.format(x, mapping[x]), 'foo')
+    >>> mapping.update({'foo': 33, 'bar': 44})
+    >>> print(string)
+    foo=44
+    """
+
+    def __init__(self, func, *args, **kwargs):
+        self._func = func
+        self._args = args
+        self._encoding = kwargs.pop('encoding', 'utf-8')
+        self._kwargs = kwargs
+
+    def __getattr__(self, attr):
+        if attr == "__setstate__":
+            raise AttributeError(attr)
+        string = self._text()
+        if hasattr(string, attr):
+            return getattr(string, attr)
+        raise AttributeError(attr)
+
+    @property
+    def _resolved(self):
+        """Call the proper text_type wrapper (str() or unicode() depending
+        on the Python version) on the resolved value."""
+        return self._text()
+
+    def __unicode__(self):  # pragma: no cover
+        """Resolve the value of the string.
+
+        Calls the evaluation function together with all parameters.
+        """
+
+        return self._text()
+
+    def __str__(self):  # pragma: no cover
+        """Resolve the value of the string.
+
+        Calls the evaluation function together with all parameters.
+        """
+
+        if PY3:
+            return self._text()
+        else:
+            return self._binary()
+
+    def __bytes__(self):  # pragma: no cover
+        """Resolve the value of the string.
+
+        Calls the evaluation function together with all parameters.
+        """
+
+        return self._binary()
+
+    def _text(self):  # pragma: no cover
+        text = self._func(*self._args, **self._kwargs)
+        if isinstance(text, binary_type):
+            text = text.decode(self._encoding)
+        return text
+
+    def _binary(self):  # pragma: no cover
+        binary = self._func(*self._args, **self._kwargs)
+        if isinstance(binary, text_type):
+            binary = binary.encode(self._encoding)
+        return binary
+
+    def __len__(self):
+        return len(self._resolved)
+
+    def __getitem__(self, key):
+        return self._resolved[key]
+
+    def __iter__(self):
+        return iter(self._resolved)
+
+    def __contains__(self, item):
+        return item in self._resolved
+
+    def __add__(self, other):
+        return self._resolved + other
+
+    def __radd__(self, other):
+        return other + self._resolved
+
+    def __mul__(self, other):
+        return self._resolved * other
+
+    def __rmul__(self, other):
+        return other * self._resolved
+
+    def __lt__(self, other):
+        return self._resolved < other
+
+    def __le__(self, other):
+        return self._resolved <= other
+
+    def __eq__(self, other):
+        return self._resolved == other
+
+    def __ne__(self, other):
+        return self._resolved != other
+
+    def __gt__(self, other):
+        return self._resolved > other
+
+    def __ge__(self, other):
+        return self._resolved >= other
+
+    def __hash__(self):
+        return hash(self._text())

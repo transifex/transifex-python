@@ -2,7 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 from copy import copy
 
-import six
 from django.conf import settings
 from django.template import Library, Node, TemplateSyntaxError
 from django.template.base import (BLOCK_TAG_END, BLOCK_TAG_START,
@@ -14,6 +13,7 @@ from django.template.defaulttags import token_kwargs
 from django.utils.html import escape as escape_html
 from django.utils.safestring import EscapeData, SafeData, mark_safe
 from django.utils.translation import get_language, to_locale
+from transifex.common._compat import string_types
 from transifex.native import tx
 
 register = Library()
@@ -170,7 +170,7 @@ class TNode(Node):
         self.asvar = asvar
 
     def render(self, context):
-        if isinstance(self.source_string.var, six.string_types):
+        if isinstance(self.source_string.var, string_types):
             # Tag had a string literal or used block syntax
             source_icu_template = self.source_string.var
         else:
@@ -196,7 +196,7 @@ class TNode(Node):
             # django's escape marking, we perform the escaping manually, if
             # needed.
             should_escape = (
-                isinstance(value, six.string_types) and
+                isinstance(value, string_types) and
                 ((context.autoescape and not isinstance(value, SafeData)) or
                  (not context.autoescape and isinstance(value, EscapeData)))
             )

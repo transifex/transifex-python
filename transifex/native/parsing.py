@@ -4,7 +4,7 @@ import ast
 import re
 from collections import namedtuple
 
-from six import string_types
+from transifex.common._compat import string_types
 from transifex.common.utils import generate_key, make_hashable
 from transifex.native import consts
 from transifex.native.consts import KEY_CONTEXT
@@ -19,6 +19,7 @@ ENCODING_PATTERN = re.compile(r'#.*coding[:=]\s*utf-?8', re.IGNORECASE)
 # in the syntax of module.deeper_module..function
 DEFAULT_MODULES = [
     'transifex.native.translate',
+    'transifex.native.lazy_translate',
 ]
 
 

@@ -20,6 +20,8 @@ from transifex.native.tools.migrations.gettext import (GettextMethods,
 MIGRATE_EXTENSIONS = ['html', 'txt', 'py']
 
 
+# These are the functions + arguments of the gettext wrappers
+# provided in Django
 GETTEXT_FUNCTIONS = {
     gettext.GETTEXT: (
         'django.utils.translation.gettext',
@@ -62,9 +64,15 @@ GETTEXT_FUNCTIONS = {
         ]
     ),
 }
+# Add lazy variants with identical arguments as the corresponding non-lazy ones
+for func_name, lazy_func_name in gettext.LAZY_MAPPING.items():
+    item = GETTEXT_FUNCTIONS[func_name]
+    GETTEXT_FUNCTIONS[lazy_func_name] = (
+        item[0] + gettext.LAZY_SUFFIX, item[1]
+    )
 
 # This is the import statement that will replace gettext imports
-T_IMPORT = 'from transifex.native.django import t'
+T_IMPORT = 'from transifex.native.django import {}'
 
 
 class Migrate(CommandMixin):

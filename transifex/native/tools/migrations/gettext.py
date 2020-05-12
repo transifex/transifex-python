@@ -28,6 +28,25 @@ PGETTEXT = 'pget'
 # Pluralized string with context
 NPGETTEXT = 'npget'
 
+LAZY_SUFFIX = '_lazy'
+
+# Lazy variants
+GETTEXT_LAZY = GETTEXT + LAZY_SUFFIX
+UGETTEXT_LAZY = UGETTEXT + LAZY_SUFFIX
+NGETTEXT_LAZY = NGETTEXT + LAZY_SUFFIX
+UNGETTEXT_LAZY = UNGETTEXT + LAZY_SUFFIX
+PGETTEXT_LAZY = PGETTEXT + LAZY_SUFFIX
+NPGETTEXT_LAZY = NPGETTEXT + LAZY_SUFFIX
+
+LAZY_MAPPING = {
+    GETTEXT: GETTEXT_LAZY,
+    UGETTEXT: UGETTEXT_LAZY,
+    NGETTEXT: NGETTEXT_LAZY,
+    UNGETTEXT: UNGETTEXT_LAZY,
+    PGETTEXT: PGETTEXT_LAZY,
+    NPGETTEXT: NPGETTEXT_LAZY,
+}
+
 KEYWORD_STRING = 'string'
 KEYWORD_CONTEXT = 'context'
 KEYWORD_ONE = 'one'
@@ -44,8 +63,6 @@ class GettextMethods(object):
     For each 3rd-party framework that uses gettext for localization, we need
     to pass different paths and arguments, so that calls to these methods
     are properly migrated.
-
-    It also contains
     """
 
     def __init__(self, **kwargs):
@@ -108,9 +125,15 @@ class GettextMethods(object):
         params = self.methods.get(gettext_type)
         if not params:
             raise ValueError(
-                'Unregistered or invalid gettext type {}'.format(gettext_type)
+                'Unregistered or invalid gettext type "{}"'.format(
+                    gettext_type
+                )
             )
-        return 't', params[1]
+        method_name = params[0]
+        native_method_name = (
+            'lazyt' if method_name.endswith(LAZY_SUFFIX) else 't'
+        )
+        return native_method_name, params[1]
 
     @property
     def all(self):
@@ -191,6 +214,8 @@ class Transformer(object):
         """
         self.errors = []
         self._methods = methods
+        if not import_statement.endswith('\n'):
+            import_statement = '{}\n'.format(import_statement)
         self.import_statement = import_statement
         self._functions = []
         self.register_functions(*self._methods.all)
@@ -304,6 +329,16 @@ class Transformer(object):
                                 key=lambda n: text_ranges[n][0])
 
             import_added = False
+
+            # Create a migration for adding the import statement
+            # of Native. At this moment we don't know if it will need
+            # to include t, lazyt or both, but we'll update the instance
+            # after all nodes have been processed
+            native_import_string_migration = StringMigration(
+                '', ''
+            )
+            native_functions = set()  # will store 't'/'lazyt' if found later
+
             for node in to_migrate:
                 text_range = text_ranges[node]
                 add_in_between(text_range)
@@ -318,17 +353,21 @@ class Transformer(object):
                     # than gettext calls
                     if isinstance(node, ast.ImportFrom):
                         try:
-                            new = self._transform_import(
-                                visitor, node, import_added
-                            )
+                            #
+                            if not import_added:
+                                file_migration.add_string(
+                                    native_import_string_migration
+                                )
+                            new, item_native_functions = self._transform_import(
+                                visitor, node)
                             confidence = Confidence.HIGH
                             import_added = True
+                            native_functions.update(item_native_functions)
 
-                            # If an import to `t` has already been added,
-                            # any other gettext translation import will be
-                            # replaced by an empty string. In that case,
+                            # If the whole import statement was about gettext
+                            # functions, a new empty line will have been
+                            # added to the file. In that case,
                             # this will also remove the empty line completely
-                            # instead of leaving extra empty lines
                             if new == '' and \
                                     node.first_token.line == original + '\n':
                                 text_range = (text_range[0], text_range[1] + 1)
@@ -387,9 +426,18 @@ class Transformer(object):
                     StringMigration(original=original, new=original)
                 )
 
+            # Update the Native import statement with the proper functions
+            if native_functions:
+                native_import_string_migration.update(
+                    extra_original='',
+                    extra_new=self.import_statement.format(
+                        ', '.join(sorted(native_functions))
+                    )
+                )
+
             return file_migration
 
-    def _transform_import(self, visitor, import_node, import_added):
+    def _transform_import(self, visitor, import_node):
         """Make sure any imports that are not related to gettext
         translations are not removed in the migrated string.
 
@@ -409,24 +457,18 @@ class Transformer(object):
 
         :param CallDetectionVisitor visitor: the visitor object
         :param ast.Node import_node: the Import or ImportFrom node
-        :param bool import_added: True if the migrated import statement
-            has already been added to the file, false otherwise
         :return: a new string to be used as the "new" migration string
         :rtype: unicode
         """
-        new = (
-            self.import_statement if not import_added
-            else ''
-        )
         if isinstance(import_node, ast.Import):
-            return new
+            return '', []
 
         full_registered_paths = ['{}.{}'.format(x['modules'], x['function'])
                                  for x in self._functions]
 
         imports_per_node = visitor.imports_per_node.get(import_node)
         if not imports_per_node:
-            return new
+            return '', []
 
         imports = visitor.imports_per_node[import_node]['imports']
         module = visitor.imports_per_node[import_node]['module']
@@ -439,12 +481,19 @@ class Transformer(object):
             if full_path not in full_registered_paths:
                 imports_to_keep.append(unit)
 
+        method_names = [
+            self._methods.gettext_type_from_path(x[1])
+            for x in all_import_units
+        ]
+        function_names = [
+            'lazyt' if method_name.endswith(LAZY_SUFFIX) else 't'
+            for method_name in method_names
+            if method_name is not None
+        ]
         if not imports_to_keep:
-            return new
+            return '', function_names
 
-        return '{migrated}{newline}from {module} import {units}'.format(
-            migrated=new,
-            newline=('\n' if new != '' else ''),
+        new_string = 'from {module} import {units}'.format(
             module=module,
             units=', '.join([
                 '{} as {}'.format(
@@ -454,6 +503,7 @@ class Transformer(object):
                 for unit in imports_to_keep
             ])
         )
+        return new_string, function_names
 
     def _transform_call(self, func_call_node, visitor, attree):
         """Transform a function call to Transifex Native format.
@@ -471,8 +521,11 @@ class Transformer(object):
                     or func_name != import_obj.function:
                 continue
 
-            name = import_obj.node.names[0].name
-            asname = import_obj.node.names[0].asname or name
+            for import_unit in import_obj.node.names:
+                name = import_unit.name
+                asname = import_unit.asname or name
+                if func_name == asname:
+                    break
 
             try:
                 module = import_obj.node.module
@@ -480,7 +533,8 @@ class Transformer(object):
                 module = None
 
             if not module_path:
-                full_path = '{module}.{name}'.format(module=module, name=name)
+                full_path = '{module}.{name}'.format(
+                    module=module, name=name)
             else:
                 full_path = '{module}{path}.{func}'.format(
                     module=('{}.'.format(module) if module else ''),
@@ -491,7 +545,15 @@ class Transformer(object):
                     ),
                     func=func_name
                 )
+
+            if not full_path:
+                name = import_obj.node.names[0].name
+                asname = import_obj.node.names[0].asname or name
+
             gettext_type = self._methods.gettext_type_from_path(full_path)
+            if gettext_type is None:
+                continue
+
             new_func_name, args = self._methods.tx_native_details_from_type(
                 gettext_type
             )
@@ -756,13 +818,13 @@ class Transformer(object):
                     break
 
         # Simple string
-        if gettext_type in (GETTEXT, UGETTEXT):
+        if gettext_type in (GETTEXT, UGETTEXT, GETTEXT_LAZY, UGETTEXT_LAZY):
             string, quote = new_arguments[KEYWORD_STRING]
             return [replace_quotes('"{}"', quote).format(string)], \
                 Confidence.HIGH
 
         # Pluralized string
-        if gettext_type in (NGETTEXT, UNGETTEXT, NPGETTEXT):
+        if gettext_type in (NGETTEXT, UNGETTEXT, NPGETTEXT, NGETTEXT_LAZY, UNGETTEXT_LAZY, NPGETTEXT_LAZY):
             one, quote_one = new_arguments[KEYWORD_ONE]
             other, quote_other = new_arguments[KEYWORD_OTHER]
 
@@ -791,7 +853,7 @@ class Transformer(object):
             return [''.join([str(x) for x in items])], confidence
 
         # String with context
-        if gettext_type == PGETTEXT:
+        if gettext_type in (PGETTEXT, PGETTEXT_LAZY):
             string, string_quote = new_arguments[KEYWORD_STRING]
             context, quote_context = new_arguments[KEYWORD_CONTEXT]
             string = replace_quotes('"{}"', string_quote).format(string)
