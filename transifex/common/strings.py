@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 # i.e. matches "This is 'something" but not "This is \' something"
 import re
 
-from transifex.common._compat import text_type
+from transifex.common._compat import PY3, binary_type, text_type
 
 VAR_FORMAT = 'variable_{cnt}'
 
@@ -91,8 +91,8 @@ def alt_quote(quote, string):
     >>> alt_quote('"', r'This is a \" string')
     '"' (double quote)
 
-    :param unicode quote: either ' or ", the preferred quote to use for wrapping
-        `string`
+    :param unicode quote: either ' or ", the preferred quote to use for
+        wrapping `string`
     :param unicode string: the string that will be wrapped in quotes
     :return: a new string
     :rtype: unicode
@@ -130,12 +130,13 @@ class LazyString(object):
     def __init__(self, func, *args, **kwargs):
         self._func = func
         self._args = args
+        self._encoding = kwargs.pop('encoding', 'utf-8')
         self._kwargs = kwargs
 
     def __getattr__(self, attr):
         if attr == "__setstate__":
             raise AttributeError(attr)
-        string = text_type(self)
+        string = self._text()
         if hasattr(string, attr):
             return getattr(string, attr)
         raise AttributeError(attr)
@@ -144,21 +145,46 @@ class LazyString(object):
     def _resolved(self):
         """Call the proper text_type wrapper (str() or unicode() depending
         on the Python version) on the resolved value."""
-        return text_type(self)
+        return self._text()
 
-    def __unicode__(self):
+    def __unicode__(self):  # pragma: no cover
         """Resolve the value of the string.
 
         Calls the evaluation function together with all parameters.
         """
-        return text_type(self._func(*self._args, **self._kwargs))
 
-    def __str__(self):
+        return self._text()
+
+    def __str__(self):  # pragma: no cover
         """Resolve the value of the string.
 
         Calls the evaluation function together with all parameters.
         """
-        return self.__unicode__()
+
+        if PY3:
+            return self._text()
+        else:
+            return self._binary()
+
+    def __bytes__(self):  # pragma: no cover
+        """Resolve the value of the string.
+
+        Calls the evaluation function together with all parameters.
+        """
+
+        return self._binary()
+
+    def _text(self):  # pragma: no cover
+        text = self._func(*self._args, **self._kwargs)
+        if isinstance(text, binary_type):
+            text = text.decode(self._encoding)
+        return text
+
+    def _binary(self):  # pragma: no cover
+        binary = self._func(*self._args, **self._kwargs)
+        if isinstance(binary, text_type):
+            binary = binary.encode(self._encoding)
+        return binary
 
     def __len__(self):
         return len(self._resolved)
@@ -203,4 +229,4 @@ class LazyString(object):
         return self._resolved >= other
 
     def __hash__(self):
-        return hash(text_type(self))
+        return hash(self._text())
