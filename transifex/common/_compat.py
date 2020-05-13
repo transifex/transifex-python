@@ -12,5 +12,3 @@ else:
     string_types = basestring,
     text_type = unicode
     binary_type = str
-
-BUILTINS_MODULE = 'builtins' if PY3 else '__builtin__'

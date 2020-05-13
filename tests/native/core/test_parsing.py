@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+
+import re
+
 from transifex.native.parsing import Extractor, SourceString
 
 TEMPLATE = u"""
@@ -119,9 +122,12 @@ class TestExtractor(object):
         assert results == []
         assert ex.errors[0][0] == 'myfile.py'
         assert isinstance(ex.errors[0][1], AttributeError)
-        assert ex.errors[0][1].args[0] == (
-            u"Invalid module/function format on line 6 col 0: "
-            u"'Num' object has no attribute 'attr'"
+        # Num/Constant discrepancy between python versions
+        assert re.search(
+            re.escape("Invalid module/function format on line 6 col 0: '") +
+            r'Num|Constant' +
+            re.escape("' object has no attribute 'attr'"),
+            ex.errors[0][1].args[0]
         )
 
     def _assert(self, src):
