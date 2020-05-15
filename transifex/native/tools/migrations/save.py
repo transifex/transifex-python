@@ -7,6 +7,7 @@ to the proper target, saving a backup and so on.
 """
 from __future__ import unicode_literals
 
+import io
 import os
 
 from transifex.common.console import Color
@@ -70,7 +71,7 @@ class SavePolicy(object):
         :rtype: Tuple[bool, type]
         """
         try:
-            with open(path, "w") as f:
+            with io.open(path, "w", encoding="utf-8") as f:
                 f.write(content_func())
                 Color.echo(
                     '💾️ {} file saved at [file]{}[end]'.format(file_type, path)

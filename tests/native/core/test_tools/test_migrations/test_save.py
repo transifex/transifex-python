@@ -1,5 +1,4 @@
 from mock import mock_open, patch
-from transifex.common._compat import BUILTINS_MODULE
 from transifex.native.tools.migrations.models import (FileMigration,
                                                       StringMigration)
 from transifex.native.tools.migrations.save import (BackupSavePolicy,
@@ -19,7 +18,7 @@ def _file_migration():
 def test_noop_policy_does_not_open_file():
     policy = NoopSavePolicy()
     m = mock_open()
-    with patch(BUILTINS_MODULE + ".open", m, create=True):
+    with patch("io.open", m, create=True):
         saved, error_type = policy.save_file(_file_migration())
         assert saved is False
         assert error_type is None
@@ -29,19 +28,20 @@ def test_noop_policy_does_not_open_file():
 def test_new_file_policy_writes_to_new_file():
     policy = NewFileSavePolicy()
     m = mock_open()
-    with patch(BUILTINS_MODULE + ".open", m, create=True):
+    with patch("io.open", m, create=True):
         saved, error_type = policy.save_file(_file_migration())
         assert saved is True
         assert error_type is None
 
-    m.assert_called_once_with('path/filename__native.html', 'w')
+    m.assert_called_once_with('path/filename__native.html', 'w',
+                              encoding="utf-8")
     m().write.assert_called_once_with('the migrated content')
 
 
 def test_backup_policy_writes_to_original_file_and_takes_backup():
     policy = BackupSavePolicy()
     m = mock_open()
-    with patch(BUILTINS_MODULE + ".open", m, create=True):
+    with patch("io.open", m, create=True):
         saved, error_type = policy.save_file(_file_migration())
         assert saved is True
         assert error_type is None
@@ -56,12 +56,12 @@ def test_backup_policy_writes_to_original_file_and_takes_backup():
 def test_in_place_policy_writes_to_original_file():
     policy = ReplaceSavePolicy()
     m = mock_open()
-    with patch(BUILTINS_MODULE + ".open", m, create=True):
+    with patch("io.open", m, create=True):
         saved, error_type = policy.save_file(_file_migration())
         assert saved is True
         assert error_type is None
 
-    m.assert_called_once_with('path/filename.html', 'w')
+    m.assert_called_once_with('path/filename.html', 'w', encoding="utf-8")
     m().write.assert_called_once_with('the migrated content')
 
 
@@ -72,7 +72,7 @@ def test_safe_save_handles_io_error(mock_echo):
 
     policy = SavePolicy()
     m = mock_open()
-    with patch(BUILTINS_MODULE + ".open", m, create=True):
+    with patch("io.open", m, create=True):
         saved, error_type = policy._safe_save(
             'doesnt-matter', raise_error, 'Dummy')
         assert saved is False
@@ -88,7 +88,7 @@ def test_safe_save_handles_any_error(mock_echo):
 
     policy = SavePolicy()
     m = mock_open()
-    with patch(BUILTINS_MODULE + ".open", m, create=True):
+    with patch("io.open", m, create=True):
         saved, error_type = policy._safe_save(
             'doesnt-matter', raise_error, 'Dummy')
         assert saved is False
