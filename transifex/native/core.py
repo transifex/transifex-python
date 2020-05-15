@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 import json
 
-from transifex.common.utils import generate_key, is_plural
+from transifex.common.utils import generate_key, parse_plurals
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import CDSHandler
 from transifex.native.rendering import (SourceStringErrorPolicy,
@@ -109,10 +109,10 @@ class TxNative(object):
         if is_source:
             translation_template = source_string
         else:
-            key = generate_key(source_string, _context)
+            pluralized, plurals = parse_plurals(source_string)
+            key = generate_key(string=source_string, context=_context)
             translation_template = self._cache.get(key, language_code)
-            if (translation_template is not None and
-                    is_plural(source_string) and
+            if (translation_template is not None and pluralized and
                     translation_template.startswith('{???')):
                 variable_name = source_string[1:source_string.index(',')].\
                     strip()

@@ -5,7 +5,7 @@ import re
 from collections import namedtuple
 
 from transifex.common._compat import string_types
-from transifex.common.utils import generate_key, make_hashable
+from transifex.common.utils import generate_key, make_hashable, parse_plurals
 from transifex.native import consts
 from transifex.native.consts import KEY_CONTEXT, KEY_OCCURRENCES
 
@@ -36,7 +36,8 @@ class SourceString(object):
         :param unicode _context: an optional context that accompanies
             the source string
         """
-        self.key = generate_key(string, context=_context)
+
+        self.key = generate_key(string=string, context=_context)
         self.string = string
         self.context = (
             [x.strip() for x in _context.split(',')] if _context

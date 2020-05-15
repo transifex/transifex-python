@@ -103,7 +103,8 @@ class TestNative(object):
         mock_cache.return_value = None
         mytx = self._get_tx()
         mytx.translate('My String', 'en', is_source=False)
-        mock_cache.assert_called_once_with(generate_key('My String'), 'en')
+        mock_cache.assert_called_once_with(
+            generate_key(string='My String'), 'en')
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render=None,

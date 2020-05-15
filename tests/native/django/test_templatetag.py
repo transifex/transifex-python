@@ -395,7 +395,7 @@ def test_safe_and_escape_filter_on_block_ignored():
 
 
 def test_translates():
-    hello_key = generate_key('hello', None)
+    hello_key = generate_key(string='hello', context=None)
     tx._cache.update({'fr': (True, {hello_key: {'string': "bonjour"}})})
     assert do_test('{% t "hello" %}', lang_code="fr") == "bonjour"
 
@@ -407,7 +407,7 @@ def test_translation_missing():
     tx._cache._translations_by_lang = {}
     assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
 
-    hello_key = generate_key('hello', None)
+    hello_key = generate_key(string='hello', context=None)
     tx._cache.update({'fr': (True, {hello_key: {'string': None}})})
     assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
 
@@ -415,7 +415,7 @@ def test_translation_missing():
 
 
 def test_escaping_is_done_on_translation():
-    hello_key = generate_key('hello', None)
+    hello_key = generate_key(string='hello', context=None)
     tx._cache.update(
         {'fr': (True, {hello_key: {'string': "<xml>bonjour</xml>"}})})
     assert (do_test('{% t "hello" %}', lang_code="fr") ==
@@ -424,8 +424,8 @@ def test_escaping_is_done_on_translation():
 
 def test_source_filter_is_applied_on_translation():
     # 'hello' => 'bonjour', 'HELLO' => 'I like pancakes'
-    hello_key = generate_key('hello', None)
-    HELLO_key = generate_key('HELLO', None)
+    hello_key = generate_key(string='hello', context=None)
+    HELLO_key = generate_key(string='HELLO', context=None)
     tx._cache.update(
         {'fr': (
             True,

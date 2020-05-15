@@ -6,14 +6,41 @@ from hashlib import md5
 import pytz
 
 
-def generate_key(source_string, context=None):
+def generate_key(string=None, context=None, parsed=False, plurals=None):
     """Return a unique key based on the given source string and context.
 
-    :param unicode source_string: the source string
-    :param Union[unicode, list] context: an optional context that accompanies the string
+    :param str string: An ICU string
+    :param dict plurals: A dictionary with pre-parsed plurals.
+        Should be like:
+            { 1: "Here is one dog",
+              5: "Here are many dogs"}
+    :param Union[unicode, list] context: an optional context that
+        accompanies the string
     :return: a unique key
     :rtype: str
     """
+
+    def escape_plural(plural):
+        """ Escape the : character (and the \ character that will be
+        used for escaping)"""
+        return plural.replace('\\', '\\\\').replace(':', '\:')
+
+    if not string and not plurals:
+        raise ValueError("You need to specify at least "
+                         "one of `string`, `plurals`")
+    if string and plurals:
+        raise ValueError("Cannot use both `string` and `plurals`")
+
+    if not plurals:
+        _, plurals = parse_plurals(string)
+
+    string_content = u':'.join(
+        u'{}:{}'.format(rule, escape_plural(string))
+        for rule, string in sorted(
+            plurals.items(), key=lambda x: x[0]
+        )
+    )
+
     if context:  # pragma: no cover
         if isinstance(context, list):
             context = u':'.join(context)
@@ -22,7 +49,7 @@ def generate_key(source_string, context=None):
     if not context:  # pragma: no cover
         context = ''
     return md5(
-        (':'.join([source_string, context])).encode('utf-8')
+        (':'.join([string_content, context])).encode('utf-8')
     ).hexdigest()
 
 
@@ -65,20 +92,30 @@ def make_hashable(data):
         return data
 
 
-def is_plural(string):
-    """ Determine if `string` is the simplest possible version of a pluralized
-        ICU string, ie whether the plural syntax is on the outermost part of
-        the string.
+def parse_plurals(string):
+    """ Tries to parse an ICU (possibly pluralized) string, returning its
+        plurals separated. It only works if `string` is the simplest possible
+        version of a pluralized ICU string, ie whether the plural syntax is on
+        the outermost part of the string.
 
-        So, this `{cnt, plural, one {ONE} other {OTHER}}` will return True, but
-        this `hello {cnt, plural, one {ONE} other {OTHER}}` will return False.
+        So, this `{cnt, plural, one {ONE} other {OTHER}}` will return a parsed version,
+        but this `hello {cnt, plural, one {ONE} other {OTHER}}` will not.
+
+        The plurals dictionary looks like:
+            { 1: "Here is one dog",
+              5: "Here are many dogs"}
+
+        If a string cannot be parsed, it's considered a non-pluralized string and is
+        assigned the rule "5".
+
+        :rtype: tuple(bool, dict) (Whether the string was parsed & the resulted plurals)
     """
 
+    plurals = {}
     try:
         # {cnt, plural, one {foo} other {foos}}
         # ^^^^^^^^^^^^
         variable_name, remaining = _consume_preamble(string)
-        plurals = {}
         # {cnt, plural, one {foo} other {foos}}
         #               ^^^^^^^^^
         rule, remaining = _consume_rule(remaining)
@@ -91,13 +128,13 @@ def is_plural(string):
             plural, remaining = _consume_plural(remaining.strip())
             plurals[rule] = plural
     except Exception:
-        return False
+        return (False, {5: string})
 
-    if ((len(plurals) == 1 and 'other' not in plurals) or
-            bool({'one', 'other'} - set(plurals.keys()))):
-        return False
+    if ((len(plurals) == 1 and 5 not in plurals) or
+            bool({1, 5} - set(plurals.keys()))):
+        return (False, {5: string})
 
-    return True
+    return (True, plurals)
 
 
 # The `_consume_FOO` functions take an input, "consume" a part of it to produce
@@ -130,6 +167,12 @@ def _consume_rule(string):
             <<< ('other', '{OTHER}')
     """
 
+    def _get_rule_num(rule):
+        return {
+            'zero': 0, 'one': 1, 'two': 2,
+            'few': 3, 'many': 4, 'other': 5
+        }[rule]
+
     left_bracket_pos = string.index('{')
     rule = string[:left_bracket_pos].strip()
     if rule[0] == "=":
@@ -140,7 +183,8 @@ def _consume_rule(string):
     else:
         if rule not in ('zero', 'one', 'two', 'few', 'many', 'other'):
             raise ValueError()
-    return rule, string[left_bracket_pos:].strip()
+
+    return _get_rule_num(rule), string[left_bracket_pos:].strip()
 
 
 def _consume_plural(string):
