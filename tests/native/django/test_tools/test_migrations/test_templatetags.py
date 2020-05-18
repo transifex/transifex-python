@@ -38,7 +38,7 @@ There are {{ counter }} {{ name }} objects.
 {% endblocktrans %}
 
 <a href="{{ url }}">Text</a>
-{% trans some_other_var %}
+{{ _(some_other_var) }}
 {% trans some_other_var|some_filter %}
 {% trans "try as" as try %}
 {% trans "try with <xml>xml</xml>" %}

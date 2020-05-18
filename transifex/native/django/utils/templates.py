@@ -21,6 +21,12 @@ COMMENT_FOUND = object()
 COPY_AS_IS = object()
 
 
+# hack to make the identity function
+# signature compatible to all template filters
+def identity(obj, var1=None, var2=None, var3=None, var4=None, var5=None):  # pragma n ocover
+    return obj  # pragma no cover
+
+
 def find_filter_identity(filter_name):
     """Return a filter that does no filtering, i.e always returns all items.
 
@@ -31,7 +37,7 @@ def find_filter_identity(filter_name):
     :return: a callable that represents a filter that does not filtering
     :rtype: callable
     """
-    return lambda obj: obj
+    return identity
 
 
 def tnode_to_source_string(tnode):
@@ -85,11 +91,11 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
                 token.split_contents()[0] in ('t', 'ut')):
             tnode = do_t(parser, token)
             source_string = tnode_to_source_string(tnode)
+            if source_string is None:
+                continue
             if token.lineno and origin:
                 source_string.occurrences = [
                     "{}:{}".format(origin, token.lineno)]
-            if source_string is None:
-                continue
 
             strings.append(source_string)
 

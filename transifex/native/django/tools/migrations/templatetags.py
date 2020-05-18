@@ -6,8 +6,9 @@ https://docs.djangoproject.com/en/1.11/topics/i18n/translation/
 
 from __future__ import unicode_literals
 
-from django.template.base import (TOKEN_COMMENT, TOKEN_TEXT, TOKEN_VAR,
-                                  TRANSLATOR_COMMENT_MARK, DebugLexer, Parser)
+from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
+                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
+                                  DebugLexer, Parser)
 from django.template.defaulttags import token_kwargs
 from django.templatetags.i18n import do_block_translate, do_translate
 from django.utils.encoding import force_text
@@ -212,7 +213,6 @@ class DjangoTagMigrationBuilder(object):
         # the object as given.
         # Without the override, a KeyError would be raised inside the parser.
         parser.find_filter = find_filter_identity
-
         # Create a migration object for this template; we'll add stuff to it
         # as we go
         migration = FileMigration(filename, src)
@@ -280,7 +280,19 @@ class DjangoTagMigrationBuilder(object):
 
         # A variable was found; copy as is
         elif token.token_type == TOKEN_VAR:
-            return StringMigration(original_string, original_string), None
+            # that's a special case we need to take care of:
+            # {{ _("Are you sure you want to remove the ($(collaborator_count)) selected collaborators?")|escapejs }}
+            if token.contents.startswith('_('):
+                token.token_type = TOKEN_BLOCK
+                clos_par_pos = 0
+                for i, j in enumerate(token.contents):
+                    if j == ')':
+                        clos_par_pos = i
+                token.contents = ('trans ' +
+                                  token.contents[2:clos_par_pos] +
+                                  token.contents[clos_par_pos + 1:])
+            else:
+                return StringMigration(original_string, original_string), None
 
         return self._parse_block(token, parser, original_string)
 
