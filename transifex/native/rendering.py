@@ -37,7 +37,7 @@ class StringRenderer(object):
     @classmethod
     def render(
         cls, source_string, string_to_render, language_code, escape,
-        missing_policy, **params
+        missing_policy, params=None,
     ):
         """Render the given ICU string.
 
@@ -61,6 +61,10 @@ class StringRenderer(object):
         :return: the final rendered string
         :rtype: unicode
         """
+
+        if params is None:
+            params = {}
+
         try:
             if not string_to_render and not missing_policy:
                 raise Exception(
@@ -294,10 +298,8 @@ class AbstractErrorPolicy(object):
     Error policies define what happens when rendering faces an error.
     They are useful to protect the user from pages failing to load."""
 
-    def get(
-        self, source_string, translation, language_code,
-        escape, **params
-    ):
+    def get(self, source_string, translation, language_code, escape,
+            params=None):
         raise NotImplementedError()
 
 
@@ -311,7 +313,7 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
 
     def get(
         self, source_string, translation, language_code,
-        escape, **params
+        escape, params=None,
     ):
         """Try to render the source string. If something goes wrong,
         render a custom text provided by the user.
@@ -322,6 +324,9 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
         :param bool escape: Whether to escape or not
         """
 
+        if params is None:
+            params = {}
+
         try:
             return StringRenderer.render(
                 source_string=source_string,
@@ -329,7 +334,7 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
                 language_code=language_code,
                 escape=escape,
                 missing_policy=None,
-                **params
+                params=params,
             )
         except Exception as e:
             logger.error(

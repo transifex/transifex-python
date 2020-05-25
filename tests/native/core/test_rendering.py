@@ -42,7 +42,7 @@ class TestStringRenderer(object):
             'en',
             escape=True,
             missing_policy=SourceStringPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         assert translation == (
             u'&lt;script type=&quot;text/javascript&quot;&gt;alert(1)&lt;/script&gt;'
@@ -55,7 +55,7 @@ class TestStringRenderer(object):
             'en',
             escape=False,
             missing_policy=SourceStringPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         assert translation == JS_SCRIPT
 
@@ -66,7 +66,7 @@ class TestStringRenderer(object):
             'en',
             escape=True,
             missing_policy=SourceStringPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         assert translation == u'2 τραπέζια'
 
@@ -77,7 +77,7 @@ class TestStringRenderer(object):
             'en',
             escape=True,
             missing_policy=SourceStringPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         # Should fall back to source
         assert translation == u'2 tables'
@@ -88,7 +88,7 @@ class TestStringRenderer(object):
             'en',
             escape=True,
             missing_policy=PseudoTranslationPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         # Should use the proper missing policy
         assert translation == u'2 ťàƀĺêš'
@@ -100,7 +100,7 @@ class TestStringRenderer(object):
             'en',
             escape=True,
             missing_policy=SourceStringPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         assert translation == (
             u'&lt;script type=&quot;text/javascript&quot;&gt;alert(1)&lt;/script&gt;'
@@ -113,7 +113,7 @@ class TestStringRenderer(object):
             'en',
             escape=False,
             missing_policy=SourceStringPolicy(),
-            cnt=2,
+            params={'cnt': 2},
         )
         assert translation == JS_SCRIPT
 
@@ -131,15 +131,15 @@ class TestStringRenderer(object):
         assert translation == u'Jane invites Joe and 9 other people to her party.'
 
     def _complex(self, **params):
+        params = dict(params)
+        params.update({'host': "Jane", 'guest': "Joe"})
         return StringRenderer.render(
             COMPLEX_STRINGS,
             None,
             'en',
             escape=True,
             missing_policy=SourceStringPolicy(),
-            host='Jane',
-            guest='Joe',
-            **params
+            params=params,
         )
 
     @patch('transifex.native.rendering.html_escape')

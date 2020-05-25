@@ -84,6 +84,10 @@ class TxNative(object):
         :return: the rendered string
         :rtype: unicode
         """
+
+        if params is None:
+            params = {}
+
         self._check_initialization()
 
         translation_template = self.get_translation(source_string,
@@ -92,7 +96,7 @@ class TxNative(object):
                                                     is_source)
 
         return self.render_translation(translation_template,
-                                       params or {},
+                                       params,
                                        source_string,
                                        language_code,
                                        escape)
@@ -132,14 +136,14 @@ class TxNative(object):
                 language_code=language_code,
                 escape=escape,
                 missing_policy=self._missing_policy,
-                **params
+                params=params,
             )
         except Exception:
             return self._error_policy.get(
                 source_string=source_string,
                 translation=translation_template,
                 language_code=language_code,
-                escape=escape, **params
+                escape=escape, params=params,
             )
 
     def fetch_translations(self):

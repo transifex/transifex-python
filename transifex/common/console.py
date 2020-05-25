@@ -84,5 +84,5 @@ def pluralized(one, other, cnt_value):
         language_code='en',
         escape=False,
         missing_policy=None,
-        cnt=cnt_value,
+        params={'cnt': cnt_value},
     )
