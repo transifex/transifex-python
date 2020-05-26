@@ -8,7 +8,6 @@ from transifex.native.cds import TRANSIFEX_CDS_HOST
 from transifex.native.core import NotInitializedError, TxNative
 from transifex.native.parsing import SourceString
 from transifex.native.rendering import (PseudoTranslationPolicy,
-                                        SourceStringErrorPolicy,
                                         SourceStringPolicy, parse_error_policy)
 
 
@@ -94,6 +93,7 @@ class TestNative(object):
             language_code='en',
             escape=True,
             missing_policy=mytx._missing_policy,
+            params={},
         )
 
     @patch('transifex.native.core.MemoryCache.get')
@@ -111,6 +111,7 @@ class TestNative(object):
             language_code='en',
             escape=True,
             missing_policy=mytx._missing_policy,
+            params={},
         )
 
     def test_translate_target_language_missing_reaches_missing_policy(self):
@@ -127,7 +128,7 @@ class TestNative(object):
         mytx.translate('My String', 'en', is_source=False)
         error_policy.get.assert_called_once_with(
             source_string='My String', translation=None, language_code='en',
-            escape=True
+            escape=True, params={},
         )
 
     def test_translate_error_reaches_source_string_error_policy(
