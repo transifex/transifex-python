@@ -224,6 +224,14 @@ class TNode(Node):
                                        source_icu_template, locale,
                                        escape=False)
 
+        # `self` is not supposed to mutate between invocations of `render`
+        # because Django may parse the template once per thread and reuse the
+        # nodes between renders ("parse" = "process text into nodes"). To that
+        # end, let's safekeep the old value of `self.source_string.var` to put
+        # it back in place before returning from render.
+        # https://docs.djangoproject.com/en/1.11/howto/custom-template-tags/#thread-safety-considerations  # noqa
+        old_source_string_var = self.source_string.var
+
         # Now we resolve the full source filter expression, after having
         # replaced its text with the outcome of the translation, in order to
         # apply the expression's filters to the translation. The translation is
@@ -231,6 +239,7 @@ class TNode(Node):
         # would introduce the danger of double escaping (eg `<` => `&amp;lt;`)
         self.source_string.var = mark_safe(result)
         result = self.source_string.resolve(context)
+        self.source_string.var = old_source_string_var
 
         if self.asvar is not None:
             # Save the translation outcome to a context variable
