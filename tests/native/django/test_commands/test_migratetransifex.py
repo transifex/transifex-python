@@ -293,7 +293,7 @@ def test_backup_save_string_review(mock_find_files, mock_read,
                       StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0
-    assert mock_prompt_string.call_count == 11  # 11 migrated strings
+    assert mock_prompt_string.call_count == 13  # 11 migrated strings
 
     # The path and content that reached the save object
     # should have the correct values, one for the backup and one for
@@ -334,7 +334,7 @@ def test_replace_save_string_review(mock_find_files, mock_read,
                       StringReviewPolicy)
 
     assert mock_prompt_file.call_count == 0
-    assert mock_prompt_string.call_count == 11
+    assert mock_prompt_string.call_count == 13
 
     # The path and content that reached the save object
     # should have the correct values

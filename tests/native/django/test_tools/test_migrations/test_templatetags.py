@@ -45,6 +45,8 @@ There are {{ counter }} {{ name }} objects.
 {% blocktrans %}
     try with <xml>xml</xml>
 {% endblocktrans %}
+{% blocktrans with organization_name=organization.name %}Help "{{organization_name}}" translate content {% endblocktrans %}
+{% blocktrans %}To download, please click <a href="https://{{ site_domain }}{{ url }}">here</a>.{% endblocktrans %}
 
 {% comment "Optional note" %}
     <p>Commented out text with {{ create_date|date:"c" }}</p>
@@ -99,6 +101,8 @@ There are {counter} {name} objects.
 {% ut %}
     try with <xml>xml</xml>
 {% endut %}
+{% ut 'Help "{organization_name}" translate content ' organization_name=organization.name %}
+{% ut 'To download, please click <a href="https://{site_domain}{url}">here</a>.' %}
 
 {% comment "Optional note" %}
     <p>Commented out text with {{ create_date|date:"c" }}</p>
