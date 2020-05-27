@@ -281,7 +281,7 @@ class DjangoTagMigrationBuilder(object):
         # A variable was found; copy as is
         elif token.token_type == TOKEN_VAR:
             # that's a special case we need to take care of:
-            # {{ _("Are you sure you want to remove the ($(collaborator_count)) selected collaborators?")|escapejs }}
+            # {{ _("Are you sure you want to remove the ($(collaborator_count)) selected collaborators?")|escapejs }}  # noqa
             if token.contents.startswith('_('):
                 token.token_type = TOKEN_BLOCK
                 clos_par_pos = 0
@@ -524,7 +524,7 @@ class DjangoTagMigrationBuilder(object):
         self._comment = None
 
         # Build the template of the tag for Transifex Native syntax
-        is_multiline = '\n' in singular_text or plural_text
+        is_multiline = '\n' in singular_text or '\n' in plural_text
         content = _make_plural(singular_text, plural_text, counter_var)
 
         # Source strings that contain XML symbols should use 'ut'. We determine
@@ -539,21 +539,29 @@ class DjangoTagMigrationBuilder(object):
         else:
             tag_name = "t"
 
+        has_apos, has_quot = "'" in content, '"' in content
+        use_block = is_multiline or (has_apos and has_quot)
+        if not use_block and has_quot:
+            surround_with = "'"
+        else:
+            surround_with = '"'
+
         # Render the final output
         t_tag = ['{% ', tag_name]
-        if is_multiline or '"' in content:
-            if blocktrans_node.trimmed:
+
+        if not use_block:
+            t_tag.extend([' ', surround_with, content, surround_with])
+        if blocktrans_node.trimmed:
+            if use_block:
                 t_tag.append(' |trimmed')
-        else:
-            t_tag.extend([' "', content, '"'])
-            if blocktrans_node.trimmed:
+            else:
                 t_tag.append('|trimmed')
         if params.strip():
             t_tag.extend([' ', params])
         if blocktrans_node.asvar:
             t_tag.extend([' as ', blocktrans_node.asvar])
         t_tag.append(' %}')
-        if is_multiline:
+        if use_block:
             t_tag.extend([content, '{% end', tag_name, ' %}'])
         t_tag = ''.join(t_tag)
 
