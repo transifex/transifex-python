@@ -6,6 +6,7 @@ import os
 from django.conf import settings
 from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
+from transifex.common.console import Color
 from transifex.native import tx
 from transifex.native.django.management.common import SourceStringCollection
 from transifex.native.django.management.utils.base import CommandMixin
@@ -80,7 +81,12 @@ class Push(CommandMixin):
 
         Stores found strings in `self.string_collection`.
         """
-        self.output('Parsing all files to detect translatable content...')
+        Color.echo(
+            '[high]\n'
+            '##############################################################\n'
+            'Transifex Native: Parsing files to detect translatable content'
+            '[end]'
+        )
         files = self._find_files('.', 'push')
         for f in files:
             extracted = self._extract_strings(f)
@@ -94,10 +100,13 @@ class Push(CommandMixin):
         """Push strings to the CDS."""
         total = len(self.string_collection.strings)
         if total == 0:
-            self.output('There are no strings to push to Transifex.')
+            Color.echo('[warn]There are no strings to push to Transifex.[end]')
             return
 
-        self.output('Pushing {} source strings to Transifex...'.format(total))
+        Color.echo(
+            'Pushing [warn]{}[end] unique translatable strings '
+            'to Transifex...'.format(total)
+        )
         status_code, response_content = tx.push_source_strings(
             self.string_collection.strings.values(), self.purge
         )
@@ -144,9 +153,9 @@ class Push(CommandMixin):
     def _show_collect_results(self):
         """Display results of collecting source strings from files."""
         total_strings = sum([x[1] for x in self.stats['strings']])
-        self.output(
-            'Processed {} file(s) and found {} translatable strings '
-            'in {} of them'.format(
+        Color.echo(
+            'Processed [warn]{}[end] files and found [warn]{}[end] '
+            'translatable strings in [warn]{}[end] of them.'.format(
                 self.stats['processed_files'], total_strings, len(self.stats)
             )
         )
@@ -166,15 +175,15 @@ class Push(CommandMixin):
                 deleted = response_content.get('deleted')
                 failed = response_content.get('failed')
                 errors = response_content.get('errors', [])
-                self.output(
-                    'Successfully pushed strings to Transifex.\n'
-                    'Status: {code}\n'
-                    'Created strings: {created}\n'
-                    'Updated strings: {updated}\n'
-                    'Skipped strings: {skipped}\n'
-                    'Deleted strings: {deleted}\n'
-                    'Failed strings: {failed}\n'
-                    'Errors: {errors}\n'.format(
+                Color.echo(
+                    '[green]\nSuccessfully pushed strings to Transifex.[end]\n'
+                    '[high]Status:[end] [warn]{code}[end]\n'
+                    '[high]Created strings:[end] [warn]{created}[end]\n'
+                    '[high]Updated strings:[end] [warn]{updated}[end]\n'
+                    '[high]Skipped strings:[end] [warn]{skipped}[end]\n'
+                    '[high]Deleted strings:[end] [warn]{deleted}[end]\n'
+                    '[high]Failed strings:[end] [warn]{failed}[end]\n'
+                    '[high]Errors:[end] {errors}[end]\n'.format(
                         code=status_code,
                         created=created,
                         updated=updated,
@@ -188,11 +197,11 @@ class Push(CommandMixin):
             else:
                 message = response_content.get('message')
                 details = response_content.get('details')
-                self.output(
-                    'Could not push strings to Transifex.\n'
-                    'Status: {code}\n'
-                    'Message: {message}\n'
-                    'Details: {details}\n'.format(
+                Color.echo(
+                    '[error]\nCould not push strings to Transifex.[end]\n'
+                    '[high]Status:[end] [warn]{code}[end]\n'
+                    '[high]Message:[end] [warn]{message}[end]\n'
+                    '[high]Details:[end] [warn]{details}[end]\n'.format(
                         code=status_code,
                         message=message,
                         details=json.dumps(details, indent=4),
