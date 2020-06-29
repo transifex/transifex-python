@@ -60,9 +60,8 @@ class MigrationExecutor(object):
     """Responsible for orchestrating a migration of multiple files
     to Transifex Native syntax.
 
-
     It guides the user throughout the process, providing important
-    feedback in the console. It supports various "review" and "save"
+    feedback in the console. It supports various "review", "save" and "mark"
     policies, that determine what the user is asked to accept or reject
     before being saved, and the file location the changes are saved in.
 
@@ -81,9 +80,9 @@ class MigrationExecutor(object):
                 current location
              - 'review_policy' (see REVIEW_POLICY_OPTIONS)
              - 'save_policy' (SAVE_POLICY_OPTIONS)
-        :param func file_migrator_func: a function that is responsible for
-            getting a TranslatableFile object and returning a FileMigration
-            object
+        :param callable file_migrator_func: a callable that is responsible for
+            getting an object (e.g. a TranslatableFile) and returning
+            a FileMigration object
         """
         self.options = options
         self.file_migrator_func = file_migrator_func
@@ -428,3 +427,25 @@ class MigrationExecutor(object):
             Color.echo(errors_str)
 
         Color.echo('')
+
+
+def migrate_text(text, migrator_func):
+    """Convert the given text from the original framework to Native syntax.
+
+    Supports both HTML/template syntax and Python/gettext syntax.
+    Prints out the result in the console.
+
+    :param unicode text: the text to migrate to Native syntax
+    :param callable migrator_func: a Callable[unicode] -> FileMigration object
+        that converts syntax to Transifex Native; provided externally
+        so that it can support any Python framework (e.g. Django)
+    """
+    Color.echo(
+        '[high]Original syntax:[end]\n[red]{}[end]'.format(text)
+    )
+    file_migration = migrator_func(text)
+    Color.echo(
+        '\n[high]Transifex Native syntax:[end]\n[green]{}[end]'.format(
+            file_migration.compile()
+        )
+    )
