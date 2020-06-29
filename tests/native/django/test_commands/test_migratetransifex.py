@@ -5,6 +5,7 @@ import mock
 from django.core.management import call_command
 from tests.native.django.test_tools.test_migrations.test_templatetags import (
     DJANGO_TEMPLATE, TRANSIFEX_TEMPLATE)
+from transifex.common.console import Color
 from transifex.native.django.management.commands.transifex import Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.tools.migrations.review import (FileReviewPolicy,
@@ -341,3 +342,45 @@ def test_replace_save_string_review(mock_find_files, mock_read,
     assert mock_save_file.call_args[0][0] == 'dir1/dir2/1.html'
     migration_compile = mock_save_file.call_args[0][1]
     assert migration_compile() == HTML_COMPILED_1
+
+
+@mock.patch('transifex.common.console.Color.echo')
+def test_text_migration_template_code(mock_echo):
+    """Test the mode that migrates directly given text instead of files
+    (Django HTML templates)."""
+    command = Command()
+    call_command(command, 'migrate', text=DJANGO_TEMPLATE)
+    expected = Color.format(
+        '\n[high]Transifex Native syntax:[end]\n[green]{}[end]'.format(
+            TRANSIFEX_TEMPLATE
+        )
+    )
+    actual = Color.format(mock_echo.call_args_list[1][0][0])
+    assert expected == actual
+
+    # Make sure it's idempotent
+    mock_echo.reset_mock()
+    call_command(command, 'migrate', text=TRANSIFEX_TEMPLATE)
+    actual = Color.format(mock_echo.call_args_list[1][0][0])
+    assert expected == actual
+
+
+@mock.patch('transifex.common.console.Color.echo')
+def test_text_migration_python_code(mock_echo):
+    """Test the mode that migrates directly given text instead of files
+    (Python/gettext code)."""
+    command = Command()
+    call_command(command, 'migrate', text=PYTHON_SAMPLE)
+    expected = Color.format(
+        '\n[high]Transifex Native syntax:[end]\n[green]{}[end]'.format(
+            PYTHON_SAMPLE_MIGRATED
+        )
+    )
+    native = Color.format(mock_echo.call_args_list[1][0][0])
+    assert expected == native
+
+    # Make sure it's idempotent
+    mock_echo.reset_mock()
+    call_command(command, 'migrate', text=PYTHON_SAMPLE_MIGRATED)
+    actual = Color.format(mock_echo.call_args_list[1][0][0])
+    assert expected == actual

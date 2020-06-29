@@ -13,7 +13,8 @@ from transifex.native.django.tools.migrations.templatetags import \
 from transifex.native.tools.migrations.execution import (MARK_POLICY_OPTIONS,
                                                          REVIEW_POLICY_OPTIONS,
                                                          SAVE_POLICY_OPTIONS,
-                                                         MigrationExecutor)
+                                                         MigrationExecutor,
+                                                         migrate_text)
 from transifex.native.tools.migrations.gettext import (GettextMethods,
                                                        GettextMigrationBuilder)
 
@@ -94,6 +95,12 @@ class Migrate(CommandMixin):
             help='The path of the files to migrate. Finds files recursively.',
         )
         parser.add_argument(
+            '--text', '-t', dest='text', default='',
+            help='If set, the migration command will display the result '
+                 'of converting the given text to Transifex Native syntax, '
+                 'and then exit.',
+        )
+        parser.add_argument(
             '--save', dest='save_policy', default='new',
             help=('Determines where the migrated content will be saved: \n' +
                   pretty_options(SAVE_POLICY_OPTIONS)),
@@ -120,6 +127,22 @@ class Migrate(CommandMixin):
         self.stats = {
             'processed_files': 0, 'migrations': [], 'saved': [], 'errors': [],
         }
+
+        # Create a reusable migrator for templates code
+        self.django_migration_builder = DjangoTagMigrationBuilder()
+        self.gettext_migration_builder = GettextMigrationBuilder(
+            methods=GettextMethods(**GETTEXT_FUNCTIONS),
+            import_statement=T_IMPORT,
+        )
+
+        # -- Text mode: simply transform the given text and exit
+        text = options['text']
+        if text:
+            migrate_text(text, self._migrate_text)
+            return
+
+        # -- File mode: read all files based on the given options and migrate
+        # each of them
         self.executor = MigrationExecutor(
             options, file_migrator_func=self._migrate_file,
         )
@@ -138,18 +161,27 @@ class Migrate(CommandMixin):
         else:
             files = self._find_files(self.path, 'migrate')
 
-        # Create a reusable migrator for templates code
-        self.django_migration_builder = DjangoTagMigrationBuilder()
-        self.gettext_migration_builder = GettextMigrationBuilder(
-            methods=GettextMethods(**GETTEXT_FUNCTIONS),
-            import_statement=T_IMPORT,
-        )
-
         # Execute the migration
         self.executor.migrate_files(files)
 
+    def _migrate_text(self, text):
+        """Create a migration to Native syntax for the given string.
+
+        Supports both Python files and Django template files.
+
+        :param unicode text: the code string
+        :return: an object with the migration info
+        :rtype: FileMigration
+        """
+        # Template code
+        if '{%' in text:
+            return self.django_migration_builder.build_migration(text, '')
+        # Python code
+        else:
+            return self.gettext_migration_builder.build_migration(text, '')
+
     def _migrate_file(self, translatable_file):
-        """Extract source strings from the given file.
+        """Create a migration to Native syntax for the given file.
 
         Supports both Python files and Django template files.
 
