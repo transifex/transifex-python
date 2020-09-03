@@ -11,9 +11,8 @@ class TestCDSHandler(object):
 
     def _lang_lists_equal(self, list_1, list_2):
         try:
-            sorted_1, sorted_2 = [
-                sorted(l, key=itemgetter('code')) for l in (list_1, list_2)
-            ]
+            sorted_1, sorted_2 = [sorted(language, key=itemgetter('code'))
+                                  for language in (list_1, list_2)]
             pairs = zip(sorted_1, sorted_2)
             difference = any(x != y for x, y in pairs)
         except Exception:
@@ -100,8 +99,8 @@ class TestCDSHandler(object):
 
         assert cds_handler.fetch_languages() == []
         patched_logger.error.assert_called_with(
-            'Error retrieving languages from CDS: UnknownError '
-            '(`400 Client Error: Bad Request for url: https://some.host/languages`)'
+            'Error retrieving languages from CDS: UnknownError (`400 Client '
+            'Error: Bad Request for url: https://some.host/languages`)'
         )
         responses.reset()
 
@@ -125,8 +124,8 @@ class TestCDSHandler(object):
 
         assert cds_handler.fetch_languages() == []
         patched_logger.error.assert_called_with(
-            'Error retrieving languages from CDS: UnknownError '
-            '(`403 Client Error: Forbidden for url: https://some.host/languages`)'
+            'Error retrieving languages from CDS: UnknownError (`403 Client '
+            'Error: Forbidden for url: https://some.host/languages`)'
         )
         responses.reset()
 
@@ -333,9 +332,8 @@ class TestCDSHandler(object):
 
         responses.add(
             responses.GET, cds_host + '/content/en',
-            json={
-                # whatever, we don't care about the content of json repsone atm.
-            },
+            # whatever, we don't care about the content of json repsone atm.
+            json={},
             status=304
         )
 
@@ -451,3 +449,42 @@ class TestCDSHandler(object):
             'Accept-Encoding': 'gzip',
             'If-None-Match': 'something'
         }
+
+    @responses.activate
+    def test_retry_fetch_languages(self):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+            host=cds_host,
+        )
+        responses.add(responses.GET, cds_host + '/languages', status=202)
+        responses.add(responses.GET, cds_host + '/languages', status=202)
+        responses.add(responses.GET, cds_host + '/languages',
+                      json={'data': [{'code': "el"},
+                                     {'code': "en"}],
+                            'meta': {'some_key': "some_value"}},
+                      status=200)
+        languages_response = cds_handler.fetch_languages()
+        assert self._lang_lists_equal(
+            languages_response,
+            [{'code': 'el'}, {'code': 'en'}]
+        )
+
+    @responses.activate
+    def test_retry_fetch_translations(self):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+            host=cds_host,
+        )
+        responses.add(responses.GET, cds_host + '/content/el', status=202)
+        responses.add(responses.GET, cds_host + '/content/el', status=202)
+        responses.add(responses.GET,
+                      cds_host + '/content/el',
+                      json={'data': {'source': {'string': "translation"}}},
+                      status=200)
+        translations = cds_handler.fetch_translations('el')
+        assert (translations ==
+                {'el': (True, {'source': {'string': "translation"}})})

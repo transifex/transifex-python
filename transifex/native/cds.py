@@ -47,7 +47,8 @@ class EtagStore(object):
 class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
-    def __init__(self, configured_languages, token, secret=None, host=TRANSIFEX_CDS_HOST):
+    def __init__(self, configured_languages, token, secret=None,
+                 host=TRANSIFEX_CDS_HOST):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
@@ -72,10 +73,13 @@ class CDSHandler(object):
         languages = []
 
         try:
-            response = requests.get(
-                self.host + cds_url,
-                headers=self._get_headers(),
-            )
+            last_response_status = 202
+            while last_response_status == 202:
+                response = requests.get(
+                    self.host + cds_url,
+                    headers=self._get_headers(),
+                )
+                last_response_status = response.status_code
 
             if not response.ok:
                 logger.error(
@@ -89,18 +93,16 @@ class CDSHandler(object):
             languages = json_content['data']
 
         except (KeyError, ValueError):
-            # Compatibility with python2.7 where `JSONDecodeError` doesn't exist
+            # Compatibility with python2.7 where `JSONDecodeError` doesn't
+            # exist
             logger.error(
                 'Error retrieving languages from CDS: Malformed response')
         except requests.ConnectionError:
             logger.error(
                 'Error retrieving languages from CDS: ConnectionError')
         except Exception as e:
-            logger.error(
-                'Error retrieving languages from CDS: UnknownError (`{}`)'.format(
-                    str(e)
-                )
-            )
+            logger.error('Error retrieving languages from CDS: UnknownError '
+                         '(`{}`)'.format(str(e)))
 
         return languages
 
@@ -128,12 +130,16 @@ class CDSHandler(object):
                 set(self.configured_language_codes):
 
             try:
-                response = requests.get(
-                    self.host + cds_url.format(language_code=language_code),
-                    headers=self._get_headers(
-                        etag=self.etags.get(language_code)
+                last_response_status = 202
+                while last_response_status == 202:
+                    response = requests.get(
+                        (self.host +
+                         cds_url.format(language_code=language_code)),
+                        headers=self._get_headers(
+                            etag=self.etags.get(language_code)
+                        )
                     )
-                )
+                    last_response_status = response.status_code
 
                 if not response.ok:
                     logger.error(
@@ -155,9 +161,10 @@ class CDSHandler(object):
                     )
 
             except (KeyError, ValueError):
-                # Compatibility with python2.7 where `JSONDecodeError` doesn't exist
-                logger.error(
-                    'Error retrieving translations from CDS: Malformed response')  # pragma no cover
+                # Compatibility with python2.7 where `JSONDecodeError` doesn't
+                # exist
+                logger.error('Error retrieving translations from CDS: '
+                             'Malformed response')  # pragma no cover
                 translations[language_code] = (False, {})  # pragma no cover
             except requests.ConnectionError:
                 logger.error(
@@ -165,9 +172,8 @@ class CDSHandler(object):
                 translations[language_code] = (False, {})
             except Exception as e:
                 logger.error(
-                    'Error retrieving translations from CDS: UnknownError (`{}`)'.format(
-                        str(e)
-                    )
+                    'Error retrieving translations from CDS: UnknownError '
+                    '(`{}`)'.format(str(e))
                 )  # pragma no cover
                 translations[language_code] = (False, {})
 
@@ -176,19 +182,17 @@ class CDSHandler(object):
     def push_source_strings(self, strings, purge=False):
         """Push source strings to CDS.
 
-        :param list(SourceString) strings: a list of `SourceString` objects holding
-            source strings
-        :param bool purge: True deletes destination source content not included in
-                           pushed content.
-                           False appends the pushed content to destination source
-                           content.
+        :param list(SourceString) strings: a list of `SourceString` objects
+            holding source strings
+        :param bool purge: True deletes destination source content not included
+            in pushed content. False appends the pushed content to destination
+            source content.
         :return: the HTTP response object
         :rtype: requests.Response
         """
         if not self.secret:
-            raise Exception(
-                'You need to use `TRANSIFEX_SECRET` when pushing source content'
-            )
+            raise Exception('You need to use `TRANSIFEX_SECRET` when pushing '
+                            'source content')
 
         cds_url = TRANSIFEX_CDS_URLS['PUSH_SOURCE_STRINGS']
 
@@ -208,11 +212,8 @@ class CDSHandler(object):
             logger.error(
                 'Error pushing source strings to CDS: ConnectionError')
         except Exception as e:
-            logger.error(
-                'Error pushing source strings to CDS: UnknownError (`{}`)'.format(
-                    str(e)
-                )
-            )
+            logger.error('Error pushing source strings to CDS: UnknownError '
+                         '(`{}`)'.format(str(e)))
 
         return response
 
