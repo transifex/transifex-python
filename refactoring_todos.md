@@ -1,11 +1,11 @@
 - [x] initialized error gone
 - [x] initialize logic
-- [ ] hardcoded_language_codes vs remote_language_codes
+- [x] hardcoded_language_codes vs remote_language_codes
+- [ ] fetch_translations can limit to one language
 - [ ] cache is dict (or subclass of)
 - [ ] missing/error policies are callables
 - [ ] event dispatcher
 - [ ] no string renderer
-- [ ] fetch_translations can limit to one language
 - [ ] default language in translate
 - [ ] TxNative does not have to push
 - [ ] deamon is part of TxNative

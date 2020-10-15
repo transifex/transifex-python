@@ -17,20 +17,44 @@ class TxNative(object):
 
     def __init__(self, **kwargs):
         self._cache = MemoryCache()
-        self._languages = []
+        self._hardcoded_language_codes = None
+        self._remote_languages = None
         self._missing_policy = SourceStringPolicy()
         self._error_policy = SourceStringErrorPolicy()
         self._cds_handler = CDSHandler()
+        self.setup(**kwargs)
 
     def setup(self, languages=None, token=None, secret=None, cds_host=None,
               missing_policy=None, error_policy=None):
         if languages is not None:
-            self._languages = languages
+            self._hardcoded_language_codes = languages
         if missing_policy is not None:
             self._missing_policy = missing_policy
         if error_policy is not None:
             self._error_policy = error_policy
         self._cds_handler.setup(host=cds_host, token=token, secret=secret)
+
+    def get_languages(self, refetch=False):
+        """ Returns the list of supported languages.
+
+            If _remote_languages hasn't been fetched, or if `refetch` is True,
+            will fetch the languages that the remote Transifex projects
+            supports.
+
+            If `_hardcoded_languages` has been set (via the `languages` kwarg
+            of the `__init__` of `setup`), the intersection of remote and
+            hardcoded languages will be returned. Otherwise, all the remote
+            languages will be.
+        """
+
+        if refetch or self._remote_languages is None:
+            self._remote_languages = self._cds_handler.fetch_languages()
+        if self._hardcoded_language_codes is not None:
+            return [language
+                    for language in self._remote_languages
+                    if language['code'] in self._hardcoded_language_codes]
+        else:
+            return self._remote_languages
 
     def translate(self, source_string, language_code, is_source=False,
                   _context=None, escape=True, params=None):

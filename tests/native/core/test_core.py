@@ -45,13 +45,12 @@ class TestNative(object):
     """Tests the TxNative class."""
 
     def _get_tx(self, **kwargs):
-        mytx = TxNative()
-        mytx.setup(languages=['en', 'el'], token='cds_token', **kwargs)
+        mytx = TxNative(languages=['en', 'el'], token='cds_token', **kwargs)
         return mytx
 
     def test_default_init(self):
         mytx = self._get_tx()
-        assert mytx._languages == ['en', 'el']
+        assert mytx._hardcoded_language_codes == ['en', 'el']
         assert isinstance(mytx._missing_policy, SourceStringPolicy)
         assert isinstance(mytx._cache, MemoryCache)
         assert mytx._cds_handler._token == 'cds_token'
@@ -60,7 +59,7 @@ class TestNative(object):
     def test_custom_init(self):
         missing_policy = PseudoTranslationPolicy()
         mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
-        assert mytx._languages == ['en', 'el']
+        assert mytx._hardcoded_language_codes == ['en', 'el']
         assert mytx._missing_policy == missing_policy
         assert isinstance(mytx._cache, MemoryCache)
         assert mytx._cds_handler._token == 'cds_token'
@@ -222,3 +221,15 @@ class TestNative(object):
                                    "fr_FR",
                                    params={'cnt': 2})
         assert translation == 'OTHER'
+
+    def test_get_languages(self):
+        tx = TxNative()
+        tx._cds_handler = MagicMock(name="cds")
+        tx._cds_handler.fetch_languages.return_value = [
+            {'code': "aa"}, {'code': "bb"}, {'code': "dd"},
+        ]
+        assert tx.get_languages() == [{'code': "aa"},
+                                      {'code': "bb"},
+                                      {'code': "dd"}]
+        tx.setup(languages=["aa", "bb", "cc"])
+        assert tx.get_languages() == [{'code': "aa"}, {'code': "bb"}]
