@@ -1,0 +1,18 @@
+- [x] initialized error gone
+- [x] initialize logic
+- [ ] hardcoded_language_codes vs remote_language_codes
+- [ ] cache is dict (or subclass of)
+- [ ] missing/error policies are callables
+- [ ] event dispatcher
+- [ ] no string renderer
+- [ ] fetch_translations can limit to one language
+- [ ] default language in translate
+- [ ] TxNative does not have to push
+- [ ] deamon is part of TxNative
+- [ ] tx has tx.get and tx.render
+- [ ] SourceString is not weird
+- [ ] ETag is dict
+- [ ] CDSHandler should not hide exceptions
+- [ ] No constants
+- [ ] Don't escape
+- [ ] 79-char limit

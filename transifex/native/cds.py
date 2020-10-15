@@ -2,6 +2,7 @@ import logging
 import sys
 
 import requests
+
 from transifex.native.consts import (KEY_CHARACTER_LIMIT,
                                      KEY_DEVELOPER_COMMENT, KEY_OCCURRENCES,
                                      KEY_TAGS)
@@ -21,12 +22,10 @@ logger.addHandler(logging.StreamHandler(sys.stderr))
 # A mapping of meta keys
 # (interface_key: cds_key)
 # Only contains meta keys that are different between the two
-MAPPING = {
-    KEY_DEVELOPER_COMMENT: 'developer_comment',
-    KEY_CHARACTER_LIMIT: 'character_limit',
-    KEY_TAGS: 'tags',
-    KEY_OCCURRENCES: 'occurrences',
-}
+MAPPING = {KEY_DEVELOPER_COMMENT: 'developer_comment',
+           KEY_CHARACTER_LIMIT: 'character_limit',
+           KEY_TAGS: 'tags',
+           KEY_OCCURRENCES: 'occurrences'}
 
 
 class EtagStore(object):
@@ -47,26 +46,30 @@ class EtagStore(object):
 class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
-    def __init__(self, configured_languages, token, secret=None,
-                 host=TRANSIFEX_CDS_HOST):
-        """Constructor.
+    def __init__(self, **kwargs):
+        self._host = TRANSIFEX_CDS_HOST
+        self._token = None
+        self._secret = None
+        self._configured_language_codes = None
+        self._etags = EtagStore()
+        self.setup(**kwargs)
 
-        :param list configured_languages: a list of language codes for the
-            configured languages in the application
-        :param str token: the API token to use for connecting to the CDS
-        :param str host: the host of the Content Delivery Service
-        """
-        self.configured_language_codes = configured_languages
-        self.token = token
-        self.secret = secret
-        self.host = host or TRANSIFEX_CDS_HOST
-        self.etags = EtagStore()
+    def setup(self, host=None, token=None, secret=None,
+              configured_languages=None):
+        if host is not None:
+            self._host = host
+        if token is not None:
+            self._token = token
+        if secret is not None:
+            self._secret = secret
+        if configured_languages is not None:
+            self._configured_language_codes = configured_languages
 
     def fetch_languages(self):
-        """Fetch the languages defined in the CDS for the specific project.
+        """ Fetch the languages defined in the CDS for the specific project.
 
-        :return: a list of language information
-        :rtype: dict
+            :return: a list of language information
+            :rtype: dict
         """
 
         cds_url = TRANSIFEX_CDS_URLS['FETCH_AVAILABLE_LANGUAGES']
@@ -76,7 +79,7 @@ class CDSHandler(object):
             last_response_status = 202
             while last_response_status == 202:
                 response = requests.get(
-                    self.host + cds_url,
+                    self._host + cds_url,
                     headers=self._get_headers(),
                 )
                 last_response_status = response.status_code
@@ -107,14 +110,14 @@ class CDSHandler(object):
         return languages
 
     def fetch_translations(self, language_code=None):
-        """Fetch all translations for the given organization/project/(resource)
-        associated with the current token. Returns a tuple of refresh flag and
-        a dictionary of the fetched translations per language.
-        Refresh flag is going to be true whenever fresh data has been acquired
-        false otherwise.
+        """ Fetch all translations for the given
+            organization/project/(resource) associated with the current token.
+            Returns a tuple of refresh flag and a dictionary of the fetched
+            translations per language. Refresh flag is going to be true
+            whenever fresh data has been acquired false otherwise.
 
-        :return: a dictionary of (refresh_flag, translations) tuples
-        :rtype: dict
+            :return: a dictionary of (refresh_flag, translations) tuples
+            :rtype: dict
         """
 
         cds_url = TRANSIFEX_CDS_URLS['FETCH_TRANSLATIONS_FOR_LANGUAGE']
@@ -127,16 +130,16 @@ class CDSHandler(object):
             languages = [language_code]
 
         for language_code in set(languages) & \
-                set(self.configured_language_codes):
+                set(self._configured_language_codes):
 
             try:
                 last_response_status = 202
                 while last_response_status == 202:
                     response = requests.get(
-                        (self.host +
+                        (self._host +
                          cds_url.format(language_code=language_code)),
                         headers=self._get_headers(
-                            etag=self.etags.get(language_code)
+                            etag=self._etags.get(language_code)
                         )
                     )
                     last_response_status = response.status_code
@@ -153,7 +156,7 @@ class CDSHandler(object):
                 if response.status_code == 304:
                     translations[language_code] = (False, {})
                 else:
-                    self.etags.set(
+                    self._etags.set(
                         language_code, response.headers.get('ETag', ''))
                     json_content = response.json()
                     translations[language_code] = (
@@ -180,17 +183,18 @@ class CDSHandler(object):
         return translations
 
     def push_source_strings(self, strings, purge=False):
-        """Push source strings to CDS.
+        """ Push source strings to CDS.
 
-        :param list(SourceString) strings: a list of `SourceString` objects
-            holding source strings
-        :param bool purge: True deletes destination source content not included
-            in pushed content. False appends the pushed content to destination
-            source content.
-        :return: the HTTP response object
-        :rtype: requests.Response
+            :param list(SourceString) strings: a list of `SourceString` objects
+                holding source strings
+            :param bool purge: True deletes destination source content not
+                included in pushed content. False appends the pushed content to
+                destination source content.
+            :return: the HTTP response object
+            :rtype: requests.Response
         """
-        if not self.secret:
+
+        if not self._secret:
             raise Exception('You need to use `TRANSIFEX_SECRET` when pushing '
                             'source content')
 
@@ -199,7 +203,7 @@ class CDSHandler(object):
         data = {k: v for k, v in [self._serialize(item) for item in strings]}
         try:
             response = requests.post(
-                self.host + cds_url,
+                self._host + cds_url,
                 headers=self._get_headers(use_secret=True),
                 json={
                     'data': data,
@@ -218,14 +222,15 @@ class CDSHandler(object):
         return response
 
     def _serialize(self, source_string):
-        """Serialize the given source string to a format suitable for the CDS.
+        """ Serialize the given source string to a format suitable for the CDS.
 
-        :param transifex.native.parsing.SourceString source_string: the object
-            to serialize
-        :return: a tuple that contains ths string key and its data,
-            as (key, data)
-        :rtype: tuple
+            :param transifex.native.parsing.SourceString source_string: the
+                object to serialize
+            :return: a tuple that contains ths string key and its data, as
+                (key, data)
+            :rtype: tuple
         """
+
         data = {
             'string': source_string.string,
             'meta': {
@@ -239,18 +244,20 @@ class CDSHandler(object):
         return source_string.key, data
 
     def _get_headers(self, use_secret=False, etag=None):
-        """Return the headers to use when making requests.
+        """ Return the headers to use when making requests.
 
-        :param bool use_secret: if True, the Bearer authorization header
-            will also include the secret, otherwise it will only use the token
-        :param str etag: an optional etag to include
-        :return: a dictionary with all headers
-        :rtype: dict
+            :param bool use_secret: if True, the Bearer authorization header
+                will also include the secret, otherwise it will only use the
+                token
+            :param str etag: an optional etag to include
+            :return: a dictionary with all headers
+            :rtype: dict
         """
+
         headers = {
             'Authorization': 'Bearer {token}{secret}'.format(
-                token=self.token,
-                secret=(':' + self.secret if use_secret else '')
+                token=self._token,
+                secret=(':' + self._secret if use_secret else '')
             ),
             'Accept-Encoding': 'gzip',
         }

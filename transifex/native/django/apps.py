@@ -5,7 +5,8 @@ import sys
 from django.apps import AppConfig
 from django.core.signals import request_finished
 from django.utils.translation import to_locale
-from transifex.native import init, tx
+
+from transifex.native import tx
 from transifex.native.daemon import daemon
 from transifex.native.django import settings as native_settings
 from transifex.native.rendering import (parse_error_policy,
@@ -16,17 +17,16 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def _segments_match(segments_to_match, arguments):
-    """
-    Tries to find matching segments in the arguments of the command
-    that started the app. Will be used to determine whether we want
-    to fetch translations or not.
+    """ Tries to find matching segments in the arguments of the command that
+        started the app. Will be used to determine whether we want to fetch
+        translations or not.
 
-    :param list(str) segments_to_match: The segments that should be
-    matched. Expects to match all segments and will match subsequences
-    as well (e.g. `./manage.py` will match `manage.py`)
-    :param list(str) arguments: The arguments of the command that started
-    the app (probably `sys.argv`)
-    :rtype bool: Whether segments match or not
+        :param list(str) segments_to_match: The segments that should be
+            matched. Expects to match all segments and will match subsequences
+            as well (e.g. `./manage.py` will match `manage.py`)
+        :param list(str) arguments: The arguments of the command that started
+            the app (probably `sys.argv`)
+        :rtype bool: Whether segments match or not
     """
 
     segments_to_match = set(segments_to_match)
@@ -40,7 +40,6 @@ def _segments_match(segments_to_match, arguments):
 
 
 class NativeConfig(AppConfig):
-
     name = "transifex.native.django"
 
     def ready(self):
@@ -77,30 +76,22 @@ class NativeConfig(AppConfig):
         error_policy = parse_error_policy(
             native_settings.TRANSIFEX_ERROR_POLICY
         )
-        init(
-            native_settings.TRANSIFEX_TOKEN,
-            languages,
-            secret=native_settings.TRANSIFEX_SECRET,
-            cds_host=native_settings.TRANSIFEX_CDS_HOST,
-            missing_policy=missing_policy,
-            error_policy=error_policy
-        )
+        tx.setup(native_settings.TRANSIFEX_TOKEN,
+                 languages,
+                 secret=native_settings.TRANSIFEX_SECRET,
+                 cds_host=native_settings.TRANSIFEX_CDS_HOST,
+                 missing_policy=missing_policy,
+                 error_policy=error_policy)
 
         if fetch_translations:
-            logger.info(
-                'Fetching translations for languages: {}'.format(
-                    ', '.join(languages)
-                )
-            )
+            logger.info('Fetching translations for languages: {}'.
+                        format(', '.join(languages)))
             tx.fetch_translations()
             logger.info('Starting daemon for OTA translations update')
 
             sync_interval = native_settings.TRANSIFEX_SYNC_INTERVAL or 10*60
-            daemon.start_daemon(
-                interval=sync_interval
-            )
+            daemon.start_daemon(interval=sync_interval)
             request_finished.connect(daemon.is_daemon_running)
         else:
-            logger.info(
-                'Starting up without fetching translations or OTA updates'
-            )
+            logger.info('Starting up without fetching translations or OTA '
+                        'updates')

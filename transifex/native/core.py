@@ -10,85 +10,50 @@ from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
 
 
-class NotInitializedError(Exception):
-    """Raised when a method of a TxNative instance is called but the class
-    hasn't been initialized.
-
-    Allows for better debugging when developers neglect to call init().
-    """
-    pass
-
-
 class TxNative(object):
-    """The main class of the framework, responsible for orchestrating all
-    behavior."""
+    """ The main class of the framework, responsible for orchestrating all
+        behavior.
+    """
 
-    def __init__(self):
-        # The class uses an untypical initialization scheme, defining
-        # an init() method, instead of initializing inside the constructor
-        # This is necessary for allowing it to be initialized by its clients
-        # with proper arguments, while at the same time being very easy
-        # to import and use a single "global" instance
-        self._cache = None
-        self._languages = []
-        self._missing_policy = None
-        self._cds_handler = None
-        self.initialized = False
-
-    def init(
-        self, languages, token, secret=None, cds_host=None,
-        missing_policy=None, error_policy=None
-    ):
-        """Create an instance of the core framework class.
-
-        Also warms up the cache by fetching the translations from the CDS.
-
-        :param list languages: a list of language codes for the languages
-            configured in the application
-        :param str token: the API token to use for connecting to the CDS
-        :param str secret: the additional secret to use for pushing source
-            content
-        :param str cds_host: an optional host for the Content Delivery Service,
-            defaults to the host provided by Transifex
-        :param AbstractRenderingPolicy missing_policy: an optional policy
-            to use for returning strings when a translation is missing
-        :param AbstractErrorPolicy error_policy: an optional policy
-            to determine how to handle rendering errors
-        """
-        self._languages = languages
+    def __init__(self, **kwargs):
         self._cache = MemoryCache()
-        self._missing_policy = missing_policy or SourceStringPolicy()
-        self._error_policy = error_policy or SourceStringErrorPolicy()
-        self._cds_handler = CDSHandler(
-            self._languages, token, secret=secret, host=cds_host
-        )
-        self.initialized = True
+        self._languages = []
+        self._missing_policy = SourceStringPolicy()
+        self._error_policy = SourceStringErrorPolicy()
+        self._cds_handler = CDSHandler()
 
-    def translate(
-        self, source_string, language_code, is_source=False,
-        _context=None, escape=True, params=None
-    ):
-        """Translate the given string to the provided language.
+    def setup(self, languages=None, token=None, secret=None, cds_host=None,
+              missing_policy=None, error_policy=None):
+        if languages is not None:
+            self._languages = languages
+        if missing_policy is not None:
+            self._missing_policy = missing_policy
+        if error_policy is not None:
+            self._error_policy = error_policy
+        self._cds_handler.setup(host=cds_host, token=token, secret=secret)
 
-        :param unicode source_string: the source string to get the translation
-            for e.g. 'Order: {num, plural, one {A table} other {{num} tables}}'
-        :param str language_code: the language to translate to
-        :param bool is_source: a boolean indicating whether `translate`
-            is being used for the source language
-        :param unicode _context: an optional context that accompanies
-            the string
-        :param bool escape: if True, the returned string will be HTML-escaped,
-            otherwise it won't
-        :param dict params: optional parameters to replace any placeholders
-            found in the translation string
-        :return: the rendered string
-        :rtype: unicode
+    def translate(self, source_string, language_code, is_source=False,
+                  _context=None, escape=True, params=None):
+        """ Translate the given string to the provided language.
+
+            :param unicode source_string: the source string to get the
+                translation for e.g. 'Order: {num, plural, one {A table} other
+                {{num} tables}}'
+            :param str language_code: the language to translate to
+            :param bool is_source: a boolean indicating whether `translate` is
+                being used for the source language
+            :param unicode _context: an optional context that accompanies the
+                string
+            :param bool escape: if True, the returned string will be
+                HTML-escaped, otherwise it won't
+            :param dict params: optional parameters to replace any placeholders
+                found in the translation string
+            :return: the rendered string
+            :rtype: unicode
         """
 
         if params is None:
             params = {}
-
-        self._check_initialization()
 
         translation_template = self.get_translation(source_string,
                                                     language_code,
@@ -148,31 +113,20 @@ class TxNative(object):
 
     def fetch_translations(self):
         """Fetch fresh content from the CDS."""
-        self._check_initialization()
+
         self._cache.update(self._cds_handler.fetch_translations())
 
     def push_source_strings(self, strings, purge=False):
-        """Push the given source strings to the CDS.
+        """ Push the given source strings to the CDS.
 
-        :param list strings: a list of SourceString objects
-        :param bool purge: True deletes destination source content not included
-                           in pushed content.
-                           False appends the pushed content to destination
-                           source content.
-        :return: a tuple containing the status code and the content of the
-            response
-        :rtype: tuple
+            :param list strings: a list of SourceString objects
+            :param bool purge: True deletes destination source content not
+                included in pushed content.  False appends the pushed content
+                to destination source content.
+            :return: a tuple containing the status code and the content of the
+                response
+            :rtype: tuple
         """
-        self._check_initialization()
+
         response = self._cds_handler.push_source_strings(strings, purge)
         return response.status_code, json.loads(response.content)
-
-    def _check_initialization(self):
-        """Raise an exception if the class has not been initialized.
-
-        :raise NotInitializedError: if the class hasn't been initialized
-        """
-        if not self.initialized:
-            raise NotInitializedError(
-                'TxNative is not initialized, make sure you call init() first.'
-            )
