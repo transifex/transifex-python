@@ -3,7 +3,6 @@
 from mock import MagicMock, patch
 
 from transifex.common.utils import generate_key
-from transifex.native.cache import MemoryCache
 from transifex.native.cds import TRANSIFEX_CDS_HOST
 from transifex.native.core import TxNative
 from transifex.native.parsing import SourceString
@@ -52,7 +51,7 @@ class TestNative(object):
         mytx = self._get_tx()
         assert mytx._hardcoded_language_codes == ['en', 'el']
         assert isinstance(mytx._missing_policy, SourceStringPolicy)
-        assert isinstance(mytx._cache, MemoryCache)
+        assert isinstance(mytx._cache, dict)
         assert mytx._cds_handler._token == 'cds_token'
         assert mytx._cds_handler._host == TRANSIFEX_CDS_HOST
 
@@ -61,7 +60,7 @@ class TestNative(object):
         mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
         assert mytx._hardcoded_language_codes == ['en', 'el']
         assert mytx._missing_policy == missing_policy
-        assert isinstance(mytx._cache, MemoryCache)
+        assert isinstance(mytx._cache, dict)
         assert mytx._cds_handler._token == 'cds_token'
         assert mytx._cds_handler._host == 'myhost'
 
@@ -78,16 +77,20 @@ class TestNative(object):
             params={},
         )
 
-    @patch('transifex.native.core.MemoryCache.get')
     @patch('transifex.native.core.StringRenderer.render')
     def test_translate_target_language_missing_reaches_renderer(self,
-                                                                mock_render,
-                                                                mock_cache):
-        mock_cache.return_value = None
+                                                                mock_render):
         mytx = self._get_tx()
+        old_cache = mytx._cache
+        mytx._cache = MagicMock(name="cache")
+        inner_cache_mock = MagicMock(name="inner_cache")
+        mytx._cache.get.return_value = inner_cache_mock
+        inner_cache_mock.get.return_value = None
         mytx.translate('My String', 'en', is_source=False)
-        mock_cache.assert_called_once_with(generate_key(string='My String'),
-                                           'en')
+        mytx._cache.get.assert_called_once_with('en', {})
+        inner_cache_mock.get.assert_called_once_with(
+            generate_key(string="My String"),
+        )
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render=None,
@@ -96,6 +99,7 @@ class TestNative(object):
             missing_policy=mytx._missing_policy,
             params={},
         )
+        mytx._cache = old_cache
 
     def test_translate_target_language_missing_reaches_missing_policy(self):
         missing_policy = MagicMock()
@@ -150,11 +154,14 @@ class TestNative(object):
         )
         assert translation == '1 duck'
 
-    @patch('transifex.native.core.MemoryCache.get')
-    def test_translate_target_language_renders_icu(self, mock_cache):
-        mock_cache.return_value = \
-            '{cnt, plural, one {{cnt} παπί} other {{cnt} παπιά}}'
+    def test_translate_target_language_renders_icu(self):
         mytx = self._get_tx()
+        old_cache = mytx._cache
+        mytx._cache = MagicMock(name="cache")
+        inner_cache_mock = MagicMock(name="inner_cache")
+        mytx._cache.get.return_value = inner_cache_mock
+        inner_cache_mock.get.return_value = \
+            '{cnt, plural, one {{cnt} παπί} other {{cnt} παπιά}}'
         translation = mytx.translate(
             '{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
             'en',
@@ -162,6 +169,7 @@ class TestNative(object):
             params={'cnt': 1},
         )
         assert translation == '1 παπί'
+        mytx._cache = old_cache
 
     def test_translate_source_language_escape_html_true(self):
         mytx = self._get_tx()
@@ -200,19 +208,29 @@ class TestNative(object):
         mytx.push_source_strings(strings, False)
         mock_push_strings.assert_called_once_with(strings, False)
 
-    @patch('transifex.native.core.MemoryCache.update')
     @patch('transifex.native.core.CDSHandler.fetch_translations')
-    def test_fetch_translations_reaches_cds_handler_and_cache(self, mock_cds,
-                                                              mock_cache):
+    @patch('transifex.native.core.CDSHandler.fetch_languages')
+    def test_fetch_translations_reaches_cds_handler_and_cache(
+            self, mock_languages, mock_translations):
+        mock_languages.return_value = [{'code': "en"}, {'code': "el"}]
+        mock_translations.return_value = (None, None)
         mytx = self._get_tx()
+        old_cache = mytx._cache
+        mytx._cache = MagicMock(name="cache")
         mytx.fetch_translations()
-        assert mock_cds.call_count == 1
-        assert mock_cache.call_count > 0
+        assert mock_languages.call_count == 1
+        assert mock_translations.call_count > 1
+        mytx._cache = old_cache
 
-    @patch('transifex.native.core.MemoryCache.get')
-    def test_plural(self, cache_mock):
-        cache_mock.return_value = '{???, plural, one {ONE} other {OTHER}}'
+    def test_plural(self):
         tx = self._get_tx()
+        old_cache = tx._cache
+        tx._cache = MagicMock(name="cache")
+        inner_cache_mock = MagicMock(name="inner_cache")
+        tx._cache.get.return_value = inner_cache_mock
+        inner_cache_mock.get.return_value = \
+            "{???, plural, one {ONE} other {OTHER}}"
+
         translation = tx.translate('{cnt, plural, one {one} other {other}}',
                                    "fr_FR",
                                    params={'cnt': 1})
@@ -221,6 +239,7 @@ class TestNative(object):
                                    "fr_FR",
                                    params={'cnt': 2})
         assert translation == 'OTHER'
+        tx._cache = old_cache
 
     def test_get_languages(self):
         tx = TxNative()

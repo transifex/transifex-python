@@ -28,21 +28,6 @@ MAPPING = {KEY_DEVELOPER_COMMENT: 'developer_comment',
            KEY_OCCURRENCES: 'occurrences'}
 
 
-class EtagStore(object):
-    """ Manges etags """
-
-    # Probably we need to a duration policy here
-
-    def __init__(self):
-        self._mem = {}
-
-    def set(self, key, value):
-        self._mem[key] = value
-
-    def get(self, key):
-        return self._mem.get(key, '')
-
-
 class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
@@ -51,19 +36,16 @@ class CDSHandler(object):
         self._token = None
         self._secret = None
         self._configured_language_codes = None
-        self._etags = EtagStore()
+        self._etags = {}
         self.setup(**kwargs)
 
-    def setup(self, host=None, token=None, secret=None,
-              configured_languages=None):
+    def setup(self, host=None, token=None, secret=None):
         if host is not None:
             self._host = host
         if token is not None:
             self._token = token
         if secret is not None:
             self._secret = secret
-        if configured_languages is not None:
-            self._configured_language_codes = configured_languages
 
     def fetch_languages(self):
         """ Fetch the languages defined in the CDS for the specific project.
@@ -72,115 +54,69 @@ class CDSHandler(object):
             :rtype: dict
         """
 
-        cds_url = TRANSIFEX_CDS_URLS['FETCH_AVAILABLE_LANGUAGES']
-        languages = []
+        last_response_status = 202
+        while last_response_status == 202:
+            response = requests.get(self._host + "/languages",
+                                    headers=self._get_headers())
+            last_response_status = response.status_code
+        response.raise_for_status()
+        return response.json()['data']
 
-        try:
-            last_response_status = 202
-            while last_response_status == 202:
-                response = requests.get(
-                    self._host + cds_url,
-                    headers=self._get_headers(),
-                )
-                last_response_status = response.status_code
-
-            if not response.ok:
-                logger.error(
-                    'Error retrieving languages from CDS: `{}`'.format(
-                        response.reason
-                    )
-                )
-                response.raise_for_status()
-
-            json_content = response.json()
-            languages = json_content['data']
-
-        except (KeyError, ValueError):
-            # Compatibility with python2.7 where `JSONDecodeError` doesn't
-            # exist
-            logger.error(
-                'Error retrieving languages from CDS: Malformed response')
-        except requests.ConnectionError:
-            logger.error(
-                'Error retrieving languages from CDS: ConnectionError')
-        except Exception as e:
-            logger.error('Error retrieving languages from CDS: UnknownError '
-                         '(`{}`)'.format(str(e)))
-
-        return languages
-
-    def fetch_translations(self, language_code=None):
+    def fetch_translations(self, language_code):
         """ Fetch all translations for the given
             organization/project/(resource) associated with the current token.
             Returns a tuple of refresh flag and a dictionary of the fetched
             translations per language. Refresh flag is going to be true
             whenever fresh data has been acquired false otherwise.
 
-            :return: a dictionary of (refresh_flag, translations) tuples
-            :rtype: dict
+            :return: a (refresh_flag, translations) tuple
+            :rtype: tuple
         """
 
-        cds_url = TRANSIFEX_CDS_URLS['FETCH_TRANSLATIONS_FOR_LANGUAGE']
-
-        translations = {}
-
-        if not language_code:
-            languages = [lang['code'] for lang in self.fetch_languages()]
-        else:
-            languages = [language_code]
-
-        for language_code in set(languages) & \
-                set(self._configured_language_codes):
-
-            try:
-                last_response_status = 202
-                while last_response_status == 202:
-                    response = requests.get(
-                        (self._host +
-                         cds_url.format(language_code=language_code)),
-                        headers=self._get_headers(
-                            etag=self._etags.get(language_code)
-                        )
+        try:
+            last_response_status = 202
+            while last_response_status == 202:
+                response = requests.get(
+                    "{}/content/{}".format(self._host, language_code),
+                    headers=self._get_headers(
+                        etag=self._etags.get(language_code)
                     )
-                    last_response_status = response.status_code
+                )
+                last_response_status = response.status_code
 
-                if not response.ok:
-                    logger.error(
-                        'Error retrieving translations from CDS: `{}`'.format(
-                            response.reason
-                        )
-                    )
-                    response.raise_for_status()
-
-                # etags indicate that no translation have been updated
-                if response.status_code == 304:
-                    translations[language_code] = (False, {})
-                else:
-                    self._etags.set(
-                        language_code, response.headers.get('ETag', ''))
-                    json_content = response.json()
-                    translations[language_code] = (
-                        True, json_content['data']
-                    )
-
-            except (KeyError, ValueError):
-                # Compatibility with python2.7 where `JSONDecodeError` doesn't
-                # exist
-                logger.error('Error retrieving translations from CDS: '
-                             'Malformed response')  # pragma no cover
-                translations[language_code] = (False, {})  # pragma no cover
-            except requests.ConnectionError:
+            if not response.ok:
                 logger.error(
-                    'Error retrieving translations from CDS: ConnectionError')
-                translations[language_code] = (False, {})
-            except Exception as e:
-                logger.error(
-                    'Error retrieving translations from CDS: UnknownError '
-                    '(`{}`)'.format(str(e))
-                )  # pragma no cover
-                translations[language_code] = (False, {})
+                    'Error retrieving translations from CDS: `{}`'.format(
+                        response.reason
+                    )
+                )
+                response.raise_for_status()
 
-        return translations
+            # etags indicate that no translation have been updated
+            if response.status_code == 304:
+                return False, {}
+            else:
+                self._etags[language_code] = response.headers.get('ETag', '')
+                return (True,
+                        {key: value['string']
+                         for key, value in response.json()['data'].items()})
+
+        except (KeyError, ValueError):
+            # Compatibility with python2.7 where `JSONDecodeError` doesn't
+            # exist
+            logger.error('Error retrieving translations from CDS: '
+                         'Malformed response')  # pragma no cover
+            return False, {}
+        except requests.ConnectionError:
+            logger.error(
+                'Error retrieving translations from CDS: ConnectionError')
+            return False, {}
+        except Exception as e:
+            logger.error(
+                'Error retrieving translations from CDS: UnknownError '
+                '(`{}`)'.format(str(e))
+            )  # pragma no cover
+            return False, {}
 
     def push_source_strings(self, strings, purge=False):
         """ Push source strings to CDS.

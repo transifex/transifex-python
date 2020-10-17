@@ -396,7 +396,7 @@ def test_safe_and_escape_filter_on_block_ignored():
 
 def test_translates():
     hello_key = generate_key(string='hello', context=None)
-    tx._cache.update({'fr': (True, {hello_key: {'string': "bonjour"}})})
+    tx._cache.update({'fr': {hello_key: "bonjour"}})
     assert do_test('{% t "hello" %}', lang_code="fr") == "bonjour"
 
 
@@ -404,11 +404,12 @@ def test_translation_missing():
     old_missing_policy = tx._missing_policy
     tx._missing_policy = SourceStringPolicy()
 
-    tx._cache._translations_by_lang = {}
+    tx._cache = {}
     assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
 
     hello_key = generate_key(string='hello', context=None)
     tx._cache.update({'fr': (True, {hello_key: {'string': None}})})
+    tx._cache.update({'fr': {hello_key: None}})
     assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
 
     tx._missing_policy = old_missing_policy
@@ -416,8 +417,7 @@ def test_translation_missing():
 
 def test_escaping_is_done_on_translation():
     hello_key = generate_key(string='hello', context=None)
-    tx._cache.update(
-        {'fr': (True, {hello_key: {'string': "<xml>bonjour</xml>"}})})
+    tx._cache.update({'fr': {hello_key: "<xml>bonjour</xml>"}})
     assert (do_test('{% t "hello" %}', lang_code="fr") ==
             '&lt;xml&gt;bonjour&lt;/xml&gt;')
 
@@ -426,14 +426,8 @@ def test_source_filter_is_applied_on_translation():
     # 'hello' => 'bonjour', 'HELLO' => 'I like pancakes'
     hello_key = generate_key(string='hello', context=None)
     HELLO_key = generate_key(string='HELLO', context=None)
-    tx._cache.update(
-        {'fr': (
-            True,
-            {
-                hello_key: {'string': "bonjour"},
-                HELLO_key: {'string': "I like pancakes"}
-            }
-        )})
+    tx._cache.update({'fr': {hello_key: "bonjour",
+                             HELLO_key: "I like pancakes"}})
 
     assert do_test('{% t "hello"|upper %}', lang_code="fr") == "BONJOUR"
     # If the filter was applied on the source string, we would get

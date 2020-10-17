@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 import json
 
 from transifex.common.utils import generate_key, parse_plurals
-from transifex.native.cache import MemoryCache
 from transifex.native.cds import CDSHandler
 from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
@@ -16,7 +15,7 @@ class TxNative(object):
     """
 
     def __init__(self, **kwargs):
-        self._cache = MemoryCache()
+        self._cache = {}
         self._hardcoded_language_codes = None
         self._remote_languages = None
         self._missing_policy = SourceStringPolicy()
@@ -104,7 +103,7 @@ class TxNative(object):
         else:
             pluralized, plurals = parse_plurals(source_string)
             key = generate_key(string=source_string, context=_context)
-            translation_template = self._cache.get(key, language_code)
+            translation_template = self._cache.get(language_code, {}).get(key)
             if (translation_template is not None and pluralized and
                     translation_template.startswith('{???')):
                 variable_name = source_string[1:source_string.index(',')].\
@@ -135,10 +134,17 @@ class TxNative(object):
                 escape=escape, params=params,
             )
 
-    def fetch_translations(self):
+    def fetch_translations(self, language_code=None):
         """Fetch fresh content from the CDS."""
 
-        self._cache.update(self._cds_handler.fetch_translations())
+        if language_code is not None:
+            refresh, translations = self._cds_handler.\
+                fetch_translations(language_code)
+            if refresh:
+                self._cache[language_code] = translations
+        else:
+            for language in self.get_languages():
+                self.fetch_translations(language['code'])
 
     def push_source_strings(self, strings, purge=False):
         """ Push the given source strings to the CDS.

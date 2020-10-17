@@ -20,12 +20,9 @@ class TestCDSHandler(object):
         return not difference
 
     @responses.activate
-    @patch('transifex.native.cds.logger')
-    def test_fetch_languages(self, patched_logger):
+    def test_fetch_languages_success(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(configured_languages=['el', 'en'],
-                                 token='some_token',
-                                 host=cds_host)
+        cds_handler = CDSHandler(token='some_token', host=cds_host)
 
         # correct response
         responses.add(responses.GET,
@@ -34,74 +31,24 @@ class TestCDSHandler(object):
                             "meta": {"some_key": "some_value"}},
                       status=200)
 
-        languages_response = cds_handler.fetch_languages()
-        assert self._lang_lists_equal(languages_response,
-                                      [{'code': 'el'}, {'code': 'en'}])
-        assert patched_logger.error.call_count == 0
-        responses.reset()
-
-        # wrong payload structure
-        responses.add(responses.GET,
-                      cds_host + '/languages',
-                      json={"wrong_key": [{"code": "el"}, {"code": "en"}],
-                            "meta": {"some_key": "some_value"}},
-                      status=200)
-
-        assert cds_handler.fetch_languages() == []
-        patched_logger.error.assert_called_with('Error retrieving languages '
-                                                'from CDS: Malformed response')
-        responses.reset()
-
-        # bad request
-        responses.add(responses.GET,
-                      cds_host + '/languages',
-                      json={"data": [{"code": "el"}, {"code": "en"}],
-                            "meta": {"some_key": "some_value"}},
-                      status=400)
-
-        assert cds_handler.fetch_languages() == []
-        patched_logger.error.assert_called_with(
-            'Error retrieving languages from CDS: UnknownError (`400 Client '
-            'Error: Bad Request for url: https://some.host/languages`)'
-        )
-        responses.reset()
-
-        # unauthorized
-        responses.add(responses.GET,
-                      cds_host + '/languages',
-                      json={"data": [{"code": "el"}, {"code": "en"}],
-                            "meta": {"some_key": "some_value"}},
-                      status=403)
-
-        assert cds_handler.fetch_languages() == []
-        patched_logger.error.assert_called_with(
-            'Error retrieving languages from CDS: UnknownError (`403 Client '
-            'Error: Forbidden for url: https://some.host/languages`)'
-        )
-        responses.reset()
-
-        # connection error
-        assert cds_handler.fetch_languages() == []
-        patched_logger.error.assert_called_with('Error retrieving languages '
-                                                'from CDS: ConnectionError')
-        responses.reset()
+        assert (sorted(cds_handler.fetch_languages(),
+                       key=lambda l: l['code']) ==
+                [{"code": "el"}, {"code": "en"}])
 
     @responses.activate
-    @patch('transifex.native.cds.logger')
-    def test_fetch_translations(self, patched_logger):
+    def test_fetch_languages_error(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(configured_languages=['el', 'en', 'fr'],
-                                 token='some_token',
-                                 host=cds_host)
+        cds_handler = CDSHandler(token='some_token', host=cds_host)
 
-        # add response for languages
-        responses.add(responses.GET,
-                      cds_host + '/languages',
-                      json={"data": [{"code": "el"},
-                                     {"code": "en"},
-                                     {"code": "fr"}],
-                            "meta": {"some_key": "some_value"}},
-                      status=200)
+        responses.add(responses.GET, cds_host + '/languages', status=400)
+
+        with pytest.raises(Exception):
+            cds_handler.fetch_languages()
+
+    @responses.activate
+    def test_fetch_translations_success(self):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(token='some_token', host=cds_host)
 
         # add response for translations
         responses.add(responses.GET,
@@ -110,6 +57,9 @@ class TestCDSHandler(object):
                                      'key2': {'string': 'key2_el'}},
                             'meta': {"some_key": "some_value"}},
                       status=200)
+
+        assert (cds_handler.fetch_translations('el') ==
+                (True, {'key1': 'key1_el', 'key2': 'key2_el'}))
 
         responses.add(responses.GET,
                       cds_host + '/content/en',
@@ -118,73 +68,28 @@ class TestCDSHandler(object):
                             'meta': {}},
                       status=200)
 
+        assert (cds_handler.fetch_translations('en') ==
+                (True, {'key1': 'key1_en', 'key2': 'key2_en'}))
+
+    @responses.activate
+    @patch('transifex.native.cds.logger')
+    def test_fetch_translations_not_found(self, patched_logger):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(token='some_token', host=cds_host)
+
         # add response bad status response for a language here
         responses.add(responses.GET, cds_host + '/content/fr', status=404)
 
-        resp = cds_handler.fetch_translations()
-        assert resp == {'el': (True, {'key1': {'string': 'key1_el'},
-                                      'key2': {'string': 'key2_el'}}),
-                        'en': (True,
-                               {'key1': {'string': 'key1_en'},
-                                'key2': {'string': 'key2_en'}}),
-                        # That is due to error status in response
-                        'fr': (False, {})}
+        assert cds_handler.fetch_translations('fr') == (False, {})
 
         responses.reset()
-
-        # test fetch_languages fails with connection error
-        responses.add(responses.GET, cds_host + '/languages', status=500)
-        resp = cds_handler.fetch_translations()
-        assert resp == {}
-
-        patched_logger.error.assert_called_with(
-            'Error retrieving languages from CDS: UnknownError '
-            '(`500 Server Error: Internal Server Error for url: '
-            'https://some.host/languages`)'
-        )
-        responses.reset()
-        patched_logger.reset_mock()
-
-        # test language code
-        responses.add(responses.GET,
-                      cds_host + '/content/el',
-                      json={'data': {'key1': {'string': 'key1_el'},
-                                     'key2': {'string': 'key2_el'}},
-                            'meta': {"some_key": "some_value"}},
-                      status=200)
-
-        resp = cds_handler.fetch_translations(language_code='el')
-        assert resp == {'el': (True, {'key1': {'string': 'key1_el'},
-                                      'key2': {'string': 'key2_el'}})}
-        responses.reset()
-        assert patched_logger.error.call_count == 0
-
-        # test connection_error
-        resp = cds_handler.fetch_translations(language_code='el')
-        patched_logger.error.assert_called_with(
-            'Error retrieving translations from CDS: ConnectionError'
-        )
-        assert resp == {'el': (False, {})}
 
     @responses.activate
     @patch('transifex.native.cds.logger')
     def test_fetch_translations_etags_management(self, patched_logger):
-
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            configured_languages=['el', 'en'],
-            token='some_token',
-            host=cds_host,
-        )
+        cds_handler = CDSHandler(token='some_token', host=cds_host)
 
-        # add response for languages
-        responses.add(responses.GET,
-                      cds_host + '/languages',
-                      json={"data": [{"code": "el"}, {"code": "en"}],
-                            "meta": {"some_key": "some_value"}},
-                      status=200)
-
-        # add response for translations
         responses.add(responses.GET,
                       cds_host + '/content/el',
                       json={'data': {'key1': {'string': 'key1_el'},
@@ -192,7 +97,6 @@ class TestCDSHandler(object):
                             'meta': {"some_key": "some_value"}},
                       status=200,
                       headers={'ETag': 'some_unique_tag_is_here'})
-
         responses.add(responses.GET,
                       cds_host + '/content/en',
                       # whatever, we don't care about the content of json
@@ -200,15 +104,13 @@ class TestCDSHandler(object):
                       json={},
                       status=304)
 
-        resp = cds_handler.fetch_translations()
-        assert resp == {'el': (True, {'key1': {'string': 'key1_el'},
-                                      'key2': {'string': 'key2_el'}}),
-                        'en': (False, {})}
+        assert (cds_handler.fetch_translations('el') ==
+                (True, {'key1': "key1_el", 'key2': "key2_el"}))
+        assert cds_handler.fetch_translations('en') == (False, {})
         assert cds_handler._etags.get('el') == 'some_unique_tag_is_here'
 
     def test_push_source_strings_no_secret(self):
-        cds_handler = CDSHandler(configured_languages=['el', 'en'],
-                                 token='some_token')
+        cds_handler = CDSHandler(token='some_token')
         with pytest.raises(Exception):
             cds_handler.push_source_strings([], False)
 
@@ -216,8 +118,7 @@ class TestCDSHandler(object):
     @patch('transifex.native.cds.logger')
     def test_push_source_strings(self, patched_logger):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(configured_languages=['el', 'en'],
-                                 token='some_token',
+        cds_handler = CDSHandler(token='some_token',
                                  secret='some_secret',
                                  host=cds_host)
 
@@ -264,8 +165,7 @@ class TestCDSHandler(object):
 
     def test_get_headers(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(configured_languages=['el', 'en'],
-                                 token='some_token',
+        cds_handler = CDSHandler(token='some_token',
                                  secret='some_secret',
                                  host=cds_host)
         assert (cds_handler._get_headers() ==
@@ -284,8 +184,7 @@ class TestCDSHandler(object):
     @responses.activate
     def test_retry_fetch_languages(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(configured_languages=['el', 'en'],
-                                 token='some_token',
+        cds_handler = CDSHandler(token='some_token',
                                  host=cds_host)
         responses.add(responses.GET, cds_host + '/languages', status=202)
         responses.add(responses.GET, cds_host + '/languages', status=202)
@@ -301,8 +200,7 @@ class TestCDSHandler(object):
     @responses.activate
     def test_retry_fetch_translations(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(configured_languages=['el', 'en'],
-                                 token='some_token',
+        cds_handler = CDSHandler(token='some_token',
                                  host=cds_host)
         responses.add(responses.GET, cds_host + '/content/el', status=202)
         responses.add(responses.GET, cds_host + '/content/el', status=202)
@@ -310,6 +208,5 @@ class TestCDSHandler(object):
                       cds_host + '/content/el',
                       json={'data': {'source': {'string': "translation"}}},
                       status=200)
-        translations = cds_handler.fetch_translations('el')
-        assert translations == {'el': (True,
-                                       {'source': {'string': "translation"}})}
+        assert (cds_handler.fetch_translations('el') ==
+                (True, {'source': "translation"}))
