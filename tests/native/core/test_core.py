@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import responses
 from mock import MagicMock, patch
 
 from transifex.common.utils import generate_key
@@ -44,12 +45,15 @@ class TestNative(object):
     """Tests the TxNative class."""
 
     def _get_tx(self, **kwargs):
-        mytx = TxNative(languages=['en', 'el'], token='cds_token', **kwargs)
+        mytx = TxNative(languages=['en', 'el'],
+                        source_language_code="en",
+                        token='cds_token',
+                        **kwargs)
         return mytx
 
     def test_default_init(self):
         mytx = self._get_tx()
-        assert mytx._hardcoded_language_codes == ['en', 'el']
+        assert mytx.hardcoded_language_codes == ['en', 'el']
         assert isinstance(mytx._missing_policy, SourceStringPolicy)
         assert isinstance(mytx._cache, dict)
         assert mytx._cds_handler._token == 'cds_token'
@@ -58,7 +62,7 @@ class TestNative(object):
     def test_custom_init(self):
         missing_policy = PseudoTranslationPolicy()
         mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
-        assert mytx._hardcoded_language_codes == ['en', 'el']
+        assert mytx.hardcoded_language_codes == ['en', 'el']
         assert mytx._missing_policy == missing_policy
         assert isinstance(mytx._cache, dict)
         assert mytx._cds_handler._token == 'cds_token'
@@ -67,7 +71,7 @@ class TestNative(object):
     @patch('transifex.native.core.StringRenderer.render')
     def test_translate_source_language_reaches_renderer(self, mock_render):
         mytx = self._get_tx()
-        mytx.translate('My String', 'en', is_source=True)
+        mytx.translate('My String', 'en')
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render='My String',
@@ -86,15 +90,15 @@ class TestNative(object):
         inner_cache_mock = MagicMock(name="inner_cache")
         mytx._cache.get.return_value = inner_cache_mock
         inner_cache_mock.get.return_value = None
-        mytx.translate('My String', 'en', is_source=False)
-        mytx._cache.get.assert_called_once_with('en', {})
+        mytx.translate('My String', 'el')
+        mytx._cache.get.assert_called_once_with('el', {})
         inner_cache_mock.get.assert_called_once_with(
             generate_key(string="My String"),
         )
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render=None,
-            language_code='en',
+            language_code='el',
             escape=True,
             missing_policy=mytx._missing_policy,
             params={},
@@ -104,7 +108,7 @@ class TestNative(object):
     def test_translate_target_language_missing_reaches_missing_policy(self):
         missing_policy = MagicMock()
         mytx = self._get_tx(missing_policy=missing_policy)
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'el')
         missing_policy.get.assert_called_once_with('My String')
 
     @patch('transifex.native.core.StringRenderer')
@@ -112,9 +116,9 @@ class TestNative(object):
         error_policy = MagicMock()
         mock_renderer.render.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'el')
         error_policy.get.assert_called_once_with(
-            source_string='My String', translation=None, language_code='en',
+            source_string='My String', translation=None, language_code='el',
             escape=True, params={},
         )
 
@@ -124,7 +128,7 @@ class TestNative(object):
         mock_missing_policy = MagicMock()
         mock_missing_policy.get.side_effect = Exception
         mytx = self._get_tx(missing_policy=mock_missing_policy)
-        result = mytx.translate('My String', 'en', is_source=False)
+        result = mytx.translate('My String', 'en')
         assert result == 'My String'
 
     @patch('transifex.native.core.StringRenderer')
@@ -141,7 +145,7 @@ class TestNative(object):
         mock_renderer1.render.side_effect = Exception
         mock_renderer2.render.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
-        result = mytx.translate('My String', 'en', is_source=False)
+        result = mytx.translate('My String', 'en')
         assert result == 'my-default-text'
 
     def test_translate_source_language_renders_icu(self):
@@ -149,7 +153,6 @@ class TestNative(object):
         translation = mytx.translate(
             '{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
             'en',
-            is_source=True,
             params={'cnt': 1},
         )
         assert translation == '1 duck'
@@ -164,8 +167,7 @@ class TestNative(object):
             '{cnt, plural, one {{cnt} παπί} other {{cnt} παπιά}}'
         translation = mytx.translate(
             '{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
-            'en',
-            is_source=False,
+            'el',
             params={'cnt': 1},
         )
         assert translation == '1 παπί'
@@ -176,7 +178,6 @@ class TestNative(object):
         translation = mytx.translate(
             '<script type="text/javascript">alert(1)</script>',
             'en',
-            is_source=True,
             escape=True,
             params={'cnt': 1},
         )
@@ -190,7 +191,6 @@ class TestNative(object):
         translation = mytx.translate(
             '<script type="text/javascript">alert(1)</script>',
             'en',
-            is_source=True,
             escape=False,
             params={'cnt': 1},
         )
@@ -252,3 +252,20 @@ class TestNative(object):
                                       {'code': "dd"}]
         tx.setup(languages=["aa", "bb", "cc"])
         assert tx.get_languages() == [{'code': "aa"}, {'code': "bb"}]
+
+    @responses.activate
+    def test_translate_in_current_language_code(self):
+        key = generate_key("Hello world")
+
+        responses.add(responses.GET,
+                      "http://some.host/languages",
+                      json={'data': [{'code': "el"}]},
+                      status=200)
+        responses.add(responses.GET,
+                      "http://some.host/content/el",
+                      json={'data': {key: {'string': "Καλημέρα κόσμε"}}},
+                      status=200)
+
+        mytx = self._get_tx(cds_host="http://some.host")
+        mytx.set_current_language_code('el')
+        assert mytx.translate("Hello world") == "Καλημέρα κόσμε"

@@ -5,6 +5,7 @@ import json
 
 from transifex.common.utils import generate_key, parse_plurals
 from transifex.native.cds import CDSHandler
+from transifex.native.events import EventDispatcher
 from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
 
@@ -15,28 +16,50 @@ class TxNative(object):
     """
 
     def __init__(self, **kwargs):
+        # Public
+        self.hardcoded_language_codes = None
+        self.remote_languages = None
+        self.source_language_code = None
+        self.current_language_code = None
+
+        # Private
         self._cache = {}
-        self._hardcoded_language_codes = None
-        self._remote_languages = None
         self._missing_policy = SourceStringPolicy()
         self._error_policy = SourceStringErrorPolicy()
         self._cds_handler = CDSHandler()
+        self._event_distpatcher = EventDispatcher()
+
         self.setup(**kwargs)
 
-    def setup(self, languages=None, token=None, secret=None, cds_host=None,
-              missing_policy=None, error_policy=None):
+    def setup(self, languages=None, source_language_code=None,
+              missing_policy=None, error_policy=None,
+              token=None, secret=None, cds_host=None):
         if languages is not None:
-            self._hardcoded_language_codes = languages
+            self.hardcoded_language_codes = languages
+        if source_language_code is not None:
+            self.source_language_code = source_language_code
         if missing_policy is not None:
             self._missing_policy = missing_policy
         if error_policy is not None:
             self._error_policy = error_policy
+
         self._cds_handler.setup(host=cds_host, token=token, secret=secret)
+
+    def set_current_language_code(self, language_code):
+        if language_code not in [language['code']
+                                 for language in self.get_languages()]:
+            raise ValueError("Language '{}' is not available".
+                             format(language_code))
+        if language_code not in self._cache:
+            self.fetch_translations(language_code)
+        self.current_language_code = language_code
+        self._event_distpatcher.trigger('CURRENT_LANGUAGE_CHANGED',
+                                        language_code)
 
     def get_languages(self, refetch=False):
         """ Returns the list of supported languages.
 
-            If _remote_languages hasn't been fetched, or if `refetch` is True,
+            If remote_languages hasn't been fetched, or if `refetch` is True,
             will fetch the languages that the remote Transifex projects
             supports.
 
@@ -46,25 +69,25 @@ class TxNative(object):
             languages will be.
         """
 
-        if refetch or self._remote_languages is None:
-            self._remote_languages = self._cds_handler.fetch_languages()
-        if self._hardcoded_language_codes is not None:
+        if refetch or self.remote_languages is None:
+            self._event_distpatcher.trigger("FETCHING_LANGUAGES")
+            self.remote_languages = self._cds_handler.fetch_languages()
+            self._event_distpatcher.trigger("LANGUAGES_FETCHED")
+        if self.hardcoded_language_codes is not None:
             return [language
-                    for language in self._remote_languages
-                    if language['code'] in self._hardcoded_language_codes]
+                    for language in self.remote_languages
+                    if language['code'] in self.hardcoded_language_codes]
         else:
-            return self._remote_languages
+            return self.remote_languages
 
-    def translate(self, source_string, language_code, is_source=False,
-                  _context=None, escape=True, params=None):
+    def translate(self, source_string, language_code=None, _context=None,
+                  escape=True, params=None):
         """ Translate the given string to the provided language.
 
             :param unicode source_string: the source string to get the
                 translation for e.g. 'Order: {num, plural, one {A table} other
                 {{num} tables}}'
             :param str language_code: the language to translate to
-            :param bool is_source: a boolean indicating whether `translate` is
-                being used for the source language
             :param unicode _context: an optional context that accompanies the
                 string
             :param bool escape: if True, the returned string will be
@@ -75,13 +98,17 @@ class TxNative(object):
             :rtype: unicode
         """
 
+        if language_code is None:
+            language_code = self.current_language_code
+        if language_code is None:
+            language_code = self.source_language_code
+
         if params is None:
             params = {}
 
         translation_template = self.get_translation(source_string,
                                                     language_code,
-                                                    _context,
-                                                    is_source)
+                                                    _context)
 
         return self.render_translation(translation_template,
                                        params,
@@ -89,8 +116,8 @@ class TxNative(object):
                                        language_code,
                                        escape)
 
-    def get_translation(self, source_string, language_code, _context,
-                        is_source=False):
+    def get_translation(self, source_string, language_code=None,
+                        _context=None):
         """ Try to retrieve the translation.
 
             A translation is a serialized source_string with ICU format
@@ -98,19 +125,24 @@ class TxNative(object):
             '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
         """
 
-        if is_source:
-            translation_template = source_string
-        else:
-            pluralized, plurals = parse_plurals(source_string)
-            key = generate_key(string=source_string, context=_context)
-            translation_template = self._cache.get(language_code, {}).get(key)
-            if (translation_template is not None and pluralized and
-                    translation_template.startswith('{???')):
-                variable_name = source_string[1:source_string.index(',')].\
-                    strip()
-                translation_template = ('{' +
-                                        variable_name +
-                                        translation_template[4:])
+        if language_code is None:
+            language_code = self.current_language_code
+        if language_code is None:
+            language_code = self.source_language_code
+
+        if language_code == self.source_language_code:
+            return source_string
+
+        pluralized, plurals = parse_plurals(source_string)
+        key = generate_key(string=source_string, context=_context)
+        translation_template = self._cache.get(language_code, {}).get(key)
+        if (translation_template is not None and pluralized and
+                translation_template.startswith('{???')):
+            variable_name = source_string[1:source_string.index(',')].\
+                strip()
+            translation_template = ('{' +
+                                    variable_name +
+                                    translation_template[4:])
         return translation_template
 
     def render_translation(self, translation_template, params, source_string,
@@ -138,13 +170,24 @@ class TxNative(object):
         """Fetch fresh content from the CDS."""
 
         if language_code is not None:
+            self._event_distpatcher.trigger("FETCHING_TRANSLATIONS",
+                                            language_code)
             refresh, translations = self._cds_handler.\
                 fetch_translations(language_code)
             if refresh:
                 self._cache[language_code] = translations
+            self._event_distpatcher.trigger("TRANSLATIONS_FETCHED",
+                                            language_code)
         else:
             for language in self.get_languages():
                 self.fetch_translations(language['code'])
+
+    # Map to event dispatcher
+    def on(self, event_name, callback):
+        self._event_distpatcher.on(event_name, callback)
+
+    def off(self, event_name, callback):
+        self._event_distpatcher.off(event_name, callback)
 
     def push_source_strings(self, strings, purge=False):
         """ Push the given source strings to the CDS.

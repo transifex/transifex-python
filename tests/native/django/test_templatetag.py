@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 from django.template import Context, Template
 from django.utils import translation
+
 from transifex.common.utils import generate_key
 from transifex.native import tx
 from transifex.native.rendering import SourceStringPolicy
@@ -26,12 +27,15 @@ def do_test(template_str, context_dict=None, autoescape=True,
         https://docs.djangoproject.com/en/3.0/ref/templates/language/#automatic-html-escaping  # noqa
     """
 
+    tx.setup(source_language_code="en_US")
     translation.activate(lang_code)
     if context_dict is None:
         context_dict = {}
     context = Context(dict(context_dict), autoescape=autoescape)
     template = ('{% load transifex %}' + template_str)
-    return Template(template).render(context)
+    result = Template(template).render(context)
+    tx.source_language_code = None  # reset
+    return result
 
 
 def test_simple():

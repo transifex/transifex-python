@@ -3,6 +3,7 @@ import os
 import sys
 
 from django.apps import AppConfig
+from django.conf import settings
 from django.core.signals import request_finished
 from django.utils.translation import to_locale
 
@@ -76,8 +77,9 @@ class NativeConfig(AppConfig):
         error_policy = parse_error_policy(
             native_settings.TRANSIFEX_ERROR_POLICY
         )
-        tx.setup(native_settings.TRANSIFEX_TOKEN,
-                 languages,
+        tx.setup(token=native_settings.TRANSIFEX_TOKEN,
+                 languages=languages,
+                 source_language_code=settings.LANGUAGE_CODE,
                  secret=native_settings.TRANSIFEX_SECRET,
                  cds_host=native_settings.TRANSIFEX_CDS_HOST,
                  missing_policy=missing_policy,

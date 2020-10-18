@@ -13,6 +13,7 @@ from django.template.defaulttags import token_kwargs
 from django.utils.html import escape as escape_html
 from django.utils.safestring import EscapeData, SafeData, mark_safe
 from django.utils.translation import get_language, to_locale
+
 from transifex.common._compat import string_types
 from transifex.native import tx
 
@@ -207,11 +208,9 @@ class TNode(Node):
         # ICU template. Then we perform ICU rendering against 'params'.
         # Inbetween the two steps, if the tag used was 't' and not 'ut', we
         # peform escaping on the ICU template.
-        is_source = get_language() == settings.LANGUAGE_CODE
         locale = to_locale(get_language())  # e.g. from en-us to en_US
         translation_icu_template = tx.get_translation(
             source_icu_template, locale, params.get('_context', None),
-            is_source,
         )
         if self.tag_name == "t":
             source_icu_template = escape_html(source_icu_template)
