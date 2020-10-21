@@ -2,6 +2,7 @@ from django.utils.translation import get_language, to_locale
 
 from transifex.common.strings import LazyString
 from transifex.native import tx
+from transifex.native.rendering import html_escape
 
 
 def translate(_string, _context=None, _escape=True, **params):
@@ -23,8 +24,8 @@ def translate(_string, _context=None, _escape=True, **params):
     return tx.translate(_string,
                         locale,
                         _context=_context,
-                        escape=_escape,
-                        params=params)
+                        _escape=html_escape if _escape else None,
+                        **params)
 
 
 def lazy_translate(_string, _context=None, _escape=True, **params):
@@ -46,9 +47,11 @@ def lazy_translate(_string, _context=None, _escape=True, **params):
         the final translation in the current language
     :rtype: LazyString
     """
-    return LazyString(
-        translate, _string, _context=_context, escape=_escape, **params
-    )
+    return LazyString(translate,
+                      _string,
+                      _context=_context,
+                      _escape=_escape if _escape else None,
+                      **params)
 
 
 def utranslate(_string, _context=None, **params):
@@ -68,4 +71,4 @@ def utranslate(_string, _context=None, **params):
     :return: the final translation in the current language
     :rtype: unicode
     """
-    return translate(_string, _context, escape=False, **params)
+    return translate(_string, _context, _escape=False, **params)

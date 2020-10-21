@@ -5,17 +5,17 @@
 - [x] CDSHandler should not hide exceptions
 - [x] ETag is dict
 - [x] cache is dict (or subclass of)
-
 - [x] event dispatcher
 - [x] Support setting current language code
 
-- [ ] Figure out arguments to `get_translation`, `render_translation`
+- [x] Figure out arguments to `translate`, `get_translation`,
+      `render_translation`
+- [x] Get rid of `get_translation`, `render_translation`
+
 - [ ] No constants
-- [ ] missing/error policies are callables
+- [ ] missing/error policies should be callables
 - [ ] no string renderer
 - [ ] TxNative does not have to push
 - [ ] daemon is part of TxNative
-- [ ] tx has tx.get and tx.render
-- [ ] SourceString is not weird
-- [ ] Don't escape (use `t.get` and `t.render` for that)
+- [ ] SourceString should not be weird
 - [ ] 79-char limit

@@ -81,7 +81,7 @@ class TxNative(object):
             return self.remote_languages
 
     def translate(self, source_string, language_code=None, _context=None,
-                  escape=True, params=None):
+                  _escape=None, **params):
         """ Translate the given string to the provided language.
 
             :param unicode source_string: the source string to get the
@@ -90,7 +90,7 @@ class TxNative(object):
             :param str language_code: the language to translate to
             :param unicode _context: an optional context that accompanies the
                 string
-            :param bool escape: if True, the returned string will be
+            :param bool _escape: if True, the returned string will be
                 HTML-escaped, otherwise it won't
             :param dict params: optional parameters to replace any placeholders
                 found in the translation string
@@ -103,58 +103,26 @@ class TxNative(object):
         if language_code is None:
             language_code = self.source_language_code
 
-        if params is None:
-            params = {}
-
-        translation_template = self.get_translation(source_string,
-                                                    language_code,
-                                                    _context)
-
-        return self.render_translation(translation_template,
-                                       params,
-                                       source_string,
-                                       language_code,
-                                       escape)
-
-    def get_translation(self, source_string, language_code=None,
-                        _context=None):
-        """ Try to retrieve the translation.
-
-            A translation is a serialized source_string with ICU format
-            support, e.g.
-            '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
-        """
-
-        if language_code is None:
-            language_code = self.current_language_code
-        if language_code is None:
-            language_code = self.source_language_code
-
         if language_code == self.source_language_code:
-            return source_string
-
-        pluralized, plurals = parse_plurals(source_string)
-        key = generate_key(string=source_string, context=_context)
-        translation_template = self._cache.get(language_code, {}).get(key)
-        if (translation_template is not None and pluralized and
-                translation_template.startswith('{???')):
-            variable_name = source_string[1:source_string.index(',')].\
-                strip()
-            translation_template = ('{' +
-                                    variable_name +
-                                    translation_template[4:])
-        return translation_template
-
-    def render_translation(self, translation_template, params, source_string,
-                           language_code, escape=False):
-        """ Replace the variables in the ICU translation """
+            translation_template = source_string
+        else:
+            pluralized, plurals = parse_plurals(source_string)
+            key = generate_key(string=source_string, context=_context)
+            translation_template = self._cache.get(language_code, {}).get(key)
+            if (translation_template is not None and pluralized and
+                    translation_template.startswith('{???')):
+                variable_name = source_string[1:source_string.index(',')].\
+                    strip()
+                translation_template = ('{' +
+                                        variable_name +
+                                        translation_template[4:])
 
         try:
             return StringRenderer.render(
                 source_string=source_string,
                 string_to_render=translation_template,
                 language_code=language_code,
-                escape=escape,
+                escape=_escape,
                 missing_policy=self._missing_policy,
                 params=params,
             )
@@ -163,7 +131,8 @@ class TxNative(object):
                 source_string=source_string,
                 translation=translation_template,
                 language_code=language_code,
-                escape=escape, params=params,
+                escape=_escape,
+                params=params,
             )
 
     def fetch_translations(self, language_code=None):

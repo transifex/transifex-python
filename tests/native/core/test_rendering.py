@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import pytest
-from mock import patch
+from mock import MagicMock, patch
+
 from transifex.native.rendering import (ChainedPolicy, ExtraLengthPolicy,
                                         PseudoTranslationPolicy,
                                         SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer,
-                                        WrappedStringPolicy,
+                                        WrappedStringPolicy, html_escape,
                                         parse_rendering_policy)
 
 COMPLEX_STRINGS = u"""{gender_of_host, select,
@@ -40,7 +41,7 @@ class TestStringRenderer(object):
             JS_SCRIPT,
             JS_SCRIPT,
             'en',
-            escape=True,
+            escape=html_escape,
             missing_policy=SourceStringPolicy(),
             params={'cnt': 2},
         )
@@ -53,7 +54,7 @@ class TestStringRenderer(object):
             JS_SCRIPT,
             JS_SCRIPT,
             'en',
-            escape=False,
+            escape=None,
             missing_policy=SourceStringPolicy(),
             params={'cnt': 2},
         )
@@ -64,7 +65,7 @@ class TestStringRenderer(object):
             u'{cnt, plural, one {{cnt} table} other {{cnt} tables}}',
             u'{cnt, plural, one {{cnt} τραπέζι} other {{cnt} τραπέζια}}',
             'en',
-            escape=True,
+            escape=html_escape,
             missing_policy=SourceStringPolicy(),
             params={'cnt': 2},
         )
@@ -75,7 +76,7 @@ class TestStringRenderer(object):
             u'{cnt, plural, one {{cnt} table} other {{cnt} tables}}',
             None,
             'en',
-            escape=True,
+            escape=html_escape,
             missing_policy=SourceStringPolicy(),
             params={'cnt': 2},
         )
@@ -86,7 +87,7 @@ class TestStringRenderer(object):
             u'{cnt, plural, one {{cnt} table} other {{cnt} tables}}',
             None,
             'en',
-            escape=True,
+            escape=html_escape,
             missing_policy=PseudoTranslationPolicy(),
             params={'cnt': 2},
         )
@@ -98,7 +99,7 @@ class TestStringRenderer(object):
             JS_SCRIPT,
             None,
             'en',
-            escape=True,
+            escape=html_escape,
             missing_policy=SourceStringPolicy(),
             params={'cnt': 2},
         )
@@ -111,7 +112,7 @@ class TestStringRenderer(object):
             JS_SCRIPT,
             None,
             'en',
-            escape=False,
+            escape=None,
             missing_policy=SourceStringPolicy(),
             params={'cnt': 2},
         )
@@ -137,22 +138,21 @@ class TestStringRenderer(object):
             COMPLEX_STRINGS,
             None,
             'en',
-            escape=True,
+            escape=html_escape,
             missing_policy=SourceStringPolicy(),
             params=params,
         )
 
-    @patch('transifex.native.rendering.html_escape')
     @patch('transifex.native.rendering.logger')
-    def test_error_raises_exception(self, mock_logger, mock_escape):
-
+    def test_error_raises_exception(self, mock_logger):
+        mock_escape = MagicMock(name="html_escape")
         mock_escape.side_effect = Exception
         with pytest.raises(Exception):
             translation = StringRenderer.render(
                 'Source String',
                 'Translation',
                 'en',
-                escape=True,
+                escape=mock_escape,
                 missing_policy=SourceStringPolicy(),
             )
         mock_logger.error.assert_called_with(
@@ -167,7 +167,7 @@ class TestStringRenderer(object):
                 'source',
                 '',
                 'en',
-                escape=True,
+                escape=html_escape,
                 missing_policy=None,
             )
         assert str(exc_info.value) == (
@@ -225,23 +225,23 @@ class TestErrorPolicies(object):
     of AbstractErrorPolicy."""
 
     def test_source_string_policy(self):
-        assert SourceStringErrorPolicy().get(
-            source_string='Source-String',
-            translation=None,
-            language_code='a',
-            escape=True
-        ) == 'Source-String'
+        assert (SourceStringErrorPolicy().
+                get(source_string='Source-String',
+                    translation=None,
+                    language_code='a',
+                    escape=html_escape) ==
+                'Source-String')
 
     @patch('transifex.native.rendering.logger')
     @patch('transifex.native.rendering.StringRenderer')
-    def test_source_string_policy(self, mock_renderer, mock_logger):
+    def test_source_string_policy_with_error(self, mock_renderer, mock_logger):
         mock_renderer.render.side_effect = Exception
-        assert SourceStringErrorPolicy().get(
-            source_string='Source-String',
-            translation=None,
-            language_code='a',
-            escape=True
-        ) == 'ERROR'
+        assert (SourceStringErrorPolicy().
+                get(source_string='Source-String',
+                    translation=None,
+                    language_code='a',
+                    escape=html_escape) ==
+                'ERROR')
         mock_logger.error.assert_called_with(
             'ErrorPolicyError: Could not render string `Source-String` with parameters `{}`'
         )

@@ -8,7 +8,8 @@ from transifex.native.cds import TRANSIFEX_CDS_HOST
 from transifex.native.core import TxNative
 from transifex.native.parsing import SourceString
 from transifex.native.rendering import (PseudoTranslationPolicy,
-                                        SourceStringPolicy, parse_error_policy)
+                                        SourceStringPolicy, html_escape,
+                                        parse_error_policy)
 
 
 class TestSourceString(object):
@@ -71,12 +72,14 @@ class TestNative(object):
     @patch('transifex.native.core.StringRenderer.render')
     def test_translate_source_language_reaches_renderer(self, mock_render):
         mytx = self._get_tx()
-        mytx.translate('My String', 'en')
+        key = generate_key('My String')
+        mytx._cache = {'el': {key: "Το string μου"}}
+        mytx.translate('My String', 'el')
         mock_render.assert_called_once_with(
             source_string='My String',
-            string_to_render='My String',
-            language_code='en',
-            escape=True,
+            string_to_render="Το string μου",
+            language_code='el',
+            escape=None,
             missing_policy=mytx._missing_policy,
             params={},
         )
@@ -99,7 +102,7 @@ class TestNative(object):
             source_string='My String',
             string_to_render=None,
             language_code='el',
-            escape=True,
+            escape=None,
             missing_policy=mytx._missing_policy,
             params={},
         )
@@ -119,7 +122,7 @@ class TestNative(object):
         mytx.translate('My String', 'el')
         error_policy.get.assert_called_once_with(
             source_string='My String', translation=None, language_code='el',
-            escape=True, params={},
+            escape=None, params={},
         )
 
     def test_translate_error_reaches_source_string_error_policy(self):
@@ -145,7 +148,7 @@ class TestNative(object):
         mock_renderer1.render.side_effect = Exception
         mock_renderer2.render.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
-        result = mytx.translate('My String', 'en')
+        result = mytx.translate('My String', 'el')
         assert result == 'my-default-text'
 
     def test_translate_source_language_renders_icu(self):
@@ -153,7 +156,7 @@ class TestNative(object):
         translation = mytx.translate(
             '{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
             'en',
-            params={'cnt': 1},
+            cnt=1,
         )
         assert translation == '1 duck'
 
@@ -168,7 +171,7 @@ class TestNative(object):
         translation = mytx.translate(
             '{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
             'el',
-            params={'cnt': 1},
+            cnt=1,
         )
         assert translation == '1 παπί'
         mytx._cache = old_cache
@@ -178,8 +181,8 @@ class TestNative(object):
         translation = mytx.translate(
             '<script type="text/javascript">alert(1)</script>',
             'en',
-            escape=True,
-            params={'cnt': 1},
+            _escape=html_escape,
+            cnt=1,
         )
         assert translation == (
             '&lt;script type=&quot;text/javascript&quot;&gt;alert(1)'
@@ -191,8 +194,8 @@ class TestNative(object):
         translation = mytx.translate(
             '<script type="text/javascript">alert(1)</script>',
             'en',
-            escape=False,
-            params={'cnt': 1},
+            _escape=None,
+            cnt=1,
         )
         assert (translation ==
                 '<script type="text/javascript">alert(1)</script>')
@@ -233,11 +236,11 @@ class TestNative(object):
 
         translation = tx.translate('{cnt, plural, one {one} other {other}}',
                                    "fr_FR",
-                                   params={'cnt': 1})
+                                   cnt=1)
         assert translation == 'ONE'
         translation = tx.translate('{cnt, plural, one {one} other {other}}',
                                    "fr_FR",
-                                   params={'cnt': 2})
+                                   cnt=2)
         assert translation == 'OTHER'
         tx._cache = old_cache
 

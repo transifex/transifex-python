@@ -2,7 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 from copy import copy
 
-from django.conf import settings
 from django.template import Library, Node, TemplateSyntaxError
 from django.template.base import (BLOCK_TAG_END, BLOCK_TAG_START,
                                   COMMENT_TAG_END, COMMENT_TAG_START,
@@ -204,24 +203,14 @@ class TNode(Node):
             if should_escape:
                 params[key] = escape_html(value)
 
-        # Perform the translation in two steps: First, we get the translation
-        # ICU template. Then we perform ICU rendering against 'params'.
-        # Inbetween the two steps, if the tag used was 't' and not 'ut', we
-        # peform escaping on the ICU template.
         locale = to_locale(get_language())  # e.g. from en-us to en_US
-        translation_icu_template = tx.get_translation(
-            source_icu_template, locale, params.get('_context', None),
-        )
-        if self.tag_name == "t":
-            source_icu_template = escape_html(source_icu_template)
-            if translation_icu_template is not None:
-                translation_icu_template = escape_html(
-                    translation_icu_template
-                )
-
-        result = tx.render_translation(translation_icu_template, params,
-                                       source_icu_template, locale,
-                                       escape=False)
+        result = tx.translate(source_icu_template,
+                              locale,
+                              params.get('_context'),
+                              _escape=(escape_html
+                                       if self.tag_name == "t"
+                                       else None),
+                              **params)
 
         # `self` is not supposed to mutate between invocations of `render`
         # because Django may parse the template once per thread and reuse the

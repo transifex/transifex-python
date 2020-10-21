@@ -2,9 +2,9 @@
 from __future__ import unicode_literals
 
 from django.utils import translation
-from mock import patch
 
 from transifex.common.strings import LazyString
+from transifex.common.utils import generate_key
 from transifex.native import tx
 from transifex.native.django.utils import lazy_translate, translate
 
@@ -25,15 +25,21 @@ def test_lazy_translate_without_translation():
     tx.source_language_code = None  # reset
 
 
-@patch('transifex.native.core.TxNative.get_translation')
-def test_translate_with_translation(mock_get_translation):
-    mock_get_translation.return_value = 'Γεια σου, {user}!'
-    string = translate("Doesn't matter", user='John')
-    assert string == 'Γεια σου, John!'
+def test_translate_with_translation():
+    tx.setup(source_language_code="en")
+    old_cache = tx._cache
+    key = generate_key("Hello, {user}!")
+    tx._cache = {'en_US': {key: "Γεια σου, {user}!"}}
+    assert translate("Hello, {user}!", user="John") == "Γεια σου, John!"
+    tx._cache = old_cache
+    tx.source_language_code = None  # reset
 
 
-@patch('transifex.native.core.TxNative.get_translation')
-def test_lazy_translate_with_translation(mock_get_translation):
-    mock_get_translation.return_value = 'Γεια σου, {user}!'
-    string = lazy_translate("Doesn't matter", user='John')
-    assert string == 'Γεια σου, John!'
+def test_lazy_translate_with_translation():
+    tx.setup(source_language_code="en")
+    old_cache = tx._cache
+    key = generate_key("Hello, {user}!")
+    tx._cache = {'en_US': {key: "Γεια σου, {user}!"}}
+    assert lazy_translate("Hello, {user}!", user="John") == "Γεια σου, John!"
+    tx._cache = old_cache
+    tx.source_language_code = None  # reset

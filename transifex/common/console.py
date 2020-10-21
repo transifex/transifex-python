@@ -82,7 +82,7 @@ def pluralized(one, other, cnt_value):
         icu_string,
         string_to_render=icu_string,
         language_code='en',
-        escape=False,
+        escape=None,
         missing_policy=None,
         params={'cnt': cnt_value},
     )

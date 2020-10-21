@@ -52,8 +52,8 @@ class StringRenderer(object):
         :param unicode string_to_render: the full ICU string to render as a
             string_to_render
         :param str language_code: the language code to use
-        :param bool escape: if True, the returned string will be HTML-escaped,
-            otherwise it won't
+        :param callable escape: if set, the returned string will be escaped
+            using this function, otherwise it won't
         :param AbstractRenderingPolicy missing_policy: the policy to use for
             returning strings when `string_to_render` is missing. If `None`,
             don't use a missing policy. In that case, if `string_to_render`
@@ -74,14 +74,14 @@ class StringRenderer(object):
 
             # `string_to_render` doesn't exist, fallback to the missing policy
             if not string_to_render and missing_policy:
-                if escape:
-                    source_string = html_escape(source_string)
+                if escape is not None:
+                    source_string = escape(source_string)
                 return missing_policy.get(
                     format(source_string, params, language_code)
                 )
 
-            if escape:
-                string_to_render = html_escape(string_to_render)
+            if escape is not None:
+                string_to_render = escape(string_to_render)
 
             rendered = format(string_to_render, params, language_code)
             return rendered
