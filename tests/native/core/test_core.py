@@ -9,7 +9,7 @@ from transifex.native.core import TxNative
 from transifex.native.parsing import SourceString
 from transifex.native.rendering import (PseudoTranslationPolicy,
                                         SourceStringPolicy, html_escape,
-                                        parse_error_policy)
+                                        identity, parse_error_policy)
 
 
 class TestSourceString(object):
@@ -69,22 +69,15 @@ class TestNative(object):
         assert mytx._cds_handler._token == 'cds_token'
         assert mytx._cds_handler._host == 'myhost'
 
-    @patch('transifex.native.core.StringRenderer.render')
+    @patch('transifex.native.core.icu_format')
     def test_translate_source_language_reaches_renderer(self, mock_render):
         mytx = self._get_tx()
         key = generate_key('My String')
         mytx._cache = {'el': {key: "Το string μου"}}
         mytx.translate('My String', 'el')
-        mock_render.assert_called_once_with(
-            source_string='My String',
-            string_to_render="Το string μου",
-            language_code='el',
-            escape=None,
-            missing_policy=mytx._missing_policy,
-            params={},
-        )
+        mock_render.assert_called_once_with("Το string μου", {}, 'el')
 
-    @patch('transifex.native.core.StringRenderer.render')
+    @patch('transifex.native.core.icu_format')
     def test_translate_target_language_missing_reaches_renderer(self,
                                                                 mock_render):
         mytx = self._get_tx()
@@ -98,14 +91,7 @@ class TestNative(object):
         inner_cache_mock.get.assert_called_once_with(
             generate_key(string="My String"),
         )
-        mock_render.assert_called_once_with(
-            source_string='My String',
-            string_to_render=None,
-            language_code='el',
-            escape=None,
-            missing_policy=mytx._missing_policy,
-            params={},
-        )
+        mock_render.assert_called_once_with('My String', {}, 'el')
         mytx._cache = old_cache
 
     def test_translate_target_language_missing_reaches_missing_policy(self):
@@ -114,15 +100,15 @@ class TestNative(object):
         mytx.translate('My String', 'el')
         missing_policy.get.assert_called_once_with('My String')
 
-    @patch('transifex.native.core.StringRenderer')
+    @patch('transifex.native.core.icu_format')
     def test_translate_error_reaches_error_policy(self, mock_renderer):
         error_policy = MagicMock()
-        mock_renderer.render.side_effect = Exception
+        mock_renderer.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
         mytx.translate('My String', 'el')
         error_policy.get.assert_called_once_with(
-            source_string='My String', translation=None, language_code='el',
-            escape=None, params={},
+            source_string='My String', translation_template='My String',
+            language_code='el', escape=identity, params={},
         )
 
     def test_translate_error_reaches_source_string_error_policy(self):
@@ -134,8 +120,8 @@ class TestNative(object):
         result = mytx.translate('My String', 'en')
         assert result == 'My String'
 
-    @patch('transifex.native.core.StringRenderer')
-    @patch('transifex.native.rendering.StringRenderer')
+    @patch('transifex.native.core.icu_format')
+    @patch('transifex.native.rendering.icu_format')
     def test_source_string_policy_custom_text(self,
                                               mock_renderer1,
                                               mock_renderer2):
@@ -145,8 +131,8 @@ class TestNative(object):
         )
         error_policy = parse_error_policy(error_policy_identifier)
 
-        mock_renderer1.render.side_effect = Exception
-        mock_renderer2.render.side_effect = Exception
+        mock_renderer1.side_effect = Exception
+        mock_renderer2.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
         result = mytx.translate('My String', 'el')
         assert result == 'my-default-text'

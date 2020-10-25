@@ -3,11 +3,13 @@ from __future__ import unicode_literals
 
 import json
 
+from pyseeyou import format as icu_format
+
 from transifex.common.utils import generate_key, parse_plurals
 from transifex.native.cds import CDSHandler
 from transifex.native.events import EventDispatcher
 from transifex.native.rendering import (SourceStringErrorPolicy,
-                                        SourceStringPolicy, StringRenderer)
+                                        SourceStringPolicy, identity)
 
 
 class TxNative(object):
@@ -84,6 +86,26 @@ class TxNative(object):
                   _escape=None, **params):
         """ Translate the given string to the provided language.
 
+            Steps:
+
+                1. Resolve the target language
+                    a. If not provided, use `current_language_code`
+                    b. If still not resolved, use the source language
+
+                2. Resolve the translation template
+                    a. If source language, use source string
+                    b. If translation template in cache use it
+                        - If it's pluralized and CDS returned '???' as the
+                          variable name, figure out the variable name from the
+                          source string
+                    c. If still not resolved, use the missing policy
+
+                3. Apply escaping
+
+                4. Try rendering
+
+                5. If error, fall back to the erro policy
+
             :param unicode source_string: the source string to get the
                 translation for e.g. 'Order: {num, plural, one {A table} other
                 {{num} tables}}'
@@ -97,6 +119,9 @@ class TxNative(object):
             :return: the rendered string
             :rtype: unicode
         """
+
+        if _escape is None:
+            _escape = identity
 
         if language_code is None:
             language_code = self.current_language_code
@@ -117,19 +142,17 @@ class TxNative(object):
                                         variable_name +
                                         translation_template[4:])
 
+        if translation_template is None:
+            translation_template = self._missing_policy.get(source_string)
+
+        translation_template = _escape(translation_template)
+
         try:
-            return StringRenderer.render(
-                source_string=source_string,
-                string_to_render=translation_template,
-                language_code=language_code,
-                escape=_escape,
-                missing_policy=self._missing_policy,
-                params=params,
-            )
+            return icu_format(translation_template, params, language_code)
         except Exception:
             return self._error_policy.get(
                 source_string=source_string,
-                translation=translation_template,
+                translation_template=translation_template,
                 language_code=language_code,
                 escape=_escape,
                 params=params,

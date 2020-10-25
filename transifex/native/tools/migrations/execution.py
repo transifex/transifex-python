@@ -1,7 +1,8 @@
 import os
 import sys
 
-from transifex.common.console import Color, pluralized, prompt
+from pyseeyou import format as icu_format
+from transifex.common.console import Color, prompt
 from transifex.native.tools.migrations.mark import (
     MarkLowConfidenceFilesPolicy, MarkLowConfidenceStringsPolicy,
     NoopMarkPolicy, create_mark_policy)
@@ -152,10 +153,12 @@ class MigrationExecutor(object):
             total_low_confidence = len(
                 [x for x in modified_strings if x.confidence == Confidence.LOW]
             )
-            msg = pluralized(
-                '[warn]1[end] [prompt]string was modified[end]',
-                '[warn]{cnt}[end] [prompt]strings were modified[end]',
-                total_modified,
+            msg = icu_format(
+                '{cnt, plural, '
+                'one {[warn]#[end] [prompt]string was modified[end]} '
+                'other {[warn]#[end] [prompt]strings were modified[end]}}',
+                {'cnt': total_modified},
+                "en",
             )
             Color.echo(
                 '{msg}{confidence}'.format(
@@ -321,10 +324,13 @@ class MigrationExecutor(object):
 
         :param int total_files: the total number of files to migrate
         """
-        msg = pluralized(
-            'Found [warn]{cnt}[end] file to check for translatable strings.',
-            'Found [warn]{cnt}[end] files to check for translatable strings.',
-            total_files,
+        msg = icu_format(
+            '{cnt, plural, '
+            'one {Found [warn]#[end] file to check for translatable strings.} '
+            'other {Found [warn]#[end] files to check for translatable '
+            'strings.}}',
+            {'cnt': total_files},
+            "en"
         )
         Color.echo('\n{}'.format(msg))
 

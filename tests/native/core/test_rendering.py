@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-import pytest
-from mock import MagicMock, patch
+from mock import patch
 
 from transifex.native.rendering import (ChainedPolicy, ExtraLengthPolicy,
                                         PseudoTranslationPolicy,
                                         SourceStringErrorPolicy,
-                                        SourceStringPolicy, StringRenderer,
+                                        SourceStringPolicy,
                                         WrappedStringPolicy, html_escape,
                                         parse_rendering_policy)
 
@@ -31,149 +30,6 @@ COMPLEX_STRINGS = u"""{gender_of_host, select,
 }"""
 
 JS_SCRIPT = u'<script type="text/javascript">alert(1)</script>'
-
-
-class TestStringRenderer(object):
-    """Tests the functionality of the StringRenderer class."""
-
-    def test_simple_render_escaped(self):
-        translation = StringRenderer.render(
-            JS_SCRIPT,
-            JS_SCRIPT,
-            'en',
-            escape=html_escape,
-            missing_policy=SourceStringPolicy(),
-            params={'cnt': 2},
-        )
-        assert translation == (
-            u'&lt;script type=&quot;text/javascript&quot;&gt;alert(1)&lt;/script&gt;'
-        )
-
-    def test_simple_render_unescaped(self):
-        translation = StringRenderer.render(
-            JS_SCRIPT,
-            JS_SCRIPT,
-            'en',
-            escape=None,
-            missing_policy=SourceStringPolicy(),
-            params={'cnt': 2},
-        )
-        assert translation == JS_SCRIPT
-
-    def test_simple_render_with_translation(self):
-        translation = StringRenderer.render(
-            u'{cnt, plural, one {{cnt} table} other {{cnt} tables}}',
-            u'{cnt, plural, one {{cnt} τραπέζι} other {{cnt} τραπέζια}}',
-            'en',
-            escape=html_escape,
-            missing_policy=SourceStringPolicy(),
-            params={'cnt': 2},
-        )
-        assert translation == u'2 τραπέζια'
-
-    def test_simple_render_with_missing_translation(self):
-        translation = StringRenderer.render(
-            u'{cnt, plural, one {{cnt} table} other {{cnt} tables}}',
-            None,
-            'en',
-            escape=html_escape,
-            missing_policy=SourceStringPolicy(),
-            params={'cnt': 2},
-        )
-        # Should fall back to source
-        assert translation == u'2 tables'
-
-        translation = StringRenderer.render(
-            u'{cnt, plural, one {{cnt} table} other {{cnt} tables}}',
-            None,
-            'en',
-            escape=html_escape,
-            missing_policy=PseudoTranslationPolicy(),
-            params={'cnt': 2},
-        )
-        # Should use the proper missing policy
-        assert translation == u'2 ťàƀĺêš'
-
-    def test_simple_render_escaped_with_missing_translation(self):
-        translation = StringRenderer.render(
-            JS_SCRIPT,
-            None,
-            'en',
-            escape=html_escape,
-            missing_policy=SourceStringPolicy(),
-            params={'cnt': 2},
-        )
-        assert translation == (
-            u'&lt;script type=&quot;text/javascript&quot;&gt;alert(1)&lt;/script&gt;'
-        )
-
-    def test_simple_render_unescaped_with_missing_translation(self):
-        translation = StringRenderer.render(
-            JS_SCRIPT,
-            None,
-            'en',
-            escape=None,
-            missing_policy=SourceStringPolicy(),
-            params={'cnt': 2},
-        )
-        assert translation == JS_SCRIPT
-
-    def test_complex_message_format(self):
-        translation = self._complex(gender_of_host='female', total_guests=1)
-        assert translation == u'Jane does not give a party.'
-
-        translation = self._complex(gender_of_host='female', total_guests=2)
-        assert translation == u'Jane invites Joe to her party.'
-
-        translation = self._complex(gender_of_host='female', total_guests=3)
-        assert translation == u'Jane invites Joe and one other person to her party.'
-
-        translation = self._complex(gender_of_host='female', total_guests=10)
-        assert translation == u'Jane invites Joe and 9 other people to her party.'
-
-    def _complex(self, **params):
-        params = dict(params)
-        params.update({'host': "Jane", 'guest': "Joe"})
-        return StringRenderer.render(
-            COMPLEX_STRINGS,
-            None,
-            'en',
-            escape=html_escape,
-            missing_policy=SourceStringPolicy(),
-            params=params,
-        )
-
-    @patch('transifex.native.rendering.logger')
-    def test_error_raises_exception(self, mock_logger):
-        mock_escape = MagicMock(name="html_escape")
-        mock_escape.side_effect = Exception
-        with pytest.raises(Exception):
-            translation = StringRenderer.render(
-                'Source String',
-                'Translation',
-                'en',
-                escape=mock_escape,
-                missing_policy=SourceStringPolicy(),
-            )
-        mock_logger.error.assert_called_with(
-            'RenderingError: Could not render string `%s` in language `%s` '
-            'with parameters `%s` (Error: %s, Source String: %s)',
-            'Translation', 'en', '{}', '', 'Source String'
-        )
-
-    def test_no_missing_policy_and_error_raises_exception(self):
-        with pytest.raises(Exception) as exc_info:
-            translation = StringRenderer.render(
-                'source',
-                '',
-                'en',
-                escape=html_escape,
-                missing_policy=None,
-            )
-        assert str(exc_info.value) == (
-            'No string to render and no missing policy defined! '
-            '(Source String: `source`)'
-        )
 
 
 class TestMissingPolicies(object):
@@ -227,24 +83,18 @@ class TestErrorPolicies(object):
     def test_source_string_policy(self):
         assert (SourceStringErrorPolicy().
                 get(source_string='Source-String',
-                    translation=None,
+                    translation_template=None,
                     language_code='a',
                     escape=html_escape) ==
                 'Source-String')
 
-    @patch('transifex.native.rendering.logger')
-    @patch('transifex.native.rendering.StringRenderer')
-    def test_source_string_policy_with_error(self, mock_renderer, mock_logger):
-        mock_renderer.render.side_effect = Exception
+    def test_source_string_policy_with_error(self):
         assert (SourceStringErrorPolicy().
-                get(source_string='Source-String',
-                    translation=None,
+                get(source_string='{',
+                    translation_template=None,
                     language_code='a',
                     escape=html_escape) ==
                 'ERROR')
-        mock_logger.error.assert_called_with(
-            'ErrorPolicyError: Could not render string `Source-String` with parameters `{}`'
-        )
 
 
 class TestParsing(object):

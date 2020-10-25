@@ -4,12 +4,16 @@ import sys
 import xml.sax.saxutils as saxutils
 from math import ceil
 
-from pyseeyou import format
+from pyseeyou import format as icu_format
 from transifex.common._compat import string_types, text_type
 from transifex.common.utils import import_to_python
 
 logger = logging.getLogger('transifex.rendering')
 logger.addHandler(logging.StreamHandler(sys.stdout))
+
+
+def identity(s):
+    return s
 
 
 def html_escape(item):
@@ -28,71 +32,6 @@ def html_escape(item):
         "'": "&#x27;"
     }
     return saxutils.escape(item, html_escape_table)
-
-
-class StringRenderer(object):
-    """Takes a translation string template and optional parameters
-    and returns the final translation string."""
-
-    @classmethod
-    def render(
-        cls, source_string, string_to_render, language_code, escape,
-        missing_policy, params=None,
-    ):
-        """Render the given ICU string.
-
-        Takes into account the given language code (for the plurals)
-        as well as the given parameters.
-
-        If the given `string_to_render` is None, it returns a rendered
-        string based on the given `missing_policy`.
-
-        :param unicode source_string: the full ICU string in the source
-            language
-        :param unicode string_to_render: the full ICU string to render as a
-            string_to_render
-        :param str language_code: the language code to use
-        :param callable escape: if set, the returned string will be escaped
-            using this function, otherwise it won't
-        :param AbstractRenderingPolicy missing_policy: the policy to use for
-            returning strings when `string_to_render` is missing. If `None`,
-            don't use a missing policy. In that case, if `string_to_render`
-            does not exist, a `RenderingError` will be raised.
-        :return: the final rendered string
-        :rtype: unicode
-        """
-
-        if params is None:
-            params = {}
-
-        try:
-            if not string_to_render and not missing_policy:
-                raise Exception(
-                    "No string to render and no missing policy defined!"
-                    " (Source String: `{}`)".format(source_string)
-                )
-
-            # `string_to_render` doesn't exist, fallback to the missing policy
-            if not string_to_render and missing_policy:
-                if escape is not None:
-                    source_string = escape(source_string)
-                return missing_policy.get(
-                    format(source_string, params, language_code)
-                )
-
-            if escape is not None:
-                string_to_render = escape(string_to_render)
-
-            rendered = format(string_to_render, params, language_code)
-            return rendered
-        except Exception as e:
-            logger.error(
-                "RenderingError: Could not render string `%s` in language `%s` "
-                "with parameters `%s` (Error: %s, Source String: %s)",
-                string_to_render, language_code, str(params),
-                str(e), source_string
-            )
-            raise e
 
 
 class AbstractRenderingPolicy(object):
@@ -298,7 +237,7 @@ class AbstractErrorPolicy(object):
     Error policies define what happens when rendering faces an error.
     They are useful to protect the user from pages failing to load."""
 
-    def get(self, source_string, translation, language_code, escape,
+    def get(self, source_string, translation_template, language_code, escape,
             params=None):
         raise NotImplementedError()
 
@@ -312,14 +251,15 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
         self.default_text = default_text
 
     def get(
-        self, source_string, translation, language_code,
+        self, source_string, translation_template, language_code,
         escape, params=None,
     ):
         """Try to render the source string. If something goes wrong,
         render a custom text provided by the user.
 
         :param str source_string: The source string
-        :param str translation: The translation (which has failed to render)
+        :param str translation_template: The translation template (which has
+            failed to render)
         :param str language_code: The language code being used
         :param bool escape: Whether to escape or not
         """
@@ -328,21 +268,6 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
             params = {}
 
         try:
-            return StringRenderer.render(
-                source_string=source_string,
-                string_to_render=source_string,
-                language_code=language_code,
-                escape=escape,
-                missing_policy=None,
-                params=params,
-            )
-        except Exception as e:
-            logger.error(
-                'ErrorPolicyError: Could not render string `{string}` '
-                'with parameters `{parameters}`'.format(
-                    string=source_string, parameters=str(params)
-                )
-            )
-
-        # if all fails, return the default text
-        return self.default_text
+            return icu_format(source_string, params, language_code)
+        except Exception:
+            return self.default_text

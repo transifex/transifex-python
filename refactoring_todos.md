@@ -7,14 +7,14 @@
 - [x] cache is dict (or subclass of)
 - [x] event dispatcher
 - [x] Support setting current language code
-
 - [x] Figure out arguments to `translate`, `get_translation`,
       `render_translation`
 - [x] Get rid of `get_translation`, `render_translation`
 
-- [ ] No constants
+- [x] no StringRenderer
+
 - [ ] missing/error policies should be callables
-- [ ] no string renderer
+- [ ] No constants
 - [ ] TxNative does not have to push
 - [ ] daemon is part of TxNative
 - [ ] SourceString should not be weird
