@@ -7,9 +7,10 @@ from transifex.common.utils import generate_key
 from transifex.native.cds import TRANSIFEX_CDS_HOST
 from transifex.native.core import TxNative
 from transifex.native.parsing import SourceString
-from transifex.native.rendering import (PseudoTranslationPolicy,
-                                        SourceStringPolicy, html_escape,
-                                        identity, parse_error_policy)
+from transifex.native.rendering import (html_escape, identity,
+                                        parse_error_policy,
+                                        pseudo_translation_missing_policy,
+                                        source_string_missing_policy)
 
 
 class TestSourceString(object):
@@ -55,13 +56,14 @@ class TestNative(object):
     def test_default_init(self):
         mytx = self._get_tx()
         assert mytx.hardcoded_language_codes == ['en', 'el']
-        assert isinstance(mytx._missing_policy, SourceStringPolicy)
+        assert callable(mytx._missing_policy)
+        assert mytx._missing_policy == source_string_missing_policy
         assert isinstance(mytx._cache, dict)
         assert mytx._cds_handler._token == 'cds_token'
         assert mytx._cds_handler._host == TRANSIFEX_CDS_HOST
 
     def test_custom_init(self):
-        missing_policy = PseudoTranslationPolicy()
+        missing_policy = pseudo_translation_missing_policy
         mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
         assert mytx.hardcoded_language_codes == ['en', 'el']
         assert mytx._missing_policy == missing_policy
@@ -98,7 +100,7 @@ class TestNative(object):
         missing_policy = MagicMock()
         mytx = self._get_tx(missing_policy=missing_policy)
         mytx.translate('My String', 'el')
-        missing_policy.get.assert_called_once_with('My String')
+        missing_policy.assert_called_once_with('My String')
 
     @patch('transifex.native.core.icu_format')
     def test_translate_error_reaches_error_policy(self, mock_renderer):
@@ -106,7 +108,7 @@ class TestNative(object):
         mock_renderer.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
         mytx.translate('My String', 'el')
-        error_policy.get.assert_called_once_with(
+        error_policy.assert_called_once_with(
             source_string='My String', translation_template='My String',
             language_code='el', escape=identity, params={},
         )
@@ -115,7 +117,7 @@ class TestNative(object):
         # Trigger a random error in rendering to fallback to the
         # error policy, e.g. an error in missing_policy
         mock_missing_policy = MagicMock()
-        mock_missing_policy.get.side_effect = Exception
+        mock_missing_policy.side_effect = Exception
         mytx = self._get_tx(missing_policy=mock_missing_policy)
         result = mytx.translate('My String', 'en')
         assert result == 'My String'

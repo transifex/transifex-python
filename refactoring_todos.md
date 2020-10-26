@@ -10,10 +10,10 @@
 - [x] Figure out arguments to `translate`, `get_translation`,
       `render_translation`
 - [x] Get rid of `get_translation`, `render_translation`
-
 - [x] no StringRenderer
 
-- [ ] missing/error policies should be callables
+- [x] missing/error policies should be callables
+
 - [ ] No constants
 - [ ] TxNative does not have to push
 - [ ] daemon is part of TxNative

@@ -8,8 +8,8 @@ from pyseeyou import format as icu_format
 from transifex.common.utils import generate_key, parse_plurals
 from transifex.native.cds import CDSHandler
 from transifex.native.events import EventDispatcher
-from transifex.native.rendering import (SourceStringErrorPolicy,
-                                        SourceStringPolicy, identity)
+from transifex.native.rendering import (SourceStringErrorPolicy, identity,
+                                        source_string_missing_policy)
 
 
 class TxNative(object):
@@ -26,7 +26,7 @@ class TxNative(object):
 
         # Private
         self._cache = {}
-        self._missing_policy = SourceStringPolicy()
+        self._missing_policy = source_string_missing_policy
         self._error_policy = SourceStringErrorPolicy()
         self._cds_handler = CDSHandler()
         self._event_distpatcher = EventDispatcher()
@@ -143,14 +143,14 @@ class TxNative(object):
                                         translation_template[4:])
 
         if translation_template is None:
-            translation_template = self._missing_policy.get(source_string)
+            translation_template = self._missing_policy(source_string)
 
         translation_template = _escape(translation_template)
 
         try:
             return icu_format(translation_template, params, language_code)
         except Exception:
-            return self._error_policy.get(
+            return self._error_policy(
                 source_string=source_string,
                 translation_template=translation_template,
                 language_code=language_code,

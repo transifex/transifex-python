@@ -11,7 +11,7 @@ from transifex.native import tx
 from transifex.native.daemon import daemon
 from transifex.native.django import settings as native_settings
 from transifex.native.rendering import (parse_error_policy,
-                                        parse_rendering_policy)
+                                        parse_missing_policy)
 
 logger = logging.getLogger('transifex.native.django')
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -71,7 +71,7 @@ class NativeConfig(AppConfig):
 
         # Create the missing policy lazily to avoid import issues
         # in Django settings files
-        missing_policy = parse_rendering_policy(
+        missing_policy = parse_missing_policy(
             native_settings.TRANSIFEX_MISSING_POLICY
         )
         error_policy = parse_error_policy(

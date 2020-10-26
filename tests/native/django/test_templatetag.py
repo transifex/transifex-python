@@ -5,7 +5,7 @@ from django.utils import translation
 
 from transifex.common.utils import generate_key
 from transifex.native import tx
-from transifex.native.rendering import SourceStringPolicy
+from transifex.native.rendering import source_string_missing_policy
 
 
 def do_test(template_str, context_dict=None, autoescape=True,
@@ -406,7 +406,7 @@ def test_translates():
 
 def test_translation_missing():
     old_missing_policy = tx._missing_policy
-    tx._missing_policy = SourceStringPolicy()
+    tx._missing_policy = source_string_missing_policy
 
     tx._cache = {}
     assert do_test('{% t "hello" %}', lang_code="fr") == "hello"

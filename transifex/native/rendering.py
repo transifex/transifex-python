@@ -5,6 +5,7 @@ import xml.sax.saxutils as saxutils
 from math import ceil
 
 from pyseeyou import format as icu_format
+
 from transifex.common._compat import string_types, text_type
 from transifex.common.utils import import_to_python
 
@@ -34,61 +35,29 @@ def html_escape(item):
     return saxutils.escape(item, html_escape_table)
 
 
-class AbstractRenderingPolicy(object):
-    """An interface for classes that determine what translation is actually
-    returned.
-
-    Can be used in multiple cases, such as when the translation is not found
-    """
-
-    def get(self, source_string):
-        """Return a string as a translation based on the given source string.
-
-        Implementors may choose to return anything, relevant to the given
-        source string or not, based on their custom policy
-
-        :param unicode source_string: the source string
-        :return: a new string
-        :rtype: unicode
-        """
-        raise NotImplementedError()
-
-
-class ChainedPolicy(AbstractRenderingPolicy):
+class ChainedMissingPolicy(object):
     """Return a string by combining multiple policies."""
 
     def __init__(self, *policies):
         self._policies = policies
 
-    def get(self, source_string):
+    def __call__(self, source_string):
         """Return the string that is generated after going through all policies.
 
         The result of each policy is fed to the next as source string.
         """
         translation = source_string
         for policy in self._policies:
-            translation = policy.get(translation)
+            translation = policy(translation)
 
         return translation
 
 
-class SourceStringPolicy(AbstractRenderingPolicy):
-    """Return the source string when the translation string is missing."""
-
-    def get(self, source_string):
-        """Return the source string as the translation string."""
-        return source_string
+def source_string_missing_policy(source_string):
+    return source_string
 
 
-class PseudoTranslationPolicy(AbstractRenderingPolicy):
-    """Return a string that looks like the source string but contains
-    accented characters.
-
-    Example:
-    >>> PseudoTranslationPolicy().get(u'The quick brown fox')
-    # returns u'Ťȟê ʠüıċǩ ƀȓøẁñ ƒøẋ'
-    """
-
+def pseudo_translation_missing_policy(source_string):
     TABLE = {
         # A to Z
         0x0041: 0x00C5, 0x0042: 0x0181, 0x0043: 0x010A, 0x0044: 0x0110,
@@ -108,20 +77,14 @@ class PseudoTranslationPolicy(AbstractRenderingPolicy):
         0x0075: 0x00FC, 0x0076: 0x1E7D, 0x0077: 0x1E81, 0x0078: 0x1E8B,
         0x0079: 0x00FF, 0x007A: 0x017A,
     }
-
-    def get(self, source_string):
-        """Return a string that looks somewhat like the source string.
-
-        :rtype: unicode
-        """
-        return text_type(source_string).translate(PseudoTranslationPolicy.TABLE)
+    return text_type(source_string).translate(TABLE)
 
 
-class WrappedStringPolicy(AbstractRenderingPolicy):
+class WrappedStringMissingPolicy(object):
     """Wrap the returned string with a custom format.
 
     Usage:
-    >>> WrappedStringPolicy(u'>>', u'<<').get(u'Click here')
+    >>> WrappedStringMissingPolicy(u'>>', u'<<')(u'Click here')
     # returns u'>>Click here<<'
     """
 
@@ -135,7 +98,7 @@ class WrappedStringPolicy(AbstractRenderingPolicy):
         self.start = start
         self.end = end
 
-    def get(self, source_string):
+    def __call__(self, source_string):
         """Return a string that includes the source string."""
         return u'{}{}{}'.format(
             self.start or u'[',
@@ -144,7 +107,7 @@ class WrappedStringPolicy(AbstractRenderingPolicy):
         )
 
 
-class ExtraLengthPolicy(AbstractRenderingPolicy):
+class ExtraLengthMissingPolicy(object):
     """Amend the string with extra characters, to reach a certain length.
 
     Useful for testing longer strings on UI elements.
@@ -159,7 +122,7 @@ class ExtraLengthPolicy(AbstractRenderingPolicy):
         self.extra_percentage = extra_percentage
         self.extra_str = extra_str
 
-    def get(self, source_string):
+    def __call__(self, source_string):
         total_extra_chars = int(
             ceil(len(source_string) * self.extra_percentage)
         )
@@ -172,24 +135,24 @@ class ExtraLengthPolicy(AbstractRenderingPolicy):
         return u'{}{}'.format(source_string, extra_chars[:total_extra_chars])
 
 
-def parse_rendering_policy(policy):
-    """Parse the given rendering policy and return an AbstractRenderingPolicy
-    subclass.
+def parse_missing_policy(policy):
+    """Parse the given rendering policy and return a callable subclass.
 
-    :param Union[AbstractRenderingPolicy, str, tuple(str, dict), list] policy:
+    :param Union[callable, str, tuple(str, dict), list] policy:
         could be
-        - an instance of AbstractRenderingPolicy
+        - an instance of callable
         - a tuple of the class's path and parameters
         - the class's path
-        - a list of AbstractRenderingPolicy objects or tuples or string paths
-    :return: a AbstractRenderingPolicy object
-    :rtype: AbstractRenderingPolicy
+        - a list of callable objects or tuples or string paths
+    :return: a callable object
+    :rtype: callable
     """
-    if isinstance(policy, AbstractRenderingPolicy) or policy is None:
+    if callable(policy) or policy is None:
         return policy
 
     if isinstance(policy, list):
-        return ChainedPolicy(*[parse_rendering_policy(p) for p in policy])
+        return ChainedMissingPolicy(*[parse_missing_policy(p)
+                                      for p in policy])
 
     # Reaching here means it's a tuple like (<path>, <params>)
     # or a string like <path>
@@ -201,48 +164,10 @@ def parse_rendering_policy(policy):
     _class = import_to_python(path)
     if params:
         return _class(**params)
-    return _class()
+    return _class
 
 
-def parse_error_policy(policy):
-    """Parse the given error policy and return an AbstractErrorPolicy
-    subclass.
-
-    :param Union[AbstractRenderingPolicy, str, tuple(str, dict), list] policy:
-        could be
-        - an instance of AbstractErrorPolicy
-        - a tuple of the class's path and parameters
-        - the class's path
-    :return: a AbstractErrorPolicy object
-    :rtype: AbstractErrorPolicy
-    """
-    if isinstance(policy, AbstractErrorPolicy) or policy is None:
-        return policy
-
-    # Reaching here means it's a tuple like (<path>, <params>)
-    # or a string like <path>
-    try:
-        path, params = policy
-    except ValueError:
-        path, params = policy, None
-
-    _class = import_to_python(path)
-    if params:
-        return _class(**params)
-    return _class()
-
-
-class AbstractErrorPolicy(object):
-    """ Defines an interface for other error policy classes to implement.
-    Error policies define what happens when rendering faces an error.
-    They are useful to protect the user from pages failing to load."""
-
-    def get(self, source_string, translation_template, language_code, escape,
-            params=None):
-        raise NotImplementedError()
-
-
-class SourceStringErrorPolicy(AbstractErrorPolicy):
+class SourceStringErrorPolicy(object):
     """ An error policy that defaults to the source string.
     If rendering the source string fails as well, then it will default to
     an error string, configurable during initialization"""
@@ -250,7 +175,7 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
     def __init__(self, default_text='ERROR'):
         self.default_text = default_text
 
-    def get(
+    def __call__(
         self, source_string, translation_template, language_code,
         escape, params=None,
     ):
@@ -271,3 +196,30 @@ class SourceStringErrorPolicy(AbstractErrorPolicy):
             return icu_format(source_string, params, language_code)
         except Exception:
             return self.default_text
+
+
+def parse_error_policy(policy):
+    """Parse the given error policy and return an callable object.
+
+    :param Union[callable, str, tuple(str, dict), list] policy:
+        could be
+        - an callable instance
+        - a tuple of the class's path and parameters
+        - the class's path
+    :return: a callable object
+    :rtype: callable
+    """
+    if callable(policy) or policy is None:
+        return policy
+
+    # Reaching here means it's a tuple like (<path>, <params>)
+    # or a string like <path>
+    try:
+        path, params = policy
+    except ValueError:
+        path, params = policy, None
+
+    _class = import_to_python(path)
+    if params:
+        return _class(**params)
+    return _class()

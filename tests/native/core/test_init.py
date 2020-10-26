@@ -1,5 +1,5 @@
 from transifex.native import tx
-from transifex.native.rendering import PseudoTranslationPolicy
+from transifex.native.rendering import pseudo_translation_missing_policy
 
 
 class TestModuleInit(object):
@@ -9,8 +9,8 @@ class TestModuleInit(object):
         tx.setup(token='mytoken',
                  languages=['lang1', 'lang2'],
                  cds_host='myhost',
-                 missing_policy=PseudoTranslationPolicy())
+                 missing_policy=pseudo_translation_missing_policy)
         assert tx._cds_handler._token == 'mytoken'
         assert tx._cds_handler._host == 'myhost'
         assert tx.hardcoded_language_codes == ['lang1', 'lang2']
-        assert isinstance(tx._missing_policy, PseudoTranslationPolicy)
+        assert tx._missing_policy == pseudo_translation_missing_policy
