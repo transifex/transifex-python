@@ -2,12 +2,12 @@ from __future__ import unicode_literals
 
 import ast
 import re
+import reprlib
 from collections import namedtuple
 
 from transifex.common._compat import string_types
-from transifex.common.utils import generate_key, make_hashable, parse_plurals
-from transifex.native import consts
-from transifex.native.consts import KEY_CONTEXT, KEY_OCCURRENCES
+from transifex.common.utils import generate_key
+from transifex.native.consts import KEY_CONTEXT
 
 # PEP 263 magic comment for source code encodings
 # e.g. "# -*- coding: <encoding name> -*-"
@@ -26,94 +26,101 @@ DEFAULT_MODULES = [
 Import = namedtuple('Import', ('module', 'function', 'node'))
 
 
+ATTR_MAPPING = {'_context': "context",
+                '_charlimit': "character_limit",
+                '_comment': "developer_comment",
+                '_occurrences': "occurrences",
+                '_tags': "tags"}
+
+
 class SourceString(object):
-    """A data object that contains information about a source string."""
+    """ Simple container for describing source strings found in source files.
 
-    def __init__(self, string, _context=None, **meta):
-        """Constructor.
+        The 'context', 'tags' and 'occurrences' are always saved as lists, even
+        if they are provided as strings.
 
-        :param unicode string: the source string  # check ./consts.py
-        :param unicode _context: an optional context that accompanies
-            the source string
+        Supports the `key` property.
+
+        Implements the `__hash__` and `__eq__` methods so that they can be
+        compared and/or used in sets/dicts.
+    """
+
+    def __init__(self, source_string=None, context=None, character_limit=None,
+                 developer_comment=None, occurrences=None, tags=None):
+        self.source_string = source_string
+        self.context = context
+        self.character_limit = character_limit
+        self.developer_comment = developer_comment
+        self.occurrences = occurrences
+        self.tags = tags
+
+    def _array_property(attr):
+        """ Define a property that accepts a string or an array but always
+            saves an array. Splits string input by ','.
+
+            Usage:
+
+                >>> class SourceString:
+                ...     a = _array_setter('_a')
+
+            equivalent to:
+
+                >>> class SourceString:
+                ...     @property
+                ...     def a(self):
+                ...         return self._a
+                ...
+                ...     @a.setter
+                ...     def a(self, value):
+                ...         if isinstance(value, string_types):
+                ...             value = [item.strip()
+                ...                      for item in value.split(',')]
+                ...         self._a = value
         """
 
-        self.key = generate_key(string=string, context=_context)
-        self.string = string
-        self.context = (
-            [x.strip() for x in _context.split(',')] if _context
-            else None
-        )  # type: list
-        self.meta = self._transform_meta(meta)
+        def _array_setter(self, attr, value):
+            if isinstance(value, string_types):
+                value = [item.strip() for item in value.split(',')]
+            setattr(self, attr, value)
+
+        return property(lambda self: getattr(self, attr),
+                        lambda self, value: _array_setter(self, attr, value))
+
+    context = _array_property('_context')
+    tags = _array_property('_tags')
+    occurrences = _array_property('_occurrences')
 
     @property
-    def occurrences(self):
-        """An optional occurrence field, shows were the string is located
-
-        :rtype: unicode
-        """
-        return self.meta.get(consts.KEY_OCCURRENCES, [])
-
-    @occurrences.setter
-    def occurrences(self, value):
-        self.meta.setdefault(consts.KEY_OCCURRENCES, []).extend(value)
-
-    @property
-    def developer_comment(self):
-        """An optional developer comment for the string.
-
-        :rtype: unicode
-        """
-        return self.meta.get(consts.KEY_DEVELOPER_COMMENT)
-
-    @property
-    def character_limit(self):
-        """An optional character limit for the string or None if not defined.
-
-        :rtype: int
-        """
-        return self.meta.get(consts.KEY_CHARACTER_LIMIT)
-
-    @property
-    def tags(self):
-        """A list of tags.
-
-        :rtype: list
-        """
-        return self.meta.get(consts.KEY_TAGS, [])
-
-    def _transform_meta(self, meta):
-        """Transform values in meta object, whenever applicable.
-
-        :param dict meta:
-        :return: the same dictionary, with some values potentially altered
-        :rtype: dict
-        """
-        tags = meta.get(consts.KEY_TAGS)
-        if tags and isinstance(tags, string_types):
-            meta[consts.KEY_TAGS] = [x.strip() for x in tags.split(',')]
-
-        return {
-            k: v for k, v in meta.items()
-            if k in consts.ALL_KEYS
-        }
+    def key(self):
+        return generate_key(self.source_string, self.context)
 
     def __repr__(self):
-        return '<{}: {}>'.format(
-            self.__class__.__name__,
-            ' '.join((self.context or []) + [self.string]),
-        )
-
-    def __eq__(self, other):
-        """Object equality.
-
-        :param SourceString other: the instance to compare to
-        :return: True if the instances are equal, False otherwise
-        :rtype: bool
-        """
-        return hash(self) == hash(other)
+        result = self.source_string
+        meta = {attr: getattr(self, attr)
+                for attr in ('context', 'developer_comment',
+                             'character_limit', 'tags', 'occurrences')
+                if getattr(self, attr)}
+        meta = ', '.join(("{}: {}".format(key, repr(value))
+                          for key, value in meta.items()))
+        if meta:
+            result += " ({})".format(meta)
+        return "<SourceString: {}>".format(reprlib.repr(result))
 
     def __hash__(self):
-        return hash((self.key, make_hashable(self.meta)))
+        attrs = ('source_string', 'context', 'character_limit',
+                 'developer_comment', 'occurrences', 'tags')
+        attrs = (getattr(self, attr) for attr in attrs)
+        attrs = (repr(attr) for attr in attrs)
+        # Escape ':' to ensure uniqueness
+        attrs = (attr.replace('\\', "\\\\").replace(':', "\\:")
+                 for attr in attrs)
+        return hash(':'.join(attrs))
+
+    def __eq__(self, other):
+        try:
+            return hash(self) == hash(other)
+        except Exception:
+            return super(SourceString, self).__eq__(other)
 
 
 class Extractor(object):
@@ -307,7 +314,8 @@ class CallDetectionVisitor(ast.NodeVisitor):
         # Loop through all registered module/function calls,
         # e.g. transifex.native.django.t
         # and see if the current import matches any of them
-        for registered_module_path, registered_func_name in self._registered_calls:
+        for (registered_module_path,
+             registered_func_name) in self._registered_calls:
             # e.g. registered_module_path='transifex.native.django',
             #      registered_func_name='t'
 
@@ -396,14 +404,16 @@ class CallDetectionVisitor(ast.NodeVisitor):
 
 
 def parse_source_strings(nodes):
-    """Parse the given function call nodes and return a list of SourceString
-    objects.
+    """ Parse the given function call nodes and return a list of SourceString
+        objects.
 
-    :param list nodes: a list of Node objects
+        :param list nodes: a list of Node objects
 
-    :return:  a tuple of the source_strings along with the corresponding linenos
-    :rtype: tuple
+        :return:  a tuple of the source_strings along with the corresponding
+            linenos
+        :rtype: tuple
     """
+
     strings = []
     string_linenos = []
     for node in nodes:
@@ -422,7 +432,12 @@ def parse_source_strings(nodes):
             if context is None:
                 context = params.pop(KEY_CONTEXT, None)
 
-            strings.append(SourceString(string, context, **params))
+            string = SourceString(string, context)
+            for key, value in params.items():
+                if key in ATTR_MAPPING:
+                    setattr(string, ATTR_MAPPING[key], value)
+            strings.append(string)
+
         except Exception as e:
             raise AttributeError(
                 'Invalid module/function format on line {} col {}: {}'.format(

@@ -21,9 +21,9 @@ def generate_key(string=None, context=None, parsed=False, plurals=None):
     """
 
     def escape_plural(plural):
-        """ Escape the : character (and the \ character that will be
+        """ Escape the : character (and the \\ character that will be
         used for escaping)"""
-        return plural.replace('\\', '\\\\').replace(':', '\:')
+        return plural.replace('\\', '\\\\').replace(':', '\\:')
 
     if not string and not plurals:
         raise ValueError("You need to specify at least "
@@ -71,44 +71,25 @@ def import_to_python(import_str):
     return obj
 
 
-def make_hashable(data):
-    """Make the given object hashable.
-
-    It makes it ready to use in a `hash()` call, making sure that
-    it's always the same for lists and dictionaries if they have the same items.
-
-    :param object data: the object to hash
-    :return: a hashable object
-    :rtype: object
-    """
-    if isinstance(data, (list, tuple)):
-        return tuple((make_hashable(item) for item in data))
-    elif isinstance(data, dict):
-        return tuple(
-            (key, make_hashable(value))
-            for key, value in sorted(data.items())
-        )
-    else:
-        return data
-
-
 def parse_plurals(string):
     """ Tries to parse an ICU (possibly pluralized) string, returning its
         plurals separated. It only works if `string` is the simplest possible
         version of a pluralized ICU string, ie whether the plural syntax is on
         the outermost part of the string.
 
-        So, this `{cnt, plural, one {ONE} other {OTHER}}` will return a parsed version,
-        but this `hello {cnt, plural, one {ONE} other {OTHER}}` will not.
+        So, this `{cnt, plural, one {ONE} other {OTHER}}` will return a parsed
+        version, but this `hello {cnt, plural, one {ONE} other {OTHER}}` will
+        not.
 
         The plurals dictionary looks like:
             { 1: "Here is one dog",
               5: "Here are many dogs"}
 
-        If a string cannot be parsed, it's considered a non-pluralized string and is
-        assigned the rule "5".
+        If a string cannot be parsed, it's considered a non-pluralized string
+        and is assigned the rule "5".
 
-        :rtype: tuple(bool, dict) (Whether the string was parsed & the resulted plurals)
+        :rtype: tuple(bool, dict) (Whether the string was parsed & the resulted
+            plurals)
     """
 
     plurals = {}

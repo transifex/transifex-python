@@ -45,7 +45,7 @@ class SourceStringCollection(object):
         :param SourceString source_string: the object to add
         """
         key = generate_key(
-            string=source_string.string, context=source_string.context
+            string=source_string.source_string, context=source_string.context
         )
         if key not in self.strings:
             self.strings[key] = source_string

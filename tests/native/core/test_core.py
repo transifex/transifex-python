@@ -18,28 +18,26 @@ class TestSourceString(object):
 
     def test_default_values(self):
         string = SourceString('something')
-        assert string.string == 'something'
+        assert string.source_string == 'something'
         assert string.context is None
-        assert string.meta == {}
         assert string.developer_comment is None
         assert string.character_limit is None
-        assert string.tags == []
+        assert string.tags is None
 
     def test_custom_meta(self):
         string = SourceString('something',
-                              _context='one,two,three',
-                              _comment='A crucial comment',
-                              _charlimit=33, _tags=' t1,t2 ,  t3',
-                              custom='custom')
-        assert string.string == 'something'
+                              context='one,two,three',
+                              developer_comment='A crucial comment',
+                              character_limit=33,
+                              tags=' t1,t2 ,  t3')
+        assert string.source_string == 'something'
         assert string.context == ['one', 'two', 'three']
         assert string.developer_comment == 'A crucial comment'
         assert string.character_limit == 33
         assert string.tags == ['t1', 't2', 't3']
-        assert string.meta.get('custom') is None
 
     def test_tag_list(self):
-        string = SourceString('something', _tags=['t1', 't2', 't3'])
+        string = SourceString('something', tags=['t1', 't2', 't3'])
         assert string.tags == ['t1', 't2', 't3']
 
 

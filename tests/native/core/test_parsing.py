@@ -87,12 +87,11 @@ class TestExtractor(object):
 
         # mocking gets a little bit different here shifting occurrences
         expected = [
-            SourceString(u'Le canapé', u'désign',
-                         param1='1', param2=2, param3=True,
-                         _occurrences=['myfile.py:6']),
+            SourceString(u'Le canapé', u'désign', occurrences=['myfile.py:6']),
             SourceString(
-                u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
-                _charlimit=33, _occurrences=['myfile.py:7']
+                u'Les données', u'opération', developer_comment='comment',
+                tags=['t1', 't2'], character_limit=33,
+                occurrences=['myfile.py:7']
             ),
         ]
 
@@ -137,11 +136,10 @@ class TestExtractor(object):
 
     def _strings(self):
         return [
-            SourceString(u'Le canapé', u'désign',
-                         param1='1', param2=2, param3=True,
-                         _occurrences=['myfile.py:8'], ),
+            SourceString(u'Le canapé', u'désign', occurrences=['myfile.py:8']),
             SourceString(
-                u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
-                _charlimit=33, _occurrences=['myfile.py:9'],
+                u'Les données', u'opération', developer_comment='comment',
+                tags=['t1', 't2'], character_limit=33,
+                occurrences=['myfile.py:9'],
             ),
         ]

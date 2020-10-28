@@ -45,8 +45,8 @@ class TestTemplates(object):
         strings = extract_transifex_template_strings(src)
         assert strings == [
             SourceString(
-                u"Le canapé", _context=u'furniture', _comment=u'_comment',
-                _charlimit=10, _tags=['t1', 't2']
+                u"Le canapé", context=u'furniture', developer_comment=u'_comment',
+                character_limit=10, tags=['t1', 't2']
             ),
         ]
 
@@ -69,8 +69,8 @@ class TestTemplates(object):
     returning {Welcome back, {username}}
 }
 """,
-            _context='stuff',
-            _charlimit=10,
+            context='stuff',
+            character_limit=10,
         )
 
     def test_raises_exception_if_matching_end_tag_not_found(self):

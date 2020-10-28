@@ -136,7 +136,7 @@ class CDSHandler(object):
 
         cds_url = TRANSIFEX_CDS_URLS['PUSH_SOURCE_STRINGS']
 
-        data = {k: v for k, v in [self._serialize(item) for item in strings]}
+        data = dict((self._serialize(string) for string in strings))
         try:
             response = requests.post(
                 self._host + cds_url,
@@ -167,17 +167,14 @@ class CDSHandler(object):
             :rtype: tuple
         """
 
-        data = {
-            'string': source_string.string,
-            'meta': {
-                MAPPING.get(k, k): v
-                for k, v in source_string.meta.items()
-            },
-        }
-        if source_string.context:
-            data['meta']['context'] = source_string.context
+        attrs = ('context', 'character_limit', 'developer_comment',
+                 'occurrences', 'tags')
+        meta = {attr: getattr(source_string, attr)
+                for attr in attrs
+                if getattr(source_string, attr) is not None}
 
-        return source_string.key, data
+        return (source_string.key,
+                {'string': source_string.source_string, 'meta': meta})
 
     def _get_headers(self, use_secret=False, etag=None):
         """ Return the headers to use when making requests.

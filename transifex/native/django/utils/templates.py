@@ -4,7 +4,7 @@ from django.template.base import TOKEN_BLOCK, Lexer, Parser
 from django.utils.encoding import force_text
 from transifex.common._compat import string_types
 from transifex.native.django.templatetags.transifex import do_t
-from transifex.native.parsing import SourceString, consts
+from transifex.native.parsing import SourceString, ATTR_MAPPING
 
 # Django template consts
 LOAD_TAG = 'load'
@@ -58,8 +58,12 @@ def tnode_to_source_string(tnode):
             meta[key] = value.var
         elif getattr(value.var, 'literal', None) is not None:
             meta[key] = value.var.literal
-    _context = meta.pop('_context', None)
-    return SourceString(tnode.source_string.var, _context, **meta)
+
+    result = SourceString(tnode.source_string.var)
+    for key, value in meta.items():
+        if key in ATTR_MAPPING:
+            setattr(result, ATTR_MAPPING[key], value)
+    return result
 
 
 def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
