@@ -1,6 +1,7 @@
 from operator import itemgetter
 
 import pytest
+import requests
 import responses
 from mock import patch
 
@@ -115,53 +116,35 @@ class TestCDSHandler(object):
             cds_handler.push_source_strings([], False)
 
     @responses.activate
-    @patch('transifex.native.cds.logger')
-    def test_push_source_strings(self, patched_logger):
+    def test_push_source_strings(self):
         cds_host = 'https://some.host'
         cds_handler = CDSHandler(token='some_token',
                                  secret='some_secret',
                                  host=cds_host)
 
-        # test push no correct
+        # test push no content
         responses.add(responses.POST,
-                      cds_host + '/content/',
-                      status=200,
-                      json={'data': []})
+                      cds_host + '/content',
+                      status=200, json={'data': {}})
 
         cds_handler.push_source_strings([], False)
-        assert patched_logger.error.call_count == 0
 
         # test push with content
         responses.add(responses.POST,
-                      cds_host + '/content/',
+                      cds_host + '/content',
                       status=200,
-                      json={'data': []})
+                      json={'data': {}})
 
         source_string = SourceString('some_string')
         cds_handler.push_source_strings([source_string], False)
-        assert patched_logger.error.call_count == 0
         responses.reset()
 
         # test wrong data format
-        responses.add(responses.POST,
-                      cds_host + '/content/',
-                      status=422,
-                      json={"status": 422,
-                            "message": "Invalid Payload",
-                            "details": [{"message": "\"string\" is required",
-                                         "path": ["some_key1", "string"],
-                                         "type": "any.required",
-                                         "context": {"key": "string",
-                                                     "label": "string"}}]})
+        responses.add(responses.POST, cds_host + '/content', status=422)
         # we don't care about the payload this time, just want to
         # see how the service handles the errors
-        cds_handler.push_source_strings([], False)
-        # The actual error message differs between Python 2 and Python 3
-        messages = ['Error pushing source strings to CDS: UnknownError (`422 '
-                    'Client Error: {err} for url: '
-                    'https://some.host/content/`)'.format(err=x)
-                    for x in ('Unprocessable Entity', 'None')]
-        assert patched_logger.error.call_args[0][0] in messages
+        with pytest.raises(requests.exceptions.HTTPError):
+            cds_handler.push_source_strings([], False)
 
     def test_get_headers(self):
         cds_host = 'https://some.host'

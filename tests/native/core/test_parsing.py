@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import re
+import tempfile
 
-from transifex.native.parsing import Extractor, SourceString
+from transifex.native.parsing import Extractor, SourceString, extract
 
 TEMPLATE = u"""
 # -*- coding: utf-8 -*-
@@ -143,3 +144,103 @@ class TestExtractor(object):
                 occurrences=['myfile.py:9'],
             ),
         ]
+
+
+def compare_strings(left, right):
+    return (
+        left.source_string == right.source_string and
+        sorted(left.context or []) == sorted(right.context or []) and
+        left.character_limit == right.character_limit and
+        left.developer_comment == right.developer_comment and
+        sorted(left.occurrences or []) == sorted(right.occurrences or []) and
+        sorted(left.tags or []) == sorted(right.tags or [])
+    )
+
+
+def compare_extract(source, strings):
+    with tempfile.NamedTemporaryFile('w+', encoding="UTF-8") as f:
+        f.write(source)
+        f.seek(0)
+        actual_strings = extract(f.name)
+
+    for string in strings:
+        string.occurrences = ["{}:{}".format(f.name, occurrence)
+                              for occurrence in string.occurrences or []]
+
+    assert len(actual_strings) == len(strings)
+    assert all((compare_strings(left, right)
+                for left, right in zip(sorted(actual_strings),
+                                       sorted(strings))))
+
+
+def test_extract_simple():
+    source = '\n'.join(('from transifex.native import t', 't("hello world")'))
+    strings = [SourceString('hello world', occurrences="2")]
+    compare_extract(source, strings)
+
+
+def test_extract_metadata():
+    source = '\n'.join((
+        'from transifex.native import t',
+        't("hello world", "fr", "context", _charlimit=3, _tags="a,b")',
+    ))
+    strings = [SourceString('hello world',
+                            occurrences="2",
+                            context=["context"],
+                            character_limit=3,
+                            tags=["a", "b"])]
+    compare_extract(source, strings)
+
+
+def test_strings_with_same_key_extracted_once():
+    source = '\n'.join((
+        'from transifex.native import t',
+        't("hello world", "de", "context", _tags="a,b")',
+        't("hello world", "fr", "context", _charlimit=3, _tags=["b", "c"])',
+    ))
+    strings = [SourceString('hello world',
+                            occurrences="2,3",
+                            context=["context"],
+                            character_limit=3,
+                            tags=['a', 'b', 'c'])]
+    compare_extract(source, strings)
+
+
+def test_extract_kwargs():
+    source = '\n'.join((
+        'from transifex.native import t',
+        't(source_string="hello world", _context="context", _tags="tag")',
+    ))
+    strings = [SourceString('hello world',
+                            context=['context'],
+                            tags=['tag'],
+                            occurrences=["2"])]
+    compare_extract(source, strings)
+
+
+def test_import_without_from():
+    source = '\n'.join(('import transifex.native as nt',
+                        'nt.t("hello world")'))
+    strings = [SourceString('hello world', occurrences="2")]
+    compare_extract(source, strings)
+
+
+def test_other_imports():
+    source = '\n'.join((
+        'from transifex.native import t, tx',
+        'from transifex.native.django import t as django_t, ut as django_ut',
+        'from transifex.native.urwid import T',
+        't("four")',
+        'tx.translate("five", _context="five")',
+        'django_t("six", _charlimit=6)',
+        'django_ut("seven", _tags=["seven"])',
+        'T(source_string="eight", _comment="eight")',
+    ))
+    strings = [SourceString('four', occurrences="4"),
+               SourceString('five', context=['five'], occurrences="5"),
+               SourceString('six', character_limit=6, occurrences="6"),
+               SourceString('seven', tags="seven", occurrences="7"),
+               SourceString('eight',
+                            developer_comment="eight",
+                            occurrences="8")]
+    compare_extract(source, strings)

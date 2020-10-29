@@ -12,12 +12,12 @@
 - [x] Get rid of `get_translation`, `render_translation`
 - [x] no StringRenderer
 - [x] missing/error policies should be callables
-
 - [x] SourceString should not be weird
 
+- [x] Parser should accept args or kwargs for everything (use `inspect` module)
+- [x] Push command for plain python
+
 - [ ] TxNative does not have to push
-- [ ] Parser should accept args or kwargs for everything (use `inspect` module)
-- [ ] Push command for plain python
 
 - [ ] No constants
 - [ ] daemon is part of TxNative

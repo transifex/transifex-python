@@ -22,7 +22,7 @@ class TestSourceString(object):
         assert string.context is None
         assert string.developer_comment is None
         assert string.character_limit is None
-        assert string.tags is None
+        assert string.tags == []
 
     def test_custom_meta(self):
         string = SourceString('something',

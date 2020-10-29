@@ -83,7 +83,8 @@ class TxNative(object):
             return self.remote_languages
 
     def translate(self, source_string, language_code=None, _context=None,
-                  _escape=None, **params):
+                  _charlimit=None, _comment=None, _occurrences=None,
+                  _tags=None, _escape=None, **params):
         """ Translate the given string to the provided language.
 
             Steps:

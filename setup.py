@@ -27,4 +27,8 @@ setup(
     install_requires=[
         'pyseeyou', 'pytz', 'requests', 'click', 'asttokens'
     ],
+    entry_points='''
+        [console_scripts]
+        txpy-cli=transifex.native.cli:cli
+    ''',
 )

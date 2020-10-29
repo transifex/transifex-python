@@ -12,7 +12,6 @@ TRANSIFEX_CDS_HOST = 'https://cds.svc.transifex.net'
 TRANSIFEX_CDS_URLS = {
     'FETCH_AVAILABLE_LANGUAGES': '/languages',
     'FETCH_TRANSLATIONS_FOR_LANGUAGE': '/content/{language_code}',
-    'PUSH_SOURCE_STRINGS': '/content/'
 }
 
 logger = logging.getLogger('transifex.native.cds')
@@ -134,28 +133,15 @@ class CDSHandler(object):
             raise Exception('You need to use `TRANSIFEX_SECRET` when pushing '
                             'source content')
 
-        cds_url = TRANSIFEX_CDS_URLS['PUSH_SOURCE_STRINGS']
-
         data = dict((self._serialize(string) for string in strings))
-        try:
-            response = requests.post(
-                self._host + cds_url,
-                headers=self._get_headers(use_secret=True),
-                json={
-                    'data': data,
-                    'meta': {'purge': purge},
-                }
-            )
-            response.raise_for_status()
+        response = requests.post(
+            self._host + '/content',
+            headers=self._get_headers(use_secret=True),
+            json={'data': data, 'meta': {'purge': purge}}
+        )
+        response.raise_for_status()
 
-        except requests.ConnectionError:
-            logger.error(
-                'Error pushing source strings to CDS: ConnectionError')
-        except Exception as e:
-            logger.error('Error pushing source strings to CDS: UnknownError '
-                         '(`{}`)'.format(str(e)))
-
-        return response
+        return response.json()
 
     def _serialize(self, source_string):
         """ Serialize the given source string to a format suitable for the CDS.
