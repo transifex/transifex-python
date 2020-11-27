@@ -195,6 +195,7 @@ class TestNative(object):
     def test_fetch_translations_reaches_cds_handler_and_cache(self, mock_cds,
                                                               mock_cache):
         mytx = self._get_tx()
+        mytx.remote_languages = [{'code': "el"}]
         mytx.fetch_translations()
         assert mock_cds.call_count == 1
         assert mock_cache.call_count > 0

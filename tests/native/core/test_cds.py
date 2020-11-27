@@ -202,7 +202,7 @@ class TestCDSHandler(object):
             responses.GET, cds_host + '/content/fr', status=404
         )
 
-        resp = cds_handler.fetch_translations()
+        resp = cds_handler.fetch_translations('el')
         assert resp == {
             'el': (True, {
                 'key1': {
@@ -212,6 +212,9 @@ class TestCDSHandler(object):
                     'string': 'key2_el'
                 },
             }),
+        }
+        resp = cds_handler.fetch_translations('en')
+        assert resp == {
             'en': (True, {
                 'key1': {
                     'string': 'key1_en'
@@ -220,58 +223,16 @@ class TestCDSHandler(object):
                     'string': 'key2_en'
                 },
             }),
+        }
+        resp = cds_handler.fetch_translations('fr')
+        assert resp == {
             'fr': (False, {})  # that is due to the error status in response
         }
 
         responses.reset()
 
-        # test fetch_languages fails with connection error
-        responses.add(responses.GET, cds_host + '/languages', status=500)
-        resp = cds_handler.fetch_translations()
-        assert resp == {}
-
-        patched_logger.error.assert_called_with(
-            'Error retrieving languages from CDS: UnknownError '
-            '(`500 Server Error: Internal Server Error for url: '
-            'https://some.host/languages`)'
-        )
-        responses.reset()
-        patched_logger.reset_mock()
-
-        # test language code
-        responses.add(
-            responses.GET, cds_host + '/content/el',
-            json={
-                'data': {
-                    'key1': {
-                        'string': 'key1_el'
-                    },
-                    'key2': {
-                        'string': 'key2_el'
-                    },
-                },
-                'meta': {
-                    "some_key": "some_value"
-                }
-            }, status=200
-        )
-
-        resp = cds_handler.fetch_translations(language_code='el')
-        assert resp == {
-            'el': (True, {
-                'key1': {
-                    'string': 'key1_el'
-                },
-                'key2': {
-                    'string': 'key2_el'
-                },
-            })
-        }
-        responses.reset()
-        assert patched_logger.error.call_count == 0
-
         # test connection_error
-        resp = cds_handler.fetch_translations(language_code='el')
+        resp = cds_handler.fetch_translations('el')
         patched_logger.error.assert_called_with(
             'Error retrieving translations from CDS: ConnectionError'
         )
@@ -331,7 +292,7 @@ class TestCDSHandler(object):
             status=304
         )
 
-        resp = cds_handler.fetch_translations()
+        resp = cds_handler.fetch_translations('el')
         assert resp == {
             'el': (True, {
                 'key1': {
@@ -341,7 +302,6 @@ class TestCDSHandler(object):
                     'string': 'key2_el'
                 },
             }),
-            'en': (False, {})
         }
         assert cds_handler.etags.get('el') == 'some_unique_tag_is_here'
 

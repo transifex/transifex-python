@@ -15,7 +15,11 @@ class TxNative(object):
     behavior."""
 
     def __init__(self, **kwargs):
-        self._languages = []
+        self.source_language_code = None
+        self.current_language_code = None
+        self.hardcoded_language_codes = None
+        self.remote_languages = None
+
         self._missing_policy = SourceStringPolicy()
         self._cds_handler = CDSHandler()
         self._cache = MemoryCache()
@@ -23,7 +27,9 @@ class TxNative(object):
 
         self.setup(**kwargs)
 
-    def setup(self, languages=None, token=None, secret=None, cds_host=None,
+    def setup(self,
+              source_language=None, current_language=None, languages=None,
+              token=None, secret=None, cds_host=None,
               missing_policy=None, error_policy=None):
         """Create an instance of the core framework class.
 
@@ -41,17 +47,40 @@ class TxNative(object):
         :param AbstractErrorPolicy error_policy: an optional policy
             to determine how to handle rendering errors
         """
+        if source_language is not None:
+            self.source_language_code = source_language
+        if current_language is not None:
+            self.current_language_code = current_language
         if languages is not None:
-            self._languages = languages
+            self.hardcoded_language_codes = languages
         if missing_policy is not None:
             self._missing_policy = missing_policy
         if error_policy is not None:
             self._error_policy = error_policy
 
-        self._cds_handler.setup(configured_languages=languages,
-                                token=token,
+        self._cds_handler.setup(token=token,
                                 secret=secret,
                                 host=cds_host)
+
+    def fetch_languages(self, force=False):
+        if self.remote_languages is None or force:
+            self.remote_languages = self._cds_handler.fetch_languages()
+
+        if self.hardcoded_language_codes is not None:
+            return [language
+                    for language in self.remote_languages
+                    if language['code'] in self.hardcoded_language_codes]
+        else:
+            return self.remote_languages
+
+    def fetch_translations(self, language_code=None, force=False):
+        """Fetch fresh content from the CDS."""
+        if language_code is None:
+            for language in self.fetch_languages():
+                self.fetch_translations(language['code'], force=force)
+        else:
+            translations = self._cds_handler.fetch_translations(language_code)
+            self._cache.update(translations)
 
     def translate(
         self, source_string, language_code, is_source=False,
@@ -132,10 +161,6 @@ class TxNative(object):
                 language_code=language_code,
                 escape=escape, params=params,
             )
-
-    def fetch_translations(self):
-        """Fetch fresh content from the CDS."""
-        self._cache.update(self._cds_handler.fetch_translations())
 
     def push_source_strings(self, strings, purge=False):
         """Push the given source strings to the CDS.

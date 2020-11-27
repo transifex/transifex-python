@@ -12,5 +12,5 @@ class TestModuleInit(object):
                   missing_policy=PseudoTranslationPolicy())
         assert _tx._cds_handler.token == 'mytoken'
         assert _tx._cds_handler.host == 'myhost'
-        assert _tx._languages == ['lang1', 'lang2']
+        assert _tx.hardcoded_language_codes == ['lang1', 'lang2']
         assert isinstance(_tx._missing_policy, PseudoTranslationPolicy)
