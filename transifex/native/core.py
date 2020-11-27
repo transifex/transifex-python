@@ -14,21 +14,17 @@ class TxNative(object):
     """The main class of the framework, responsible for orchestrating all
     behavior."""
 
-    def __init__(self):
-        # The class uses an untypical initialization scheme, defining
-        # an init() method, instead of initializing inside the constructor
-        # This is necessary for allowing it to be initialized by its clients
-        # with proper arguments, while at the same time being very easy
-        # to import and use a single "global" instance
-        self._cache = None
+    def __init__(self, **kwargs):
         self._languages = []
-        self._missing_policy = None
-        self._cds_handler = None
+        self._missing_policy = SourceStringPolicy()
+        self._cds_handler = CDSHandler()
+        self._cache = MemoryCache()
+        self._error_policy = SourceStringErrorPolicy()
 
-    def init(
-        self, languages, token, secret=None, cds_host=None,
-        missing_policy=None, error_policy=None
-    ):
+        self.setup(**kwargs)
+
+    def setup(self, languages=None, token=None, secret=None, cds_host=None,
+              missing_policy=None, error_policy=None):
         """Create an instance of the core framework class.
 
         Also warms up the cache by fetching the translations from the CDS.
@@ -45,13 +41,17 @@ class TxNative(object):
         :param AbstractErrorPolicy error_policy: an optional policy
             to determine how to handle rendering errors
         """
-        self._languages = languages
-        self._cache = MemoryCache()
-        self._missing_policy = missing_policy or SourceStringPolicy()
-        self._error_policy = error_policy or SourceStringErrorPolicy()
-        self._cds_handler = CDSHandler(configured_languages=self._languages,
-                                       token=token, secret=secret,
-                                       host=cds_host)
+        if languages is not None:
+            self._languages = languages
+        if missing_policy is not None:
+            self._missing_policy = missing_policy
+        if error_policy is not None:
+            self._error_policy = error_policy
+
+        self._cds_handler.setup(configured_languages=languages,
+                                token=token,
+                                secret=secret,
+                                host=cds_host)
 
     def translate(
         self, source_string, language_code, is_source=False,

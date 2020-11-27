@@ -5,7 +5,7 @@ import sys
 from django.apps import AppConfig
 from django.core.signals import request_finished
 from django.utils.translation import to_locale
-from transifex.native import init, tx
+from transifex.native import tx
 from transifex.native.daemon import daemon
 from transifex.native.django import settings as native_settings
 from transifex.native.rendering import (parse_error_policy,
@@ -77,14 +77,12 @@ class NativeConfig(AppConfig):
         error_policy = parse_error_policy(
             native_settings.TRANSIFEX_ERROR_POLICY
         )
-        init(
-            native_settings.TRANSIFEX_TOKEN,
-            languages,
-            secret=native_settings.TRANSIFEX_SECRET,
-            cds_host=native_settings.TRANSIFEX_CDS_HOST,
-            missing_policy=missing_policy,
-            error_policy=error_policy
-        )
+        tx.setup(token=native_settings.TRANSIFEX_TOKEN,
+                 languages=languages,
+                 secret=native_settings.TRANSIFEX_SECRET,
+                 cds_host=native_settings.TRANSIFEX_CDS_HOST,
+                 missing_policy=missing_policy,
+                 error_policy=error_policy)
 
         if fetch_translations:
             logger.info(

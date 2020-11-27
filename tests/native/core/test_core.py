@@ -52,7 +52,7 @@ class TestNative(object):
 
     def _get_tx(self, **kwargs):
         mytx = TxNative()
-        mytx.init(['en', 'el'], 'cds_token', **kwargs)
+        mytx.setup(languages=['en', 'el'], token='cds_token', **kwargs)
         return mytx
 
     @patch('transifex.native.core.StringRenderer.render')
