@@ -5,7 +5,7 @@ from mock import MagicMock, patch
 from transifex.common.utils import generate_key
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import TRANSIFEX_CDS_HOST
-from transifex.native.core import NotInitializedError, TxNative
+from transifex.native.core import TxNative
 from transifex.native.parsing import SourceString
 from transifex.native.rendering import (PseudoTranslationPolicy,
                                         SourceStringPolicy, parse_error_policy)
@@ -54,34 +54,6 @@ class TestNative(object):
         mytx = TxNative()
         mytx.init(['en', 'el'], 'cds_token', **kwargs)
         return mytx
-
-    def test_uninitialized(self):
-        mytx = TxNative()
-        with pytest.raises(NotInitializedError):
-            mytx.translate('string', 'en')
-        with pytest.raises(NotInitializedError):
-            mytx.fetch_translations()
-        with pytest.raises(NotInitializedError):
-            mytx.push_source_strings([], False)
-
-    def test_default_init(self):
-        mytx = self._get_tx()
-        assert mytx.initialized is True
-        assert mytx._languages == ['en', 'el']
-        assert isinstance(mytx._missing_policy, SourceStringPolicy)
-        assert isinstance(mytx._cache, MemoryCache)
-        assert mytx._cds_handler.token == 'cds_token'
-        assert mytx._cds_handler.host == TRANSIFEX_CDS_HOST
-
-    def test_custom_init(self):
-        missing_policy = PseudoTranslationPolicy()
-        mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
-        assert mytx.initialized is True
-        assert mytx._languages == ['en', 'el']
-        assert mytx._missing_policy == missing_policy
-        assert isinstance(mytx._cache, MemoryCache)
-        assert mytx._cds_handler.token == 'cds_token'
-        assert mytx._cds_handler.host == 'myhost'
 
     @patch('transifex.native.core.StringRenderer.render')
     def test_translate_source_language_reaches_renderer(self, mock_render):

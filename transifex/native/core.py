@@ -10,15 +10,6 @@ from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
 
 
-class NotInitializedError(Exception):
-    """Raised when a method of a TxNative instance is called but the class
-    hasn't been initialized.
-
-    Allows for better debugging when developers neglect to call init().
-    """
-    pass
-
-
 class TxNative(object):
     """The main class of the framework, responsible for orchestrating all
     behavior."""
@@ -33,7 +24,6 @@ class TxNative(object):
         self._languages = []
         self._missing_policy = None
         self._cds_handler = None
-        self.initialized = False
 
     def init(
         self, languages, token, secret=None, cds_host=None,
@@ -62,7 +52,6 @@ class TxNative(object):
         self._cds_handler = CDSHandler(
             self._languages, token, secret=secret, host=cds_host
         )
-        self.initialized = True
 
     def translate(
         self, source_string, language_code, is_source=False,
@@ -87,8 +76,6 @@ class TxNative(object):
 
         if params is None:
             params = {}
-
-        self._check_initialization()
 
         translation_template = self.get_translation(source_string,
                                                     language_code,
@@ -148,7 +135,6 @@ class TxNative(object):
 
     def fetch_translations(self):
         """Fetch fresh content from the CDS."""
-        self._check_initialization()
         self._cache.update(self._cds_handler.fetch_translations())
 
     def push_source_strings(self, strings, purge=False):
@@ -163,16 +149,5 @@ class TxNative(object):
             response
         :rtype: tuple
         """
-        self._check_initialization()
         response = self._cds_handler.push_source_strings(strings, purge)
         return response.status_code, json.loads(response.content)
-
-    def _check_initialization(self):
-        """Raise an exception if the class has not been initialized.
-
-        :raise NotInitializedError: if the class hasn't been initialized
-        """
-        if not self.initialized:
-            raise NotInitializedError(
-                'TxNative is not initialized, make sure you call init() first.'
-            )

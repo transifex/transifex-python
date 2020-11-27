@@ -19,15 +19,14 @@ def init(
     :param AbstractErrorPolicy error_policy: an optional policy to use
         for defining how to handle translation rendering errors
     """
-    if not tx.initialized:
-        tx.init(
-            languages,
-            token,
-            secret=secret,
-            cds_host=cds_host,
-            missing_policy=missing_policy,
-            error_policy=error_policy
-        )
+    tx.init(
+        languages,
+        token,
+        secret=secret,
+        cds_host=cds_host,
+        missing_policy=missing_policy,
+        error_policy=error_policy
+    )
 
 
 tx = TxNative()
