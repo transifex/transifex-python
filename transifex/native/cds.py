@@ -47,8 +47,7 @@ class EtagStore(object):
 class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
-    def __init__(self, configured_languages, token, secret=None,
-                 host=TRANSIFEX_CDS_HOST):
+    def __init__(self, **kwargs):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
@@ -56,11 +55,24 @@ class CDSHandler(object):
         :param str token: the API token to use for connecting to the CDS
         :param str host: the host of the Content Delivery Service
         """
-        self.configured_language_codes = configured_languages
-        self.token = token
-        self.secret = secret
-        self.host = host or TRANSIFEX_CDS_HOST
+        self.configured_language_codes = None
+        self.token = None
+        self.secret = None
+        self.host = TRANSIFEX_CDS_HOST
         self.etags = EtagStore()
+
+        self.setup(**kwargs)
+
+    def setup(self, configured_languages=None, token=None, secret=None,
+              host=None):
+        if configured_languages is not None:
+            self.configured_language_codes = configured_languages
+        if token is not None:
+            self.token = token
+        if secret is not None:
+            self.secret = secret
+        if host is not None:
+            self.host = host
 
     def fetch_languages(self):
         """Fetch the languages defined in the CDS for the specific project.

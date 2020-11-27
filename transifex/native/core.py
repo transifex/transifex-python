@@ -49,9 +49,9 @@ class TxNative(object):
         self._cache = MemoryCache()
         self._missing_policy = missing_policy or SourceStringPolicy()
         self._error_policy = error_policy or SourceStringErrorPolicy()
-        self._cds_handler = CDSHandler(
-            self._languages, token, secret=secret, host=cds_host
-        )
+        self._cds_handler = CDSHandler(configured_languages=self._languages,
+                                       token=token, secret=secret,
+                                       host=cds_host)
 
     def translate(
         self, source_string, language_code, is_source=False,

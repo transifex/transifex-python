@@ -23,11 +23,9 @@ class TestCDSHandler(object):
     @patch('transifex.native.cds.logger')
     def test_fetch_languages(self, patched_logger):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-            host=cds_host
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token',
+                                 host=cds_host)
 
         # correct response
         responses.add(
@@ -140,11 +138,9 @@ class TestCDSHandler(object):
     @patch('transifex.native.cds.logger')
     def test_fetch_translations(self, patched_logger):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en', 'fr'],
-            'some_token',
-            host=cds_host
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en', 'fr'],
+                                 token='some_token',
+                                 host=cds_host)
 
         # add response for languages
         responses.add(
@@ -286,11 +282,9 @@ class TestCDSHandler(object):
     def test_fetch_translations_etags_management(self, patched_logger):
 
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-            host=cds_host
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token',
+                                 host=cds_host)
 
         # add response for languages
         responses.add(
@@ -352,10 +346,8 @@ class TestCDSHandler(object):
         assert cds_handler.etags.get('el') == 'some_unique_tag_is_here'
 
     def test_push_source_strings_no_secret(self):
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token')
         with pytest.raises(Exception):
             cds_handler.push_source_strings([], False)
 
@@ -363,12 +355,10 @@ class TestCDSHandler(object):
     @patch('transifex.native.cds.logger')
     def test_push_source_strings(self, patched_logger):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-            secret='some_secret',
-            host=cds_host
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token',
+                                 secret='some_secret',
+                                 host=cds_host)
 
         # test push no correct
         responses.add(
@@ -426,12 +416,10 @@ class TestCDSHandler(object):
 
     def test_get_headers(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-            secret='some_secret',
-            host=cds_host
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token',
+                                 secret='some_secret',
+                                 host=cds_host)
         assert cds_handler._get_headers() == {
             'Authorization': 'Bearer some_token',
             'Accept-Encoding': 'gzip',
@@ -456,11 +444,9 @@ class TestCDSHandler(object):
     @responses.activate
     def test_retry_fetch_languages(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-            host=cds_host,
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token',
+                                 host=cds_host)
         responses.add(responses.GET, cds_host + '/languages', status=202)
         responses.add(responses.GET, cds_host + '/languages', status=202)
         responses.add(responses.GET, cds_host + '/languages',
@@ -477,11 +463,9 @@ class TestCDSHandler(object):
     @responses.activate
     def test_retry_fetch_translations(self):
         cds_host = 'https://some.host'
-        cds_handler = CDSHandler(
-            ['el', 'en'],
-            'some_token',
-            host=cds_host,
-        )
+        cds_handler = CDSHandler(configured_languages=['el', 'en'],
+                                 token='some_token',
+                                 host=cds_host)
         responses.add(responses.GET, cds_host + '/content/el', status=202)
         responses.add(responses.GET, cds_host + '/content/el', status=202)
         responses.add(responses.GET,
