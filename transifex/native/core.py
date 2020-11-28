@@ -49,8 +49,6 @@ class TxNative(object):
         """
         if source_language is not None:
             self.source_language_code = source_language
-        if current_language is not None:
-            self.current_language_code = current_language
         if languages is not None:
             self.hardcoded_language_codes = languages
         if missing_policy is not None:
@@ -61,6 +59,9 @@ class TxNative(object):
         self._cds_handler.setup(token=token,
                                 secret=secret,
                                 host=cds_host)
+
+        if current_language is not None:
+            self.set_current_language(current_language)
 
     def fetch_languages(self, force=False):
         if self.remote_languages is None or force:
@@ -73,17 +74,34 @@ class TxNative(object):
         else:
             return self.remote_languages
 
+    def set_current_language(self, language_code, force=False):
+        if language_code not in (language['code']
+                                 for language in self.fetch_languages()):
+            raise ValueError("Language {} is not supported by the application".
+                             format(language_code))
+        if language_code not in self._cache or force:
+            self.fetch_translations(language_code=language_code, force=True)
+        self.current_language_code = language_code
+
     def fetch_translations(self, language_code=None, force=False):
         """Fetch fresh content from the CDS."""
         if language_code is None:
             for language in self.fetch_languages():
                 self.fetch_translations(language['code'], force=force)
         else:
-            translations = self._cds_handler.fetch_translations(language_code)
-            self._cache.update(translations)
+            if language_code not in [language['code']
+                                     for language in self.fetch_languages()]:
+                raise ValueError(
+                    "Language {} is not supported by the application".
+                    format(language_code)
+                )
+            if language_code not in self._cache or force:
+                translations = self._cds_handler.\
+                    fetch_translations(language_code)
+                self._cache.update(translations)
 
     def translate(
-        self, source_string, language_code, is_source=False,
+        self, source_string, language_code=None, is_source=False,
         _context=None, escape=True, params=None
     ):
         """Translate the given string to the provided language.
@@ -105,6 +123,9 @@ class TxNative(object):
 
         if params is None:
             params = {}
+
+        if language_code is None:
+            language_code = self.current_language_code
 
         translation_template = self.get_translation(source_string,
                                                     language_code,

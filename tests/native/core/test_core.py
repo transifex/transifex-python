@@ -212,3 +212,13 @@ class TestNative(object):
                                    u"fr_FR",
                                    params={'cnt': 2})
         assert translation == u'OTHER'
+
+    @patch('transifex.native.core.CDSHandler.fetch_translations')
+    def test_set_current_language(self, mock_cds):
+        mock_cds.return_value = {'el': (True, {})}
+        tx = self._get_tx()
+        tx.remote_languages = [{'code': "el"}]
+        tx.set_current_language('el')
+
+        assert tx.current_language_code == 'el'
+        mock_cds.assert_called_once_with('el')

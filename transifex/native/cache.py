@@ -51,6 +51,12 @@ class AbstractCache(object):
         """
         pass
 
+    def __contains__(self, language_code):
+        """ Check whether language_code has already been added to the cache.
+        """
+
+        pass
+
 
 class MemoryCache(AbstractCache):
     """A cache that stores translations in memory."""
@@ -81,3 +87,6 @@ class MemoryCache(AbstractCache):
         except (ValueError, AttributeError):
             pass
         return retrieved_translation
+
+    def __contains__(self, language_code):
+        return language_code in self._translations_by_lang
