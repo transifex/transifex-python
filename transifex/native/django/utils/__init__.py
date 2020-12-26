@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.utils.translation import get_language, to_locale
 from transifex.common.strings import LazyString
 from transifex.native import tx
@@ -19,13 +18,11 @@ def translate(_string, _context=None, _escape=True, **params):
     :return: the final translation in the current language
     :rtype: unicode
     """
-    is_source = get_language() == settings.LANGUAGE_CODE
     locale = to_locale(get_language())  # e.g. from en-us to en_US
     return tx.translate(
         _string,
         locale,
         _context=_context,
-        is_source=is_source,
         escape=_escape,
         params=params,
     )

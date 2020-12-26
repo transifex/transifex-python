@@ -52,13 +52,14 @@ class TestNative(object):
 
     def _get_tx(self, **kwargs):
         mytx = TxNative()
-        mytx.setup(languages=['en', 'el'], token='cds_token', **kwargs)
+        mytx.setup(source_language='en', languages=['en', 'el'],
+                   token='cds_token', **kwargs)
         return mytx
 
     @patch('transifex.native.core.StringRenderer.render')
     def test_translate_source_language_reaches_renderer(self, mock_render):
         mytx = self._get_tx()
-        mytx.translate('My String', 'en', is_source=True)
+        mytx.translate('My String', 'en')
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render='My String',
@@ -74,13 +75,13 @@ class TestNative(object):
                                                                 mock_cache):
         mock_cache.return_value = None
         mytx = self._get_tx()
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'foo')
         mock_cache.assert_called_once_with(
-            generate_key(string='My String'), 'en')
+            generate_key(string='My String'), 'foo')
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render=None,
-            language_code='en',
+            language_code='foo',
             escape=True,
             missing_policy=mytx._missing_policy,
             params={},
@@ -89,7 +90,7 @@ class TestNative(object):
     def test_translate_target_language_missing_reaches_missing_policy(self):
         missing_policy = MagicMock()
         mytx = self._get_tx(missing_policy=missing_policy)
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'foo')
         missing_policy.get.assert_called_once_with('My String')
 
     @patch('transifex.native.core.StringRenderer')
@@ -97,10 +98,10 @@ class TestNative(object):
         error_policy = MagicMock()
         mock_renderer.render.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'en')
         error_policy.get.assert_called_once_with(
-            source_string='My String', translation=None, language_code='en',
-            escape=True, params={},
+            source_string='My String', translation="My String",
+            language_code='en', escape=True, params={},
         )
 
     def test_translate_error_reaches_source_string_error_policy(
@@ -111,7 +112,7 @@ class TestNative(object):
         mock_missing_policy = MagicMock()
         mock_missing_policy.get.side_effect = Exception
         mytx = self._get_tx(missing_policy=mock_missing_policy)
-        result = mytx.translate('My String', 'en', is_source=False)
+        result = mytx.translate('My String', 'en')
         assert result == 'My String'
 
     @patch('transifex.native.core.StringRenderer')
@@ -130,7 +131,7 @@ class TestNative(object):
         mytx = self._get_tx(
             error_policy=error_policy
         )
-        result = mytx.translate('My String', 'en', is_source=False)
+        result = mytx.translate('My String', 'en')
         assert result == 'my-default-text'
 
     def test_translate_source_language_renders_icu(self):
@@ -138,7 +139,6 @@ class TestNative(object):
         translation = mytx.translate(
             u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
             'en',
-            is_source=True,
             params={'cnt': 1}
         )
         assert translation == '1 duck'
@@ -149,8 +149,7 @@ class TestNative(object):
         mytx = self._get_tx()
         translation = mytx.translate(
             u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
-            'en',
-            is_source=False,
+            'el',
             params={'cnt': 1}
         )
         assert translation == u'1 παπί'
@@ -160,7 +159,6 @@ class TestNative(object):
         translation = mytx.translate(
             u'<script type="text/javascript">alert(1)</script>',
             'en',
-            is_source=True,
             escape=True,
             params={'cnt': 1}
         )
@@ -173,7 +171,6 @@ class TestNative(object):
         translation = mytx.translate(
             u'<script type="text/javascript">alert(1)</script>',
             'en',
-            is_source=True,
             escape=False,
             params={'cnt': 1}
         )

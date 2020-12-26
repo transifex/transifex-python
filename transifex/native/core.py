@@ -100,17 +100,13 @@ class TxNative(object):
                     fetch_translations(language_code)
                 self._cache.update(translations)
 
-    def translate(
-        self, source_string, language_code=None, is_source=False,
-        _context=None, escape=True, params=None
-    ):
+    def translate(self, source_string, language_code=None, _context=None,
+                  escape=True, params=None):
         """Translate the given string to the provided language.
 
         :param unicode source_string: the source string to get the translation
             for e.g. 'Order: {num, plural, one {A table} other {{num} tables}}'
         :param str language_code: the language to translate to
-        :param bool is_source: a boolean indicating whether `translate`
-            is being used for the source language
         :param unicode _context: an optional context that accompanies
             the string
         :param bool escape: if True, the returned string will be HTML-escaped,
@@ -129,8 +125,7 @@ class TxNative(object):
 
         translation_template = self.get_translation(source_string,
                                                     language_code,
-                                                    _context,
-                                                    is_source)
+                                                    _context)
 
         return self.render_translation(translation_template,
                                        params,
@@ -138,8 +133,7 @@ class TxNative(object):
                                        language_code,
                                        escape)
 
-    def get_translation(self, source_string, language_code, _context,
-                        is_source=False):
+    def get_translation(self, source_string, language_code, _context):
         """ Try to retrieve the translation.
 
             A translation is a serialized source_string with ICU format
@@ -147,7 +141,7 @@ class TxNative(object):
             '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
         """
 
-        if is_source:
+        if language_code == self.source_language_code:
             translation_template = source_string
         else:
             pluralized, plurals = parse_plurals(source_string)
