@@ -72,4 +72,4 @@ def utranslate(_string, _context=None, **params):
     :return: the final translation in the current language
     :rtype: unicode
     """
-    return translate(_string, _context, escape=False, **params)
+    return translate(_string, _context, _escape=False, **params)
