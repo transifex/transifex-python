@@ -435,11 +435,13 @@ class TestCDSHandler(object):
         assert cds_handler._get_headers() == {
             'Authorization': 'Bearer some_token',
             'Accept-Encoding': 'gzip',
+            'X-NATIVE-SDK': 'python',
         }
 
         assert cds_handler._get_headers(use_secret=True) == {
             'Authorization': 'Bearer some_token:some_secret',
             'Accept-Encoding': 'gzip',
+            'X-NATIVE-SDK': 'python',
         }
 
         headers = cds_handler._get_headers(
@@ -447,7 +449,8 @@ class TestCDSHandler(object):
         assert headers == {
             'Authorization': 'Bearer some_token:some_secret',
             'Accept-Encoding': 'gzip',
-            'If-None-Match': 'something'
+            'X-NATIVE-SDK': 'python',
+            'If-None-Match': 'something',
         }
 
     @responses.activate

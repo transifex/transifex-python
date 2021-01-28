@@ -253,6 +253,7 @@ class CDSHandler(object):
                 secret=(':' + self.secret if use_secret else '')
             ),
             'Accept-Encoding': 'gzip',
+            'X-NATIVE-SDK': 'python',
         }
         if etag:
             headers['If-None-Match'] = etag
