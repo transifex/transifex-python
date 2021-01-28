@@ -1,6 +1,6 @@
 # Releasing to PyPI
 
-Releasing to PyPI happens via the [travis](https://travis-ci.org) integration.
+Releasing to PyPI happens via Github Actions CI.
 In order for a PyPI deployment to occur, a new tag must be pushed to the
 `master` branch. So, if you have setup your git to push to
 [this reposository](https://github.com/transifex/transifex-python), in order to
@@ -18,7 +18,7 @@ git push origin <next-version>
 We use the [SemVer](https://semver.org/) specification:
 
 > Given a version number MAJOR.MINOR.PATCH, increment the:
-> 
+>
 > 1. MAJOR version when you make incompatible API changes,
 > 2. MINOR version when you add functionality in a backwards compatible manner,
 >    and
