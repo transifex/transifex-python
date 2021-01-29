@@ -6,6 +6,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "[0-9]*.[0-9]*.*[0-9]"
 
 jobs:
   quality-checks:
@@ -49,4 +51,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@master
         with:
           user: __token__
-          password: ${{secrets.PYPI_API_TOKEN}}
+          password: ${{secrets.pypi_api_token}}

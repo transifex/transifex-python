@@ -9,6 +9,7 @@ deploy the latest changes from `devel`, you need to run:
 ```sh
 git checkout master
 git merge --ff-only devel
+git push origin master
 git tag <next-version>
 git push origin <next-version>
 ```

@@ -1,3 +1,4 @@
+![Test suite](https://github.com/transifex/transifex-python/workflows/Test%20suite/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/transifex/transifex-python/branch/master/graph/badge.svg)](https://codecov.io/gh/transifex/transifex-python)
 
 # Transifex Python Toolkit
