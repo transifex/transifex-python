@@ -8,34 +8,77 @@ on:
       - master
 
 jobs:
-  quality-checks:
+  build-python2-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Build Python 2 image
+        run: |
+          docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11 -t txnative_py2 -f Dockerfile-tmpl .
+          docker save txnative_py2 > txnative_py2.tar
+      - name: Upload Python 2 image as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: python2-image
+          path: txnative_py2.tar
+
+  build-python3-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build Python 3 image
+        run: |
+          docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t txnative_py3 -f Dockerfile-tmpl .
+          docker save txnative_py3 > txnative_py3.tar
+      - name: Upload Python 3 image as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: python3-image
+          path: txnative_py3.tar
+
+  quality-checks:
+    needs: [build-python3-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download Python 3 image artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: python3-image
       - name: Code quality checks
         run: |
-          docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          docker run --rm native sh -c 'pre-commit run --files $(git ls-files transifex* tests*)'
+          docker load < txnative_py3.tar
+          docker run --rm txnative_py3 sh -c 'pre-commit run --files $(git ls-files transifex* tests*)'
 
   python2-tests:
+    needs: [build-python2-image]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Download Python 2 image artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: python2-image
       - name: Test py2.7-dj1.11
         run: |
-          docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
+          docker load < txnative_py2.tar
+          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm txnative_py2 sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
 
   python3-tests:
+    needs: [build-python3-image]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Download Python 3 image artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: python3-image
       - name: Test py3.6-dj1.11
         run: |
-          docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
+          docker load < txnative_py3.tar 
+          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm txnative_py3 sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
 
