@@ -6,6 +6,7 @@ import json
 from transifex.common.utils import generate_key, parse_plurals
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import CDSHandler
+from transifex.native.events import EventDispatcher
 from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
 
@@ -20,6 +21,7 @@ class TxNative(object):
         self.hardcoded_language_codes = None
         self.remote_languages = None
 
+        self._event_dispatcher = EventDispatcher()
         self._missing_policy = SourceStringPolicy()
         self._cds_handler = CDSHandler()
         self._cache = MemoryCache()
@@ -62,10 +64,19 @@ class TxNative(object):
 
         if current_language is not None:
             self.set_current_language(current_language)
+        elif source_language is not None:
+            self.set_current_language(source_language)
 
     def fetch_languages(self, force=False):
         if self.remote_languages is None or force:
-            self.remote_languages = self._cds_handler.fetch_languages()
+            self._event_dispatcher.trigger('FETCHING_LOCALES')
+            try:
+                self.remote_languages = self._cds_handler.fetch_languages()
+            except Exception:
+                self._event_dispatcher.trigger('LOCALES_FETCH_FAILED')
+                raise
+            else:
+                self._event_dispatcher.trigger('LOCALES_FETCHED')
 
         if self.hardcoded_language_codes is not None:
             return [language
@@ -81,7 +92,9 @@ class TxNative(object):
                              format(language_code))
         if language_code not in self._cache or force:
             self.fetch_translations(language_code=language_code, force=True)
+        prev = self.current_language_code
         self.current_language_code = language_code
+        self._event_dispatcher.trigger('LOCALE_CHANGED', prev, language_code)
 
     def fetch_translations(self, language_code=None, force=False):
         """Fetch fresh content from the CDS."""
@@ -95,10 +108,20 @@ class TxNative(object):
                     "Language {} is not supported by the application".
                     format(language_code)
                 )
-            if language_code not in self._cache or force:
-                translations = self._cds_handler.\
-                    fetch_translations(language_code)
-                self._cache.update(translations)
+            self._event_dispatcher.trigger('FETCHING_TRANSLATIONS',
+                                           language_code)
+            try:
+                if language_code not in self._cache or force:
+                    translations = self._cds_handler.\
+                        fetch_translations(language_code)
+                    self._cache.update(translations)
+            except Exception:
+                self._event_dispatcher.trigger('TRANSLATIONS_FETCH_FAILED',
+                                               language_code)
+                raise
+            else:
+                self._event_dispatcher.trigger('TRANSLATIONS_FETCHED',
+                                               language_code)
 
     def translate(self, source_string, language_code=None, _context=None,
                   escape=True, params=None):
@@ -191,3 +214,10 @@ class TxNative(object):
         """
         response = self._cds_handler.push_source_strings(strings, purge)
         return response.status_code, json.loads(response.content)
+
+    # Events
+    def on(self, label, callback):
+        self._event_dispatcher.on(label, callback)
+
+    def off(self, label, callback):
+        self._event_dispatcher.off(label, callback)

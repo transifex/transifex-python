@@ -15,7 +15,7 @@ class TestFetchingDaemon(object):
                  cds_host='https://some.host')
 
         # the `interval` we will be using
-        interval = 1
+        interval = .1
 
         daemon = DaemonicThread()
 
@@ -49,7 +49,7 @@ class TestFetchingDaemon(object):
 
         daemon = DaemonicThread()
 
-        interval = 1
+        interval = .1
         daemon.start_daemon(interval=1)
         time.sleep(interval * 2)
         assert daemon.is_daemon_running(log_errors=False)
