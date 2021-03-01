@@ -5,7 +5,7 @@ from mock import MagicMock, patch
 from transifex.common.utils import generate_key
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import TRANSIFEX_CDS_HOST
-from transifex.native.core import NotInitializedError, TxNative
+from transifex.native.core import TxNative
 from transifex.native.parsing import SourceString
 from transifex.native.rendering import (PseudoTranslationPolicy,
                                         SourceStringPolicy, parse_error_policy)
@@ -52,41 +52,14 @@ class TestNative(object):
 
     def _get_tx(self, **kwargs):
         mytx = TxNative()
-        mytx.init(['en', 'el'], 'cds_token', **kwargs)
+        mytx.setup(source_language='en', languages=['en', 'el'],
+                   token='cds_token', **kwargs)
         return mytx
-
-    def test_uninitialized(self):
-        mytx = TxNative()
-        with pytest.raises(NotInitializedError):
-            mytx.translate('string', 'en')
-        with pytest.raises(NotInitializedError):
-            mytx.fetch_translations()
-        with pytest.raises(NotInitializedError):
-            mytx.push_source_strings([], False)
-
-    def test_default_init(self):
-        mytx = self._get_tx()
-        assert mytx.initialized is True
-        assert mytx._languages == ['en', 'el']
-        assert isinstance(mytx._missing_policy, SourceStringPolicy)
-        assert isinstance(mytx._cache, MemoryCache)
-        assert mytx._cds_handler.token == 'cds_token'
-        assert mytx._cds_handler.host == TRANSIFEX_CDS_HOST
-
-    def test_custom_init(self):
-        missing_policy = PseudoTranslationPolicy()
-        mytx = self._get_tx(cds_host='myhost', missing_policy=missing_policy)
-        assert mytx.initialized is True
-        assert mytx._languages == ['en', 'el']
-        assert mytx._missing_policy == missing_policy
-        assert isinstance(mytx._cache, MemoryCache)
-        assert mytx._cds_handler.token == 'cds_token'
-        assert mytx._cds_handler.host == 'myhost'
 
     @patch('transifex.native.core.StringRenderer.render')
     def test_translate_source_language_reaches_renderer(self, mock_render):
         mytx = self._get_tx()
-        mytx.translate('My String', 'en', is_source=True)
+        mytx.translate('My String', 'en')
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render='My String',
@@ -102,13 +75,13 @@ class TestNative(object):
                                                                 mock_cache):
         mock_cache.return_value = None
         mytx = self._get_tx()
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'foo')
         mock_cache.assert_called_once_with(
-            generate_key(string='My String'), 'en')
+            generate_key(string='My String'), 'foo')
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render=None,
-            language_code='en',
+            language_code='foo',
             escape=True,
             missing_policy=mytx._missing_policy,
             params={},
@@ -117,7 +90,7 @@ class TestNative(object):
     def test_translate_target_language_missing_reaches_missing_policy(self):
         missing_policy = MagicMock()
         mytx = self._get_tx(missing_policy=missing_policy)
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'foo')
         missing_policy.get.assert_called_once_with('My String')
 
     @patch('transifex.native.core.StringRenderer')
@@ -125,10 +98,10 @@ class TestNative(object):
         error_policy = MagicMock()
         mock_renderer.render.side_effect = Exception
         mytx = self._get_tx(error_policy=error_policy)
-        mytx.translate('My String', 'en', is_source=False)
+        mytx.translate('My String', 'en')
         error_policy.get.assert_called_once_with(
-            source_string='My String', translation=None, language_code='en',
-            escape=True, params={},
+            source_string='My String', translation="My String",
+            language_code='en', escape=True, params={},
         )
 
     def test_translate_error_reaches_source_string_error_policy(
@@ -139,7 +112,7 @@ class TestNative(object):
         mock_missing_policy = MagicMock()
         mock_missing_policy.get.side_effect = Exception
         mytx = self._get_tx(missing_policy=mock_missing_policy)
-        result = mytx.translate('My String', 'en', is_source=False)
+        result = mytx.translate('My String', 'en')
         assert result == 'My String'
 
     @patch('transifex.native.core.StringRenderer')
@@ -158,7 +131,7 @@ class TestNative(object):
         mytx = self._get_tx(
             error_policy=error_policy
         )
-        result = mytx.translate('My String', 'en', is_source=False)
+        result = mytx.translate('My String', 'en')
         assert result == 'my-default-text'
 
     def test_translate_source_language_renders_icu(self):
@@ -166,7 +139,6 @@ class TestNative(object):
         translation = mytx.translate(
             u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
             'en',
-            is_source=True,
             params={'cnt': 1}
         )
         assert translation == '1 duck'
@@ -177,8 +149,7 @@ class TestNative(object):
         mytx = self._get_tx()
         translation = mytx.translate(
             u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}',
-            'en',
-            is_source=False,
+            'el',
             params={'cnt': 1}
         )
         assert translation == u'1 παπί'
@@ -188,7 +159,6 @@ class TestNative(object):
         translation = mytx.translate(
             u'<script type="text/javascript">alert(1)</script>',
             'en',
-            is_source=True,
             escape=True,
             params={'cnt': 1}
         )
@@ -201,7 +171,6 @@ class TestNative(object):
         translation = mytx.translate(
             u'<script type="text/javascript">alert(1)</script>',
             'en',
-            is_source=True,
             escape=False,
             params={'cnt': 1}
         )
@@ -223,6 +192,7 @@ class TestNative(object):
     def test_fetch_translations_reaches_cds_handler_and_cache(self, mock_cds,
                                                               mock_cache):
         mytx = self._get_tx()
+        mytx.remote_languages = [{'code': "el"}]
         mytx.fetch_translations()
         assert mock_cds.call_count == 1
         assert mock_cache.call_count > 0
@@ -239,3 +209,13 @@ class TestNative(object):
                                    u"fr_FR",
                                    params={'cnt': 2})
         assert translation == u'OTHER'
+
+    @patch('transifex.native.core.CDSHandler.fetch_translations')
+    def test_set_current_language(self, mock_cds):
+        mock_cds.return_value = {'el': (True, {})}
+        tx = self._get_tx()
+        tx.remote_languages = [{'code': "el"}]
+        tx.set_current_language('el')
+
+        assert tx.current_language_code == 'el'
+        mock_cds.assert_called_once_with('el')

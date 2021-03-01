@@ -37,3 +37,12 @@ class TestMemoryCache(object):
         assert cache.get('chair', 'el') == u'Μια καρέκλα'
         assert cache.get('invalid', 'en') is None
         assert cache.get('invalid', 'el') is None
+
+    def test_contains(self):
+        cache = MemoryCache()
+        cache.update({
+            'lang1': (True, {'source1': {'string': "translation1"},
+                             'source2': {'string': "translation2"}}),
+        })
+        assert 'lang1' in cache
+        assert 'lang2' not in cache

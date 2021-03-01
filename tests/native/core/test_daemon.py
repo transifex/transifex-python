@@ -10,10 +10,12 @@ class TestFetchingDaemon(object):
     @patch('transifex.native.daemon.tx')
     def test_daemon_starts(self, patched_tx):
         tx = TxNative()
-        tx.init(['en', 'el'], 'some:token', 'https://some.host')
+        tx.setup(languages=['en', 'el'],
+                 token='some:token',
+                 cds_host='https://some.host')
 
         # the `interval` we will be using
-        interval = 1
+        interval = .1
 
         daemon = DaemonicThread()
 
@@ -41,11 +43,13 @@ class TestFetchingDaemon(object):
             'Something went wrong')
 
         tx = TxNative()
-        tx.init(['en', 'el'], 'some:token', 'https://some.host')
+        tx.setup(languages=['en', 'el'],
+                 token='some:token',
+                 cds_host='https://some.host')
 
         daemon = DaemonicThread()
 
-        interval = 1
+        interval = .1
         daemon.start_daemon(interval=1)
         time.sleep(interval * 2)
         assert daemon.is_daemon_running(log_errors=False)

@@ -6,39 +6,33 @@ import json
 from transifex.common.utils import generate_key, parse_plurals
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import CDSHandler
+from transifex.native.events import EventDispatcher
 from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
-
-
-class NotInitializedError(Exception):
-    """Raised when a method of a TxNative instance is called but the class
-    hasn't been initialized.
-
-    Allows for better debugging when developers neglect to call init().
-    """
-    pass
 
 
 class TxNative(object):
     """The main class of the framework, responsible for orchestrating all
     behavior."""
 
-    def __init__(self):
-        # The class uses an untypical initialization scheme, defining
-        # an init() method, instead of initializing inside the constructor
-        # This is necessary for allowing it to be initialized by its clients
-        # with proper arguments, while at the same time being very easy
-        # to import and use a single "global" instance
-        self._cache = None
-        self._languages = []
-        self._missing_policy = None
-        self._cds_handler = None
-        self.initialized = False
+    def __init__(self, **kwargs):
+        self.source_language_code = None
+        self.current_language_code = None
+        self.hardcoded_language_codes = None
+        self.remote_languages = None
 
-    def init(
-        self, languages, token, secret=None, cds_host=None,
-        missing_policy=None, error_policy=None
-    ):
+        self._event_dispatcher = EventDispatcher()
+        self._missing_policy = SourceStringPolicy()
+        self._cds_handler = CDSHandler()
+        self._cache = MemoryCache()
+        self._error_policy = SourceStringErrorPolicy()
+
+        self.setup(**kwargs)
+
+    def setup(self,
+              source_language=None, current_language=None, languages=None,
+              token=None, secret=None, cds_host=None,
+              missing_policy=None, error_policy=None):
         """Create an instance of the core framework class.
 
         Also warms up the cache by fetching the translations from the CDS.
@@ -55,26 +49,87 @@ class TxNative(object):
         :param AbstractErrorPolicy error_policy: an optional policy
             to determine how to handle rendering errors
         """
-        self._languages = languages
-        self._cache = MemoryCache()
-        self._missing_policy = missing_policy or SourceStringPolicy()
-        self._error_policy = error_policy or SourceStringErrorPolicy()
-        self._cds_handler = CDSHandler(
-            self._languages, token, secret=secret, host=cds_host
-        )
-        self.initialized = True
+        if source_language is not None:
+            self.source_language_code = source_language
+        if languages is not None:
+            self.hardcoded_language_codes = languages
+        if missing_policy is not None:
+            self._missing_policy = missing_policy
+        if error_policy is not None:
+            self._error_policy = error_policy
 
-    def translate(
-        self, source_string, language_code, is_source=False,
-        _context=None, escape=True, params=None
-    ):
+        self._cds_handler.setup(token=token,
+                                secret=secret,
+                                host=cds_host)
+
+        if current_language is not None:
+            self.set_current_language(current_language)
+        elif source_language is not None:
+            self.set_current_language(source_language)
+
+    def fetch_languages(self, force=False):
+        if self.remote_languages is None or force:
+            self._event_dispatcher.trigger('FETCHING_LOCALES')
+            try:
+                self.remote_languages = self._cds_handler.fetch_languages()
+            except Exception:
+                self._event_dispatcher.trigger('LOCALES_FETCH_FAILED')
+                raise
+            else:
+                self._event_dispatcher.trigger('LOCALES_FETCHED')
+
+        if self.hardcoded_language_codes is not None:
+            return [language
+                    for language in self.remote_languages
+                    if language['code'] in self.hardcoded_language_codes]
+        else:
+            return self.remote_languages
+
+    def set_current_language(self, language_code, force=False):
+        if language_code not in (language['code']
+                                 for language in self.fetch_languages()):
+            raise ValueError("Language {} is not supported by the application".
+                             format(language_code))
+        if language_code not in self._cache or force:
+            self.fetch_translations(language_code=language_code, force=True)
+        prev = self.current_language_code
+        self.current_language_code = language_code
+        self._event_dispatcher.trigger('LOCALE_CHANGED', prev, language_code)
+
+    def fetch_translations(self, language_code=None, force=False):
+        """Fetch fresh content from the CDS."""
+        if language_code is None:
+            for language in self.fetch_languages():
+                self.fetch_translations(language['code'], force=force)
+        else:
+            if language_code not in [language['code']
+                                     for language in self.fetch_languages()]:
+                raise ValueError(
+                    "Language {} is not supported by the application".
+                    format(language_code)
+                )
+            self._event_dispatcher.trigger('FETCHING_TRANSLATIONS',
+                                           language_code)
+            try:
+                if language_code not in self._cache or force:
+                    translations = self._cds_handler.\
+                        fetch_translations(language_code)
+                    self._cache.update(translations)
+            except Exception:
+                self._event_dispatcher.trigger('TRANSLATIONS_FETCH_FAILED',
+                                               language_code)
+                raise
+            else:
+                self._event_dispatcher.trigger('TRANSLATIONS_FETCHED',
+                                               language_code)
+
+    def translate(self, source_string, language_code=None, _context=None,
+                  escape=True, params=None):
         """Translate the given string to the provided language.
 
         :param unicode source_string: the source string to get the translation
             for e.g. 'Order: {num, plural, one {A table} other {{num} tables}}'
         :param str language_code: the language to translate to
-        :param bool is_source: a boolean indicating whether `translate`
-            is being used for the source language
         :param unicode _context: an optional context that accompanies
             the string
         :param bool escape: if True, the returned string will be HTML-escaped,
@@ -88,12 +143,12 @@ class TxNative(object):
         if params is None:
             params = {}
 
-        self._check_initialization()
+        if language_code is None:
+            language_code = self.current_language_code
 
         translation_template = self.get_translation(source_string,
                                                     language_code,
-                                                    _context,
-                                                    is_source)
+                                                    _context)
 
         return self.render_translation(translation_template,
                                        params,
@@ -101,8 +156,7 @@ class TxNative(object):
                                        language_code,
                                        escape)
 
-    def get_translation(self, source_string, language_code, _context,
-                        is_source=False):
+    def get_translation(self, source_string, language_code, _context):
         """ Try to retrieve the translation.
 
             A translation is a serialized source_string with ICU format
@@ -110,7 +164,7 @@ class TxNative(object):
             '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
         """
 
-        if is_source:
+        if language_code == self.source_language_code:
             translation_template = source_string
         else:
             pluralized, plurals = parse_plurals(source_string)
@@ -146,11 +200,6 @@ class TxNative(object):
                 escape=escape, params=params,
             )
 
-    def fetch_translations(self):
-        """Fetch fresh content from the CDS."""
-        self._check_initialization()
-        self._cache.update(self._cds_handler.fetch_translations())
-
     def push_source_strings(self, strings, purge=False):
         """Push the given source strings to the CDS.
 
@@ -163,16 +212,12 @@ class TxNative(object):
             response
         :rtype: tuple
         """
-        self._check_initialization()
         response = self._cds_handler.push_source_strings(strings, purge)
         return response.status_code, json.loads(response.content)
 
-    def _check_initialization(self):
-        """Raise an exception if the class has not been initialized.
+    # Events
+    def on(self, label, callback):
+        self._event_dispatcher.on(label, callback)
 
-        :raise NotInitializedError: if the class hasn't been initialized
-        """
-        if not self.initialized:
-            raise NotInitializedError(
-                'TxNative is not initialized, make sure you call init() first.'
-            )
+    def off(self, label, callback):
+        self._event_dispatcher.off(label, callback)

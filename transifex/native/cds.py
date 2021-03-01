@@ -47,8 +47,7 @@ class EtagStore(object):
 class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
-    def __init__(self, configured_languages, token, secret=None,
-                 host=TRANSIFEX_CDS_HOST):
+    def __init__(self, **kwargs):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
@@ -56,11 +55,24 @@ class CDSHandler(object):
         :param str token: the API token to use for connecting to the CDS
         :param str host: the host of the Content Delivery Service
         """
-        self.configured_language_codes = configured_languages
-        self.token = token
-        self.secret = secret
-        self.host = host or TRANSIFEX_CDS_HOST
+        self.configured_language_codes = None
+        self.token = None
+        self.secret = None
+        self.host = TRANSIFEX_CDS_HOST
         self.etags = EtagStore()
+
+        self.setup(**kwargs)
+
+    def setup(self, configured_languages=None, token=None, secret=None,
+              host=None):
+        if configured_languages is not None:
+            self.configured_language_codes = configured_languages
+        if token is not None:
+            self.token = token
+        if secret is not None:
+            self.secret = secret
+        if host is not None:
+            self.host = host
 
     def fetch_languages(self):
         """Fetch the languages defined in the CDS for the specific project.
@@ -106,7 +118,7 @@ class CDSHandler(object):
 
         return languages
 
-    def fetch_translations(self, language_code=None):
+    def fetch_translations(self, language_code):
         """Fetch all translations for the given organization/project/(resource)
         associated with the current token. Returns a tuple of refresh flag and
         a dictionary of the fetched translations per language.
@@ -121,61 +133,53 @@ class CDSHandler(object):
 
         translations = {}
 
-        if not language_code:
-            languages = [lang['code'] for lang in self.fetch_languages()]
-        else:
-            languages = [language_code]
-
-        for language_code in set(languages) & \
-                set(self.configured_language_codes):
-
-            try:
-                last_response_status = 202
-                while last_response_status == 202:
-                    response = requests.get(
-                        (self.host +
-                         cds_url.format(language_code=language_code)),
-                        headers=self._get_headers(
-                            etag=self.etags.get(language_code)
-                        )
+        try:
+            last_response_status = 202
+            while last_response_status == 202:
+                response = requests.get(
+                    (self.host +
+                     cds_url.format(language_code=language_code)),
+                    headers=self._get_headers(
+                        etag=self.etags.get(language_code)
                     )
-                    last_response_status = response.status_code
+                )
+                last_response_status = response.status_code
 
-                if not response.ok:
-                    logger.error(
-                        'Error retrieving translations from CDS: `{}`'.format(
-                            response.reason
-                        )
-                    )
-                    response.raise_for_status()
-
-                # etags indicate that no translation have been updated
-                if response.status_code == 304:
-                    translations[language_code] = (False, {})
-                else:
-                    self.etags.set(
-                        language_code, response.headers.get('ETag', ''))
-                    json_content = response.json()
-                    translations[language_code] = (
-                        True, json_content['data']
-                    )
-
-            except (KeyError, ValueError):
-                # Compatibility with python2.7 where `JSONDecodeError` doesn't
-                # exist
-                logger.error('Error retrieving translations from CDS: '
-                             'Malformed response')  # pragma no cover
-                translations[language_code] = (False, {})  # pragma no cover
-            except requests.ConnectionError:
+            if not response.ok:
                 logger.error(
-                    'Error retrieving translations from CDS: ConnectionError')
+                    'Error retrieving translations from CDS: `{}`'.format(
+                        response.reason
+                    )
+                )
+                response.raise_for_status()
+
+            # etags indicate that no translation have been updated
+            if response.status_code == 304:
                 translations[language_code] = (False, {})
-            except Exception as e:
-                logger.error(
-                    'Error retrieving translations from CDS: UnknownError '
-                    '(`{}`)'.format(str(e))
-                )  # pragma no cover
-                translations[language_code] = (False, {})
+            else:
+                self.etags.set(
+                    language_code, response.headers.get('ETag', ''))
+                json_content = response.json()
+                translations[language_code] = (
+                    True, json_content['data']
+                )
+
+        except (KeyError, ValueError):
+            # Compatibility with python2.7 where `JSONDecodeError` doesn't
+            # exist
+            logger.error('Error retrieving translations from CDS: '
+                         'Malformed response')  # pragma no cover
+            translations[language_code] = (False, {})  # pragma no cover
+        except requests.ConnectionError:
+            logger.error(
+                'Error retrieving translations from CDS: ConnectionError')
+            translations[language_code] = (False, {})
+        except Exception as e:
+            logger.error(
+                'Error retrieving translations from CDS: UnknownError '
+                '(`{}`)'.format(str(e))
+            )  # pragma no cover
+            translations[language_code] = (False, {})
 
         return translations
 

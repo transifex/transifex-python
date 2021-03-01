@@ -6,6 +6,8 @@ from transifex.common.utils import generate_key
 from transifex.native import tx
 from transifex.native.rendering import SourceStringPolicy
 
+tx.setup(source_language="en_US")
+
 
 def do_test(template_str, context_dict=None, autoescape=True,
             lang_code="en-us"):
