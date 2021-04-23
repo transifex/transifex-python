@@ -8,4 +8,4 @@ TRANSIFEX_ERROR_POLICY = getattr(settings, 'TRANSIFEX_ERROR_POLICY', None)
 LANGUAGES = getattr(settings, 'LANGUAGES', [])
 TRANSIFEX_SYNC_INTERVAL = getattr(settings,
                                   'TRANSIFEX_SYNC_INTERVAL',
-                                  10*60)
+                                  30*60)

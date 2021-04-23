@@ -1,5 +1,6 @@
 import logging
 import sys
+import time
 
 import requests
 from transifex.native.consts import (KEY_CHARACTER_LIMIT,
@@ -27,6 +28,10 @@ MAPPING = {
     KEY_TAGS: 'tags',
     KEY_OCCURRENCES: 'occurrences',
 }
+
+# Number of times to retry connecting to CDS before bailing out
+MAX_RETRIES = 3
+RETRY_DELAY_SEC = 2
 
 
 class EtagStore(object):
@@ -73,13 +78,10 @@ class CDSHandler(object):
         languages = []
 
         try:
-            last_response_status = 202
-            while last_response_status == 202:
-                response = requests.get(
-                    self.host + cds_url,
-                    headers=self._get_headers(),
-                )
-                last_response_status = response.status_code
+            response = self.retry_get_request(
+                self.host + cds_url,
+                headers=self._get_headers(),
+            )
 
             if not response.ok:
                 logger.error(
@@ -130,16 +132,12 @@ class CDSHandler(object):
                 set(self.configured_language_codes):
 
             try:
-                last_response_status = 202
-                while last_response_status == 202:
-                    response = requests.get(
-                        (self.host +
-                         cds_url.format(language_code=language_code)),
-                        headers=self._get_headers(
-                            etag=self.etags.get(language_code)
-                        )
+                response = self.retry_get_request(
+                    (self.host + cds_url.format(language_code=language_code)),
+                    headers=self._get_headers(
+                        etag=self.etags.get(language_code)
                     )
-                    last_response_status = response.status_code
+                )
 
                 if not response.ok:
                     logger.error(
@@ -259,3 +257,19 @@ class CDSHandler(object):
             headers['If-None-Match'] = etag
 
         return headers
+
+    def retry_get_request(self, *args, **kwargs):
+        """ Resilient function for GET requests """
+        retries, last_response_status = 0, 202
+        while (last_response_status == 202 or
+                500 <= last_response_status < 600 and
+                retries < MAX_RETRIES):
+
+            if 500 <= last_response_status < 600:
+                retries += 1
+                time.sleep(retries * RETRY_DELAY_SEC)
+
+            response = requests.get(*args, **kwargs)
+            last_response_status = response.status_code
+
+        return response
