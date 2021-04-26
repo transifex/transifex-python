@@ -461,7 +461,7 @@ class TestCDSHandler(object):
             'some_token',
             host=cds_host,
         )
-        responses.add(responses.GET, cds_host + '/languages', status=202)
+        responses.add(responses.GET, cds_host + '/languages', status=500)
         responses.add(responses.GET, cds_host + '/languages', status=202)
         responses.add(responses.GET, cds_host + '/languages',
                       json={'data': [{'code': "el"},
@@ -482,7 +482,7 @@ class TestCDSHandler(object):
             'some_token',
             host=cds_host,
         )
-        responses.add(responses.GET, cds_host + '/content/el', status=202)
+        responses.add(responses.GET, cds_host + '/content/el', status=500)
         responses.add(responses.GET, cds_host + '/content/el', status=202)
         responses.add(responses.GET,
                       cds_host + '/content/el',
