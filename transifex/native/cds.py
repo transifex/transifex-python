@@ -12,7 +12,9 @@ TRANSIFEX_CDS_HOST = 'https://cds.svc.transifex.net'
 TRANSIFEX_CDS_URLS = {
     'FETCH_AVAILABLE_LANGUAGES': '/languages',
     'FETCH_TRANSLATIONS_FOR_LANGUAGE': '/content/{language_code}',
-    'PUSH_SOURCE_STRINGS': '/content/'
+    'PUSH_SOURCE_STRINGS': '/content/',
+    'INVALIDATE_CACHE': '/invalidate',
+    'PURGE_CACHE': '/purge',
 }
 
 logger = logging.getLogger('transifex.native.cds')
@@ -211,6 +213,38 @@ class CDSHandler(object):
                 'Error pushing source strings to CDS: ConnectionError')
         except Exception as e:
             logger.error('Error pushing source strings to CDS: UnknownError '
+                         '(`{}`)'.format(str(e)))
+
+        return response
+
+    def invalidate_cache(self, purge=False):
+        """Invalidate CDS cache.
+
+        :param bool purge: True deletes CDS cache entirely instead of
+            triggering a job to re-cache content.
+        :return: the HTTP response object
+        :rtype: requests.Response
+        """
+        if not self.secret:
+            raise Exception('You need to use `TRANSIFEX_SECRET` when '
+                            'invalidating cache')
+
+        cds_url = TRANSIFEX_CDS_URLS['PURGE_CACHE'] if purge else \
+            TRANSIFEX_CDS_URLS['INVALIDATE_CACHE']
+
+        try:
+            response = requests.post(
+                self.host + cds_url,
+                headers=self._get_headers(use_secret=True),
+                json={}
+            )
+            response.raise_for_status()
+
+        except requests.ConnectionError:
+            logger.error(
+                'Error invalidating CDS: ConnectionError')
+        except Exception as e:
+            logger.error('Error invalidating CDS: UnknownError '
                          '(`{}`)'.format(str(e)))
 
         return response

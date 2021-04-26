@@ -167,6 +167,12 @@ class TxNative(object):
         response = self._cds_handler.push_source_strings(strings, purge)
         return response.status_code, json.loads(response.content)
 
+    def invalidate_cache(self, purge=False):
+        """Invalidate CDS cache."""
+        self._check_initialization()
+        response = self._cds_handler.invalidate_cache(purge)
+        return response.status_code, json.loads(response.content)
+
     def _check_initialization(self):
         """Raise an exception if the class has not been initialized.
 
