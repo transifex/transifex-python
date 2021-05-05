@@ -491,3 +491,60 @@ class TestCDSHandler(object):
         translations = cds_handler.fetch_translations('el')
         assert (translations ==
                 {'el': (True, {'source': {'string': "translation"}})})
+
+    def test_invalidate_no_secret(self):
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+        )
+        with pytest.raises(Exception):
+            cds_handler.invalidate_cache(False)
+
+    @responses.activate
+    @patch('transifex.native.cds.logger')
+    def test_invalidate(self, patched_logger):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+            secret='some_secret',
+            host=cds_host
+        )
+
+        # test invalidate
+        responses.add(
+            responses.POST, cds_host + '/invalidate',
+            status=200, json={'count': 5}
+        )
+
+        cds_handler.invalidate_cache(False)
+        assert patched_logger.error.call_count == 0
+
+        # test purge
+        responses.add(
+            responses.POST, cds_host + '/purge',
+            status=200, json={'count': 5}
+        )
+
+        cds_handler.invalidate_cache(True)
+        assert patched_logger.error.call_count == 0
+        responses.reset()
+
+        # test response error
+        responses.add(
+            responses.POST, cds_host + '/invalidate',
+            status=422, json={
+                "status": 422,
+            }
+        )
+        # we don't care about the payload this time, just want to
+        # see how the service handles the errors
+        cds_handler.invalidate_cache(False)
+        # The actual error message differs between Python 2 and Python 3
+        messages = [
+            'Error invalidating CDS: UnknownError '
+            '(`422 Client Error: {err} for url: '
+            'https://some.host/invalidate`)'.format(err=x)
+            for x in ('Unprocessable Entity', 'None')
+        ]
+        assert patched_logger.error.call_args[0][0] in messages

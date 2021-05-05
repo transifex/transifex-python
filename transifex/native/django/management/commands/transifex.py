@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 from django.core.management import BaseCommand, CommandParser
+from transifex.native.django.management.utils.invalidate import Invalidate
 from transifex.native.django.management.utils.migrate import Migrate
 from transifex.native.django.management.utils.push import Push
 from transifex.native.django.management.utils.try_templatetag import \
@@ -13,6 +14,9 @@ class Command(BaseCommand):
         - push: Detects translatable strings in Django templates and Python
                 files, based on the syntax of Transifex Native and pushes them
                 as source strings to Transifex.
+
+        - invalidate: Invalidate CDS, forcing it to re-cache fresh
+                translations.
 
         - migrate: Migrates files using the Django i18n syntax to Transifex
                    Native syntax.
@@ -28,6 +32,7 @@ class Command(BaseCommand):
         super(Command, self).__init__(*args, **kwargs)
         self.subcommands = {'migrate': Migrate(),
                             'push': Push(),
+                            'invalidate': Invalidate(),
                             'try-templatetag': TryTemplatetag()}
 
     def add_arguments(self, parser):
