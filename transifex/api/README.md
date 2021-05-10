@@ -1,46 +1,312 @@
 A python SDK for the [Transifex API (v3)](https://transifex.github.io/openapi/)
 
-## Table of contents
-
 <!--ts-->
-* [Table of contents](#table-of-contents)
 * [Introduction](#introduction)
-* [Installation](#installation)
-* [jsonapi usage](#jsonapi-usage)
-   * [Setting up](#setting-up)
-      * [Global <em>API connection instances</em>](#global-api-connection-instances)
-      * [Authentication](#authentication)
-      * [Custom headers](#custom-headers)
-   * [Retrieval](#retrieval)
-      * [URLs](#urls)
-      * [Getting a single resource object from the API](#getting-a-single-resource-object-from-the-api)
-      * [Relationships](#relationships)
-      * [Shortcuts](#shortcuts)
-      * [Getting Resource collections](#getting-resource-collections)
-      * [Prefetching relationships with include](#prefetching-relationships-with-include)
-      * [Getting single resource objects using filters](#getting-single-resource-objects-using-filters)
-   * [Editing](#editing)
-      * [Saving changes](#saving-changes)
-      * [Creating new resources](#creating-new-resources)
-      * [Deleting](#deleting)
-      * [Editing relationships](#editing-relationships)
-      * [Bulk operations](#bulk-operations)
-      * [Form uploads, redirects](#form-uploads-redirects)
-* [transifex_api usage](#transifex_api-usage)
+* [transifex.api usage](#transifexapi-usage)
+  * [Setting up](#setting-up)
+  * [Finding things](#finding-things)
+  * [Changing attributes](#changing-attributes)
+  * [Changing relationships](#changing-relationships)
+  * [Creating and deleting things](#creating-and-deleting-things)
+  * [File uploads and downloads](#file-uploads-and-downloads)
+* [transifex.api.jsonapi usage](#transifexapijsonapi-usage)
+  * [Setting up](#setting-up-1)
+  * [Retrieval](#retrieval)
+    * [URLs](#urls)
+    * [Getting a single resource object from the API](#getting-a-single-resource-object-from-the-api)
+    * [Relationships](#relationships)
+    * [Shortcuts](#shortcuts)
+    * [Getting Resource collections](#getting-resource-collections)
+    * [Prefetching relationships with include](#prefetching-relationships-with-include)
+    * [Getting single resource objects using filters](#getting-single-resource-objects-using-filters)
+  * [Editing](#editing)
+    * [Saving changes](#saving-changes)
+    * [Creating new resources](#creating-new-resources)
+    * [Deleting](#deleting)
+    * [Editing relationships](#editing-relationships)
+    * [Bulk operations](#bulk-operations)
+    * [Form uploads, redirects](#form-uploads-redirects)
 * [Testing](#testing)
 
-<!-- Added by: kbairak, at: Thu Feb  4 01:35:10 PM EET 2021 -->
+<!-- Added by: kbairak, at: Mon May 10 07:09:14 PM EEST 2021 -->
 
 <!--te-->
 
 ## Introduction
 
-This library provides an SDK for the Transifex API: `transifex.api`. It is
-based on a low-level library for [{json:api}](https://jsonapi.org):
-`transifex.api.jsonapi`. Since the Transifex API follows the {json:api}
-guidelines, all you need to understand is how the `jsonapi` part works.
+This library provides an SDK for the Transifex API which is located at the
+`transifex.api` package. It is based on a low-level library for building SDKs
+for [{json:api}](https://jsonapi.org) APIs located at the
+`transifex.api.jsonapi` package. If you understand how the low-level {json:api}
+library maps to HTTP interactions and consult the Transifex API documentation,
+you should be able to make use of the SDK.
 
-## `jsonapi` usage
+This readme is split between two sections, one that provides an overview of how
+to work with the Transifex API and one that shows how you can use
+`transifex.api.jsonapi` to build and SDK that can interact with *any* API that
+follows the {json:api}. You should read the second part if you want to
+troubleshoot or understand how the internals of the SDK work.
+
+## `transifex.api` usage
+
+### Setting up
+
+```python
+from transifex.api import transifex_api
+
+transifex_api.setup(auth="...")
+```
+
+The `auth` argument should be an API token. You can generate one at
+https://www.transifex.com/user/settings/api/.
+
+### Finding things
+
+To get a list of the organizations your user account has access to, run:
+
+```python
+transifex_api.Organization.list()
+```
+
+If you have access to many organizations and the first response comes
+paginated, you can get a list of all organizations with:
+
+```python
+# .all returns a generator
+list(transifex_api.Organization.all())
+```
+
+It is highly unlikely that you will have access to so many organizations for
+the initial response to be paginated but the `list` and `all` methods are
+common to all Transifex API resource types so you might as well get used to
+them. If the list fits into one response, using `all` instead of `list` doesn't
+have any penalties.
+
+If you want to find a specific organization, you can do something like:
+
+```python
+organization_dict = {
+    organization.slug: organization
+    for organization in transifex_api.Organization.all()
+}
+organization = organization_dict['my_org']
+```
+
+After you get an `Organization` instance, you can access its attributes:
+
+```python
+organization.name
+# <<< 'My organization'
+```
+
+To get a list of projects, do:
+
+```python
+projects = transifex_api.Project.filter(organization=organization)
+```
+
+If you look into the
+[API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects/get),
+you can see that:
+
+1. the `organization` filter is required
+2. A `slug` filter is also supported
+
+So, to find a specific project, you can do:
+
+```python
+project = transifex_api.Project.filter(organization=organization, slug="my_project")[0]
+```
+
+Or you can use the shortcut:
+
+```python
+project = transifex_api.Project.get(organization=organization, slug="my_project")
+```
+
+`get` does the same thing as `filter(...)[0]` but raises an exception if the
+number of results is not 1.
+
+If you look at how a project is represented in the
+[API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects~1{project_id}/get),
+you will see that they have a `languages` relationship with a `related` link.
+This means that you can access a project's target languages with:
+
+```python
+languages = project.fetch('languages')
+```
+
+### Changing attributes
+
+Lets use what we've learned so far alongside the API documentation to find a
+"string translation _slot_":
+
+```python
+language_dict = {
+    language.code: language
+    for language in project.fetch('languages')
+}
+language = language_dict['el']
+
+resource_dict = {
+    resource.slug: resource
+    for resource in transifex_api.Resource.filter(project=project).all()
+}
+resource = resource_dict['my_resource']
+
+translations = transifex_api.ResourceTranslation.\
+    filter(resource=resource, language=language).\
+    include('resource_string')
+translation = translations[0]
+```
+
+Notes:
+
+1. We don't use the "dict trick" with projects but we do with organizations,
+   resources and languages because there is a `slug` filter for projects in the
+   API but there is not `slug` or `code` filter for the rest (yet). You should
+   consult the API documentation to find out which filters are available
+2. Appending a `.include` to a filter will prefetch a relationship. In the case
+   of ResourceTranslation, this will also fetch the source string information
+   for the "translation slot". Again, you should consult the API documentation
+   to see if including relationships is supported for a given API resource type
+
+In order to save a translation to the server, we use `.save`:
+
+```python
+# We don't have to fetch the resource string because it has been included
+source_string = translation.resource_string.strings['other']
+
+translation.strings = {'other': source_string + " in greeeek!!!"}
+translation.save('strings')
+```
+
+We have to specify which fields we will be sending to the API with `save`'s
+positional arguments.
+
+Because this is a common use-case (setting attributes and immediately saving
+them on the server), there is a shortcut:
+
+```python
+translation.save(strings={'other': source_string + " in greeek!!!"})
+```
+
+### Changing relationships
+
+Lets use projects, teams and project languages as examples:
+
+```
+project = transifex_api.Project.get(...)
+team_1 = project.fetch('team')
+team_2 = transifex_api.Team.filter(...)[0]
+```
+
+If we want to change the project's team from `team_1` to `team_2`, we have 2
+options:
+
+```python
+project.team = team_2
+project.save('team')
+
+# Or 
+
+project.save(team=team_2)
+```
+
+This is similar to how we change attributes. The other option is:
+
+```python
+project.change('team', team_2)
+```
+
+This will send a PATCH request to
+[`/projects/XXX/relationships/team`](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects~1{project_id}~1relationships~1team/patch)
+to perform the change. Again, you should consult the API documentation to see
+which relationships can be changed and with which methods (in this case -
+changing a project's team - both methods are available).
+
+The `project -> team` is a "singular relationship". To change a "plural
+relationship", like a project's target languages, you can use the `reset`,
+`add` and `remove` methods:
+
+```python
+language_dict = {
+    language.code: language
+    for language in transifex_api.Language.all()
+}
+language_a, language_b, language_c = language_dict['a'], language_dict['b'], language_dict['c']
+
+# This will completely replace the project's target languages
+# The project's languages after this will be: ['a', 'b']
+project.reset('languages', [language_a, language_b])
+
+# This will append the supplied languages to the project's target languages
+# The project's languages after this will be: ['a', 'b', 'c']
+project.add('languages', [language_c])
+
+# This will remove the supplied languages from the project's target languages
+# The project's languages after this will be: ['a', 'c']
+project.remove('languages', [language_b])
+```
+
+The HTTP methods used for `reset`, `add` and `remove` are `PATCH`, `POST` and
+`DELETE` respectively. As always, you should consult the API documentation to
+see if the relationship in question is editable and which methods are
+supported.
+
+### Creating and deleting things
+
+The following examples should be self-explanatory.
+
+To create something:
+
+```python
+organization = transifex_api.Organization.list()[0]
+source_language = transifex_api.Language.list()[0]
+project = transifex_api.Project.create(name="New Project",
+                                       slug="new_project",
+                                       private=True,
+                                       organization=organization,
+                                       source_language=source_language)
+```
+
+You can see which fields are supported in the API documentation. The
+`organization` and `source_language` arguments are interpreted as relationships.
+
+To delete something:
+
+```python
+project.delete()
+```
+
+### File uploads and downloads
+
+There is some code in `transifex.api` that automate several {json:api}
+interactions behind the scenes in order to help with file uploads and
+downloads.
+
+In order to upload a source file to a resource, you can do:
+
+```python
+resource = transifex_api.Resource.filter(...)[0]
+content = "The new source file content"
+
+transifex_api.ResourceStringsAsyncUpload.upload(resource, content)
+```
+
+In order to download a translated language file, you can do:
+
+```python
+language = transifex_api.Language.list()[0]
+url = transifex_api.ResourceTranslationsAsyncDownload.\
+    download(resource=resource, language=language)
+translated_content = requests.get(url).text
+```
+
+As always, in order to see how file uploads and downloads work in the Transifex
+API, you should check out the API documentation.
+
+## `transifex.api.jsonapi` usage
 
 ### Setting up
 
@@ -1058,53 +1324,6 @@ while True:
     sleep(5)
     upload.reload()
 ```
-
-## `transifex.api` usage
-
-As we said before, the `transifex.api` package has minimal code as almost the
-entire functionality is implemented in `transifex.api.jsonapi`. `transifex.api`
-simply hosts the Resource subclasses. You can find them
-[here](transifex/api/__init__.py)
-and cross-check with the
-[API specification](https://transifex.github.io/openapi/). Assuming you
-understand how the `transifex.api.jsonapi` package works, you should be able to
-work with `transifex.api`.
-
-Sample usage:
-
-```python
-import os
-from transifex.api import transifex_api
-
-# There is a default host for transifex
-transifex_api.setup(auth=os.environ['API_TOKEN'])
-
-organizations = {organization.slug: organization
-                 for organization in transifex_api.Organization.all()}
-organization = organizations['kb_org']
-
-project = transifex_api.Project.get(organization=organization, slug="kb1")
-
-resource = Resource.get(project=project, slug="fileless")
-
-languages = {language.code: language
-             for language in project.fetch('languages').all()}
-language = languages['el']
-
-translations = transifex_api.ResourceTranslation.\
-    filter(resource=resource, language=language).\
-    include('resource_string')
-translation = translations[0]
-
-# Let's translate something
-if not translation.strings:
-    source_string = translation.resource_string.strings['other']
-    translation.strings = {'other': source_string + " in greeeek!!!"}
-if not translation.reviewed:
-    translation.reviewed = True
-translation.save('strings', 'reviewed')
-```
-
 
 ## Testing
 
