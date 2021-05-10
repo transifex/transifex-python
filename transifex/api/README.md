@@ -208,7 +208,7 @@ options:
 project.team = team_2
 project.save('team')
 
-# Or 
+# Or
 
 project.save(team=team_2)
 ```

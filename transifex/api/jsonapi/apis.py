@@ -8,7 +8,6 @@ from .compat import JSONDecodeError
 from .exceptions import JsonApiException
 from .resources import Resource
 
-
 type_ = type  # alias to avoid naming conflicts
 
 

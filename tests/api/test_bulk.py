@@ -30,9 +30,9 @@ def test_bulk_delete():
 
     items = [test_api.BulkItem(payload) for payload in payloads[1:6]]
     test_api.BulkItem.bulk_delete([items[0],
-                          items[1].as_resource_identifier(),
-                          items[2].as_relationship(),
-                          items[3].id])
+                                   items[1].as_resource_identifier(),
+                                   items[2].as_relationship(),
+                                   items[3].id])
 
     assert len(responses.calls) == 1
     call = responses.calls[0]
