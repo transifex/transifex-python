@@ -5,6 +5,30 @@ from .jsonapi import Resource as JsonApiResource
 from .jsonapi.exceptions import JsonApiException
 
 
+class DownloadMixin(object):
+    """ Mixin that offers a download method for Transifex APIv3. """
+
+    @classmethod
+    def download(cls, interval=5, *args, **kwargs):
+        """ Create and poll an async download. Return the download URL when
+            done.
+        """
+
+        download = cls.create(*args, **kwargs)
+        while True:
+            if hasattr(download, 'errors') and len(download.errors) > 0:
+                errors = [{'code': e['code'],
+                           'detail': e['detail'],
+                           'title': e['detail'],
+                           'status': '409'}
+                          for e in download.errors]
+                raise JsonApiException(409, errors)
+            if download.redirect:
+                return download.redirect
+            time.sleep(interval)
+            download.reload()
+
+
 class TransifexApi(JsonApi):
     HOST = "https://rest.api.transifex.com"
 
@@ -155,24 +179,13 @@ class ResourceLanguageStats(JsonApiResource):
 
 
 @TransifexApi.register
-class ResourceTranslationsAsyncDownload(JsonApiResource):
-    TYPE = "resource_translations_async_downloads"
+class ResourceStringsAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "resource_strings_async_downloads"
 
-    @classmethod
-    def download(cls, interval=5, *args, **kwargs):
-        download = cls.create(*args, **kwargs)
-        while True:
-            if hasattr(download, 'errors') and len(download.errors) > 0:
-                errors = [{'code': e['code'],
-                           'detail': e['detail'],
-                           'title': e['detail'],
-                           'status': '409'}
-                          for e in download.errors]
-                raise JsonApiException(409, errors)
-            if download.redirect:
-                return download.redirect
-            time.sleep(interval)
-            download.reload()
+
+@TransifexApi.register
+class ResourceTranslationsAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "resource_translations_async_downloads"
 
 
 @TransifexApi.register
