@@ -29,6 +29,7 @@ class Color:
             .replace('[end]', Color.END)  # closing tag for any color tag
 
             # Colors
+            .replace('[pink]', Color.PINK)
             .replace('[cyan]', Color.CYAN)
             .replace('[green]', Color.GREEN)
             .replace('[red]', Color.RED)
