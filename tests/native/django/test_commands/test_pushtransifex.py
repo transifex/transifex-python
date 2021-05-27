@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import mock
+import transifex.native.consts as consts
 from django.core.management import call_command
 from transifex.native.django.management.commands.transifex import Command
 from transifex.native.django.management.common import TranslatableFile
@@ -32,6 +33,57 @@ PATH_PUSH_STRINGS = ('transifex.native.django.management.utils.push.tx.'
                      'push_source_strings')
 PATH_PUSH_STRINGS2 = ('transifex.native.django.management.utils.push.Push.'
                       'push_strings')
+
+PYTHON_FILES = [
+    # 1.py
+    PYTHON_TEMPLATE.format(
+        _import='import transifex.native',
+        call1='native.translate',
+        call2='native.translate',
+        string1=u'Le canapé',
+        string2=u'Les données',
+    ),
+    # 2.py
+    PYTHON_TEMPLATE.format(
+        _import='import transifex.native as _n',
+        call1='_n.translate',
+        call2='_n.translate',
+        string1=u'Le canapé 2',
+        string2=u'Les données 2',
+    ),
+    # 3.py
+    PYTHON_TEMPLATE.format(
+        _import='from transifex.native import translate',
+        call1='translate',
+        call2='translate',
+        string1=u'Le canapé 3',
+        string2=u'Les données 3',
+    ),
+]
+
+SOURCE_STRINGS = [
+    # 1.py
+    SourceString(u'Le canapé', u'désign1,désign2',
+                 _occurrences=['r1/1.py:6'],),
+    SourceString(
+        u'Les données', u'opération', _comment='comment', _tags='t1,t2',
+        _charlimit=33, _occurrences=['r1/1.py:7'],
+    ),
+    # 2.py
+    SourceString(u'Le canapé 2', u'désign1,désign2',
+                 _occurrences=['r1/dir2/2.py:6'],),
+    SourceString(
+        u'Les données 2', u'opération', _comment='comment', _tags='t1,t2',
+        _charlimit=33, _occurrences=['r1/dir2/2.py:7'],
+    ),
+    # 3.py
+    SourceString(u'Le canapé 3', u'désign1,désign2',
+                 _occurrences=['r1/dir3/3.py:6'],),
+    SourceString(
+        u'Les données 3', u'opération', _comment='comment', _tags='t1,t2',
+        _charlimit=33, _occurrences=['r1/dir3/3.py:7'],
+    ),
+]
 
 
 @mock.patch(PATH_FIND_FILES)
@@ -78,193 +130,113 @@ def test_python_parsing_push_exception(mock_find_files, mock_read, mock_push_str
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
         TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
     ]
-    mock_read.side_effect = [
-        # 1.py
-        PYTHON_TEMPLATE.format(
-            _import='import transifex.native',
-            call1='native.translate',
-            call2='native.translate',
-            string1=u'Le canapé',
-            string2=u'Les données',
-        ),
-        # 2.py
-        PYTHON_TEMPLATE.format(
-            _import='import transifex.native as _n',
-            call1='_n.translate',
-            call2='_n.translate',
-            string1=u'Le canapé 2',
-            string2=u'Les données 2',
-        ),
-        # 3.py
-        PYTHON_TEMPLATE.format(
-            _import='from transifex.native import translate',
-            call1='translate',
-            call2='translate',
-            string1=u'Le canapé 3',
-            string2=u'Les données 3',
-        ),
-    ]
+    mock_read.side_effect = PYTHON_FILES
 
-    expected = [
-        # 1.py
-        SourceString(u'Le canapé', u'désign1,désign2',
-                     _occurrences=['r1/1.py:6'],),
-        SourceString(
-            u'Les données', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/1.py:7'],
-        ),
-        # 2.py
-        SourceString(u'Le canapé 2', u'désign1,désign2',
-                     _occurrences=['r1/dir2/2.py:6'],),
-        SourceString(
-            u'Les données 2', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/dir2/2.py:7'],
-        ),
-        # 3.py
-        SourceString(u'Le canapé 3', u'désign1,désign2',
-                     _occurrences=['r1/dir3/3.py:6'],),
-        SourceString(
-            u'Les données 3', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/dir3/3.py:7'],
-        ),
-    ]
-    compare(expected)
-
-
-@mock.patch(PATH_PUSH_STRINGS)
-@mock.patch(PATH_READ_FILE)
-@mock.patch(PATH_FIND_FILES)
-def test_python_parsing_push_fails(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 500, {
-        'message': 'error message',
-        'details': 'error details',
-    }
-    mock_find_files.return_value = [
-        TranslatableFile('dir1', '1.py', 'locdir1'),
-        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
-        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
-    ]
-    mock_read.side_effect = [
-        # 1.py
-        PYTHON_TEMPLATE.format(
-            _import='import transifex.native',
-            call1='native.translate',
-            call2='native.translate',
-            string1=u'Le canapé',
-            string2=u'Les données',
-        ),
-        # 2.py
-        PYTHON_TEMPLATE.format(
-            _import='import transifex.native as _n',
-            call1='_n.translate',
-            call2='_n.translate',
-            string1=u'Le canapé 2',
-            string2=u'Les données 2',
-        ),
-        # 3.py
-        PYTHON_TEMPLATE.format(
-            _import='from transifex.native import translate',
-            call1='translate',
-            call2='translate',
-            string1=u'Le canapé 3',
-            string2=u'Les données 3',
-        ),
-    ]
-
-    expected = [
-        # 1.py
-        SourceString(u'Le canapé', u'désign1,désign2',
-                     _occurrences=['r1/1.py:6'],),
-        SourceString(
-            u'Les données', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/1.py:7'],
-        ),
-        # 2.py
-        SourceString(u'Le canapé 2', u'désign1,désign2',
-                     _occurrences=['r1/dir2/2.py:6'],),
-        SourceString(
-            u'Les données 2', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/dir2/2.py:7'],
-        ),
-        # 3.py
-        SourceString(u'Le canapé 3', u'désign1,désign2',
-                     _occurrences=['r1/dir3/3.py:6'],),
-        SourceString(
-            u'Les données 3', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/dir3/3.py:7']
-        ),
-    ]
-    compare(expected)
+    expected = SOURCE_STRINGS
+    run_and_compare(expected)
 
 
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
 def test_python_parsing_success(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 200, {
-        'created': 0,
-        'updated': 0,
-        'skipped': 0,
-        'deleted': 0,
-        'failed': 0,
-        'errors': [],
-    }
+    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
         TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
     ]
-    mock_read.side_effect = [
-        # 1.py
-        PYTHON_TEMPLATE.format(
-            _import='import transifex.native',
-            call1='native.translate',
-            call2='native.translate',
-            string1=u'Le canapé',
-            string2=u'Les données',
-        ),
-        # 2.py
-        PYTHON_TEMPLATE.format(
-            _import='import transifex.native as _n',
-            call1='_n.translate',
-            call2='_n.translate',
-            string1=u'Le canapé 2',
-            string2=u'Les données 2',
-        ),
-        # 3.py
-        PYTHON_TEMPLATE.format(
-            _import='from transifex.native import translate',
-            call1='translate',
-            call2='translate',
-            string1=u'Le canapé 3',
-            string2=u'Les données 3',
-        ),
+    mock_read.side_effect = PYTHON_FILES
+
+    expected = SOURCE_STRINGS
+    run_and_compare(expected)
+
+
+@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
+def test_append_tags(mock_find_files, mock_read, mock_push_strings):
+    """Test the functionality of the --append_tags option.
+
+    The new tags should be added to the existing ones of each string.
+    """
+    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
     ]
+    mock_read.side_effect = PYTHON_FILES
 
     expected = [
-        # 1.py
-        SourceString(u'Le canapé', u'désign1,désign2',
-                     _occurrences=['r1/1.py:6'],),
-        SourceString(
-            u'Les données', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/1.py:7'],
-        ),
-        # 2.py
-        SourceString(u'Le canapé 2', u'désign1,désign2',
-                     _occurrences=['r1/dir2/2.py:6'],),
-        SourceString(
-            u'Les données 2', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/dir2/2.py:7'],
-        ),
-        # 3.py
-        SourceString(u'Le canapé 3', u'désign1,désign2',
-                     _occurrences=['r1/dir3/3.py:6'],),
-        SourceString(
-            u'Les données 3', u'opération', _comment='comment', _tags='t1,t2',
-            _charlimit=33, _occurrences=['r1/dir3/3.py:7']
-        ),
+        clone_string(SOURCE_STRINGS[0], new_tags=['extra1', 'extra2']),
+        clone_string(SOURCE_STRINGS[1], new_tags=[
+                     't1', 't2', 'extra1', 'extra2']),
     ]
-    compare(expected)
+    run_and_compare(expected, append_tags=u'extra1,extra2')
+
+
+@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
+def test_with_tags_only(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
+        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
+    ]
+    mock_read.side_effect = PYTHON_FILES
+
+    expected = [
+        clone_string(SOURCE_STRINGS[1]),
+        clone_string(SOURCE_STRINGS[3]),
+        clone_string(SOURCE_STRINGS[5]),
+    ]
+    run_and_compare(expected, with_tags_only='t1,t2')
+
+
+@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
+def test_without_tags_only(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
+        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
+    ]
+    mock_read.side_effect = PYTHON_FILES
+
+    expected = [
+        clone_string(SOURCE_STRINGS[0]),
+        clone_string(SOURCE_STRINGS[2]),
+        clone_string(SOURCE_STRINGS[4]),
+    ]
+    run_and_compare(expected, without_tags_only='t1,t2')
+
+
+@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
+def test_all_tags_options(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
+        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
+    ]
+    mock_read.side_effect = PYTHON_FILES
+
+    expected = [
+        clone_string(SOURCE_STRINGS[0], new_tags=['extra1', 'extra2']),
+        clone_string(SOURCE_STRINGS[2], new_tags=['extra1', 'extra2']),
+        clone_string(SOURCE_STRINGS[4], new_tags=['extra1', 'extra2']),
+    ]
+    run_and_compare(
+        expected,
+        append_tags='extra1,extra2',
+        with_tags_only='extra1',
+        without_tags_only='t1,t2',
+    )
 
 
 @mock.patch(PATH_PUSH_STRINGS2)
@@ -319,7 +291,7 @@ def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
             _comment="co2", _charlimit=33, _occurrences=['r4/dir5/1.txt:7'],
         ),
     ]
-    compare(expected)
+    run_and_compare(expected)
 
 
 @mock.patch(PATH_PUSH_STRINGS2)
@@ -357,13 +329,54 @@ def test_no_detection_for_non_transifex(mock_find_files, mock_read, mock_push_st
     assert set(found) == set([])
 
 
-def compare(expected):
+@mock.patch(PATH_PUSH_STRINGS)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
+def test_dry_run(mock_find_files, mock_read, mock_push_strings):
+    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+    mock_find_files.return_value = [
+        TranslatableFile('dir1', '1.py', 'locdir1'),
+    ]
+    mock_read.side_effect = PYTHON_FILES
+
+    call_command(Command(), 'push', dry_run=1)
+    assert not mock_push_strings.called
+
+
+def clone_string(source_string, new_tags=None):
+    """Create a new SourceString instance, identical to the one given,
+    by optionally replacing its tags with the ones given.
+
+    :param SourceString source_string: the string to clone
+    :param list new_tags: a list of strings to use as the tags
+        for the new string
+    :rtype: SourceString
+    :return: a new SourceString instance
+    """
+    cloned_string = SourceString(
+        source_string.string,
+        _context=(
+            ','.join(source_string.context)
+            if source_string.context else ''
+        ),
+        **source_string.meta
+    )
+    if new_tags is not None:
+        cloned_string.meta[consts.KEY_TAGS] = new_tags
+    return cloned_string
+
+
+def run_and_compare(expected, **kwargs):
     """Run the command and compare the detected strings with the expected ones.
+
+    Any given kwarg is passed as an argument to the command.
+    For example `run_and_compare([...], append_tags=u'extra1,extra2')
+    is equivalent to running with `--append_tags=extra1,extra2`.
 
     :param list expected: a list of SourceString objects
     """
     command = Command()
-    call_command(command, 'push')
+    call_command(command, 'push', **kwargs)
     # command.string_collection.strings is like: {<key>: <SourceString>}
     found = command.subcommands['push'].string_collection.strings.values()
     assert set(found) == set(expected)

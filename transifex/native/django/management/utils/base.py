@@ -8,6 +8,7 @@ import sys
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.functional import cached_property
+from transifex.common.console import Color
 from transifex.native.django.management.common import (NO_LOCALE_DIR,
                                                        TranslatableFile)
 
@@ -16,11 +17,11 @@ class CommandMixin(object):
     """ Common utilities of all subcommands """
 
     def output(self, msg):
-        print(msg)
+        Color.echo(msg)
 
     def verbose(self, msg):
-        if self.verbosity > 1:
-            print(msg)
+        if self.verbose_output:
+            Color.echo(msg)
 
     def _find_files(self, root, subcommand):
         """Get all files in the given root.
@@ -114,7 +115,7 @@ class CommandMixin(object):
         try:
             settings.LOCALE_PATHS
         except ImproperlyConfigured:
-            if self.verbosity > 1:
+            if self.verbose_output:
                 sys.stderr.verbose("Running without configured settings.\n")
             return False
         return True

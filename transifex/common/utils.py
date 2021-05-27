@@ -82,7 +82,7 @@ def make_hashable(data):
     :rtype: object
     """
     if isinstance(data, (list, tuple)):
-        return tuple((make_hashable(item) for item in data))
+        return tuple((make_hashable(item) for item in sorted(data)))
     elif isinstance(data, dict):
         return tuple(
             (key, make_hashable(value))

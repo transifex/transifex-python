@@ -56,8 +56,19 @@ class SourceStringCollection(object):
         """Add multiple strings to the collection.
 
         :param list source_strings: a list of SourceString objects
-        :return:
         """
         if source_strings:
             for string in source_strings:
                 self.add(string)
+
+    def update(self, source_strings):
+        """Reset the collection so that it only includes the given
+         strings.
+
+        :param list source_strings: a list of SourceString objects
+        """
+        self.strings = {}
+        if source_strings is None:
+            return
+
+        self.extend(source_strings)

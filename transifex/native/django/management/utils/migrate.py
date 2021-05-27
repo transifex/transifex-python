@@ -115,10 +115,15 @@ class Migrate(CommandMixin):
             help=('Determines if anything gets marked for proofreading: \n' +
                   pretty_options(MARK_POLICY_OPTIONS)),
         )
+        parser.add_argument(
+            '--verbose', '-v', action='store_true',
+            dest='verbose_output', default=False,
+            help=('Verbose output'),
+        )
 
     def handle(self, *args, **options):
         self.domain = options['domain']
-        self.verbosity = options['verbosity']
+        self.verbose_output = options['verbose_output']
         self.ignore_patterns = []
         self.path = options['path']
         self.files = set(options['files'] or [])

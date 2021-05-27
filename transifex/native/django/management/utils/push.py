@@ -3,6 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import json
 import os
 
+import transifex.native.consts as consts
 from django.conf import settings
 from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
@@ -36,6 +37,28 @@ class Push(CommandMixin):
                   'to the existing resource content.'),
         )
         parser.add_argument(
+            '--append-tags', dest='append_tags', default=None,
+            help=('Append tags to strings when pushing to Transifex'),
+        )
+        parser.add_argument(
+            '--with-tags-only', dest='with_tags_only', default=None,
+            help=('Push only strings that contain specific tags'),
+        )
+        parser.add_argument(
+            '--without-tags-only', dest='without_tags_only', default=None,
+            help=('Push only strings that do not contain specific tags'),
+        )
+        parser.add_argument(
+            '--dry-run', action='store_true',
+            dest='dry_run', default=False,
+            help=('Do not push to CDS'),
+        )
+        parser.add_argument(
+            '--verbose', '-v', action='store_true',
+            dest='verbose_output', default=False,
+            help=('Verbose output'),
+        )
+        parser.add_argument(
             '--symlinks', '-s', action='store_true', dest='symlinks',
             default=False,
             help=('Follows symlinks to directories when examining source code '
@@ -43,11 +66,15 @@ class Push(CommandMixin):
         )
 
     def handle(self, *args, **options):
+        self.verbose_output = options['verbose_output']
         self.domain = options['domain']
-        self.verbosity = options['verbosity']
         self.ignore_patterns = []
         self.purge = options['purge']
         self.symlinks = options['symlinks']
+        self.append_tags = options['append_tags']
+        self.with_tags_only = options['with_tags_only']
+        self.without_tags_only = options['without_tags_only']
+        self.dry_run = options['dry_run']
         extensions = options['extensions']
         if self.domain == 'djangojs':
             exts = extensions if extensions else ['js']
@@ -74,7 +101,8 @@ class Push(CommandMixin):
         self.collect_strings()
 
         # Push the strings to the CDS
-        self.push_strings()
+        if not self.dry_run:
+            self.push_strings()
 
     def collect_strings(self):
         """Search all related files, collect and store translatable strings.
@@ -89,11 +117,40 @@ class Push(CommandMixin):
         )
         files = self._find_files('.', 'push')
         for f in files:
-            extracted = self._extract_strings(f)
-            self.string_collection.extend(extracted)
+            extracted_strings = self._extract_strings(f)
+            self.string_collection.extend(extracted_strings)
             self.stats['processed_files'] += 1
-            if extracted and len(extracted):
-                self.stats['strings'].append((f.file, len(extracted)))
+            if extracted_strings and len(extracted_strings):
+                self.stats['strings'].append((f.file, len(extracted_strings)))
+
+        # Append optional CLI tags
+        if self.append_tags:
+            extra_tags = [x.strip() for x in self.append_tags.split(',')]
+            for key, string in self.string_collection.strings.items():
+                new_string_tags = set(string.tags + extra_tags)
+                string.meta[consts.KEY_TAGS] = list(new_string_tags)
+
+        # Filter out strings based on tags, i.e. only push strings
+        # that contain certain tags or do not contain certain tags
+        if self.with_tags_only:
+            included_tags = {x.strip() for x in self.with_tags_only.split(',')}
+        else:
+            included_tags = set()
+        if self.without_tags_only:
+            excluded_tags = {x.strip()
+                             for x in self.without_tags_only.split(',')}
+        else:
+            excluded_tags = set()
+
+        if included_tags or excluded_tags:
+            self.string_collection.update(
+                [
+                    string
+                    for key, string in self.string_collection.strings.items()
+                    if included_tags.issubset(set(string.tags))
+                    and not excluded_tags.intersection(set(string.tags))
+                ]
+            )
         self._show_collect_results()
 
     def push_strings(self):
@@ -159,6 +216,16 @@ class Push(CommandMixin):
                 self.stats['processed_files'], total_strings, len(self.stats)
             )
         )
+        if self.verbose_output:
+            file_list = '\n'.join(
+                [
+                    u'[pink]{}.[end] {}'.format((cnt + 1), string_repr(x))
+                    for cnt, x in enumerate(
+                        self.string_collection.strings.values()
+                    )
+                ]
+            )
+            Color.echo(file_list)
 
     def _show_push_results(self, status_code, response_content):
         """Display results of pushing the source strings to CDS.
@@ -217,3 +284,47 @@ class Push(CommandMixin):
                     content=response_content,
                 )
             )
+
+
+def string_repr(source_string):
+    """Return a nice visual representation of the given
+    SourceString and all its properties.
+
+    Any property that isn't populated (e.g. tags
+    or developer comment) will be omitted.
+    """
+    return (
+        '[green]"{string}"[end]\n'
+        '{context}'
+        '{comment}'
+        '{charlimit}'
+        '{tags}'
+        '   [high]occurrences:[end] [file]{occurrences}[end]\n'
+    ).format(
+        string=source_string.string,
+        context=(
+            '   [high]context:[end] {}\n'.format(
+                u', '.join(source_string.context)
+            )
+            if source_string.context else ''
+        ),
+        comment=(
+            '   [high]comment:[end] {}\n'.format(
+                source_string.developer_comment
+            )
+            if source_string.developer_comment else ''
+        ),
+        charlimit=(
+            '   [high]character limit:[end] {}\n'.format(
+                source_string.character_limit
+            )
+            if source_string.character_limit else ''
+        ),
+        tags=(
+            '   [high]tags:[end] {}\n'.format(
+                u', '.join(source_string.tags)
+            )
+            if source_string.tags else ''
+        ),
+        occurrences=u', '.join(source_string.occurrences),
+    )

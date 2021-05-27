@@ -98,9 +98,9 @@ class SourceString(object):
         }
 
     def __repr__(self):
-        return '<{}: {}>'.format(
+        return u'<{}: {}>'.format(
             self.__class__.__name__,
-            ' '.join((self.context or []) + [self.string]),
+            u' '.join((self.context or []) + [self.string]),
         )
 
     def __eq__(self, other):
