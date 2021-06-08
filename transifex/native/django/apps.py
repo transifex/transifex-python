@@ -8,8 +8,8 @@ from django.utils.translation import to_locale
 from transifex.native import init, tx
 from transifex.native.daemon import daemon
 from transifex.native.django import settings as native_settings
-from transifex.native.rendering import (parse_error_policy,
-                                        parse_rendering_policy)
+from transifex.native.settings import (parse_cache, parse_error_policy,
+                                       parse_rendering_policy)
 
 logger = logging.getLogger('transifex.native.django')
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -69,7 +69,7 @@ class NativeConfig(AppConfig):
         # to ['en_US', 'fr_FR']
         languages = [to_locale(item[0]) for item in native_settings.LANGUAGES]
 
-        # Create the missing policy lazily to avoid import issues
+        # Create lazily to avoid import issues
         # in Django settings files
         missing_policy = parse_rendering_policy(
             native_settings.TRANSIFEX_MISSING_POLICY
@@ -77,13 +77,15 @@ class NativeConfig(AppConfig):
         error_policy = parse_error_policy(
             native_settings.TRANSIFEX_ERROR_POLICY
         )
+        cache = parse_cache(native_settings.TRANSIFEX_CACHE)
         init(
             native_settings.TRANSIFEX_TOKEN,
             languages,
             secret=native_settings.TRANSIFEX_SECRET,
             cds_host=native_settings.TRANSIFEX_CDS_HOST,
             missing_policy=missing_policy,
-            error_policy=error_policy
+            error_policy=error_policy,
+            cache=cache,
         )
 
         if fetch_translations:

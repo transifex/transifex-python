@@ -31,13 +31,14 @@ class TxNative(object):
         # to import and use a single "global" instance
         self._cache = None
         self._languages = []
+        self._error_policy = None
         self._missing_policy = None
         self._cds_handler = None
         self.initialized = False
 
     def init(
         self, languages, token, secret=None, cds_host=None,
-        missing_policy=None, error_policy=None
+        missing_policy=None, error_policy=None, cache=None,
     ):
         """Create an instance of the core framework class.
 
@@ -54,9 +55,10 @@ class TxNative(object):
             to use for returning strings when a translation is missing
         :param AbstractErrorPolicy error_policy: an optional policy
             to determine how to handle rendering errors
+        :param AbstractCache cache: an optional cache
         """
         self._languages = languages
-        self._cache = MemoryCache()
+        self._cache = cache or MemoryCache()
         self._missing_policy = missing_policy or SourceStringPolicy()
         self._error_policy = error_policy or SourceStringErrorPolicy()
         self._cds_handler = CDSHandler(

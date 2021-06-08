@@ -5,8 +5,8 @@ from transifex.native.rendering import (ChainedPolicy, ExtraLengthPolicy,
                                         PseudoTranslationPolicy,
                                         SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer,
-                                        WrappedStringPolicy,
-                                        parse_rendering_policy)
+                                        WrappedStringPolicy)
+from transifex.native.settings import parse_rendering_policy
 
 COMPLEX_STRINGS = u"""{gender_of_host, select,
   female {

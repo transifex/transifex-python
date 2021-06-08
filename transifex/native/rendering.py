@@ -233,66 +233,6 @@ class ExtraLengthPolicy(AbstractRenderingPolicy):
         return u'{}{}'.format(source_string, extra_chars[:total_extra_chars])
 
 
-def parse_rendering_policy(policy):
-    """Parse the given rendering policy and return an AbstractRenderingPolicy
-    subclass.
-
-    :param Union[AbstractRenderingPolicy, str, tuple(str, dict), list] policy:
-        could be
-        - an instance of AbstractRenderingPolicy
-        - a tuple of the class's path and parameters
-        - the class's path
-        - a list of AbstractRenderingPolicy objects or tuples or string paths
-    :return: a AbstractRenderingPolicy object
-    :rtype: AbstractRenderingPolicy
-    """
-    if isinstance(policy, AbstractRenderingPolicy) or policy is None:
-        return policy
-
-    if isinstance(policy, list):
-        return ChainedPolicy(*[parse_rendering_policy(p) for p in policy])
-
-    # Reaching here means it's a tuple like (<path>, <params>)
-    # or a string like <path>
-    try:
-        path, params = policy
-    except ValueError:
-        path, params = policy, None
-
-    _class = import_to_python(path)
-    if params:
-        return _class(**params)
-    return _class()
-
-
-def parse_error_policy(policy):
-    """Parse the given error policy and return an AbstractErrorPolicy
-    subclass.
-
-    :param Union[AbstractRenderingPolicy, str, tuple(str, dict), list] policy:
-        could be
-        - an instance of AbstractErrorPolicy
-        - a tuple of the class's path and parameters
-        - the class's path
-    :return: a AbstractErrorPolicy object
-    :rtype: AbstractErrorPolicy
-    """
-    if isinstance(policy, AbstractErrorPolicy) or policy is None:
-        return policy
-
-    # Reaching here means it's a tuple like (<path>, <params>)
-    # or a string like <path>
-    try:
-        path, params = policy
-    except ValueError:
-        path, params = policy, None
-
-    _class = import_to_python(path)
-    if params:
-        return _class(**params)
-    return _class()
-
-
 class AbstractErrorPolicy(object):
     """ Defines an interface for other error policy classes to implement.
     Error policies define what happens when rendering faces an error.

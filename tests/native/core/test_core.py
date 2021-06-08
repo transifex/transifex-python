@@ -8,7 +8,8 @@ from transifex.native.cds import TRANSIFEX_CDS_HOST
 from transifex.native.core import NotInitializedError, TxNative
 from transifex.native.parsing import SourceString
 from transifex.native.rendering import (PseudoTranslationPolicy,
-                                        SourceStringPolicy, parse_error_policy)
+                                        SourceStringPolicy)
+from transifex.native.settings import parse_error_policy
 
 
 class TestSourceString(object):
