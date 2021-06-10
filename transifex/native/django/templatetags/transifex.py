@@ -16,6 +16,8 @@ from django.utils.translation import get_language, to_locale
 from transifex.common._compat import string_types
 from transifex.native import tx
 
+from .utils import get_icu_keys
+
 register = Library()
 
 
@@ -184,12 +186,37 @@ class TNode(Node):
             safe_context.autoescape = False
             source_icu_template = self.source_string.var.resolve(safe_context)
 
-        # Use both the context and the params to render the translation
-        params = context.flatten()
         # The values of self.params are filter expressions that can be resolved
-        params.update({key: value.resolve(context)
-                       for key, value in self.params.items()})
-        for key, value in list(params.items()):
+        params = {key: value.resolve(context)
+                  for key, value in self.params.items()}
+
+        # Perform the translation in two steps: First, we get the translation
+        # ICU template. Then we perform ICU rendering against 'params'.
+        # Inbetween the two steps, if the tag used was 't' and not 'ut', we
+        # peform escaping on the ICU template.
+        is_source = get_language() == settings.LANGUAGE_CODE
+        locale = to_locale(get_language())  # e.g. from en-us to en_US
+        translation_icu_template = tx.get_translation(
+            source_icu_template, locale, params.get('_context', None),
+            is_source,
+        )
+
+        # The ICU template can compile against explicitly passed params as well
+        # as any context variable. In order to avoid passing and potentially
+        # escaping *every* variable in the context for optimization reasons, we
+        # need to filter down to the ones that the ICU template will actually
+        # need
+        for key in get_icu_keys(translation_icu_template
+                                if translation_icu_template is not None
+                                else source_icu_template):
+            if key in params:
+                continue
+            try:
+                params[key] = context[key]
+            except KeyError:
+                pass
+
+        for key, value in params.items():
             # Django doesn't escape strings until the last moment. For now,
             # escaped strings are "marked" as escaped, using the EscapeData
             # class. Because the low-level transifex toolkit doesn't know about
@@ -203,16 +230,6 @@ class TNode(Node):
             if should_escape:
                 params[key] = escape_html(value)
 
-        # Perform the translation in two steps: First, we get the translation
-        # ICU template. Then we perform ICU rendering against 'params'.
-        # Inbetween the two steps, if the tag used was 't' and not 'ut', we
-        # peform escaping on the ICU template.
-        is_source = get_language() == settings.LANGUAGE_CODE
-        locale = to_locale(get_language())  # e.g. from en-us to en_US
-        translation_icu_template = tx.get_translation(
-            source_icu_template, locale, params.get('_context', None),
-            is_source,
-        )
         if self.tag_name == "t":
             source_icu_template = escape_html(source_icu_template)
             if translation_icu_template is not None:
