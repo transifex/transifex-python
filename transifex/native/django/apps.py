@@ -52,16 +52,21 @@ class NativeConfig(AppConfig):
             )
             fetch_translations = False
         else:
-            fetch_translations = any(
-                [
-                    # Start when forced
-                    (os.getenv('FORCE_TRANSLATIONS_SYNC', False) == 'true'),
-                    # Start for local development
-                    _segments_match(['manage.py', 'runserver'], sys.argv),
-                    # Start for gunicorn
-                    _segments_match(['gunicorn'], sys.argv),
-                ]
-            )
+            # Start when forced
+            if os.getenv('FORCE_TRANSLATIONS_SYNC', False) == 'true':
+                fetch_translations = True
+            elif native_settings.SKIP_TRANSLATIONS_SYNC:
+                logger.info('Automatic translation syncing skipped')
+                fetch_translations = False
+            else:
+                fetch_translations = any(
+                    [
+                        # Start for local development
+                        _segments_match(['manage.py', 'runserver'], sys.argv),
+                        # Start for gunicorn
+                        _segments_match(['gunicorn'], sys.argv),
+                    ]
+                )
 
         # Convert from [(<lang_code>, <name>), ...]
         # to [<locale>, ...]
@@ -95,13 +100,17 @@ class NativeConfig(AppConfig):
                 )
             )
             tx.fetch_translations()
-            logger.info('Starting daemon for OTA translations update')
 
-            sync_interval = native_settings.TRANSIFEX_SYNC_INTERVAL or 30*60
-            daemon.start_daemon(
-                interval=sync_interval
-            )
-            request_finished.connect(daemon.is_daemon_running)
+            if native_settings.TRANSIFEX_SYNC_INTERVAL != 0:
+                logger.info('Starting daemon for OTA translations update')
+                sync_interval = (
+                    native_settings.TRANSIFEX_SYNC_INTERVAL
+                    or 30*60
+                )
+                daemon.start_daemon(interval=sync_interval)
+                request_finished.connect(daemon.is_daemon_running)
+            else:
+                logger.info('Syncing daemon will not be started')
         else:
             logger.info(
                 'Starting up without fetching translations or OTA updates'
