@@ -8,8 +8,8 @@ from django.utils.translation import to_locale
 from transifex.native import init, tx
 from transifex.native.daemon import daemon
 from transifex.native.django import settings as native_settings
-from transifex.native.rendering import (parse_error_policy,
-                                        parse_rendering_policy)
+from transifex.native.settings import (parse_cache, parse_error_policy,
+                                       parse_rendering_policy)
 
 logger = logging.getLogger('transifex.native.django')
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -52,16 +52,21 @@ class NativeConfig(AppConfig):
             )
             fetch_translations = False
         else:
-            fetch_translations = any(
-                [
-                    # Start when forced
-                    (os.getenv('FORCE_TRANSLATIONS_SYNC', False) == 'true'),
-                    # Start for local development
-                    _segments_match(['manage.py', 'runserver'], sys.argv),
-                    # Start for gunicorn
-                    _segments_match(['gunicorn'], sys.argv),
-                ]
-            )
+            # Start when forced
+            if os.getenv('FORCE_TRANSLATIONS_SYNC', False) == 'true':
+                fetch_translations = True
+            elif native_settings.SKIP_TRANSLATIONS_SYNC:
+                logger.info('Automatic translation syncing skipped')
+                fetch_translations = False
+            else:
+                fetch_translations = any(
+                    [
+                        # Start for local development
+                        _segments_match(['manage.py', 'runserver'], sys.argv),
+                        # Start for gunicorn
+                        _segments_match(['gunicorn'], sys.argv),
+                    ]
+                )
 
         # Convert from [(<lang_code>, <name>), ...]
         # to [<locale>, ...]
@@ -69,7 +74,7 @@ class NativeConfig(AppConfig):
         # to ['en_US', 'fr_FR']
         languages = [to_locale(item[0]) for item in native_settings.LANGUAGES]
 
-        # Create the missing policy lazily to avoid import issues
+        # Create lazily to avoid import issues
         # in Django settings files
         missing_policy = parse_rendering_policy(
             native_settings.TRANSIFEX_MISSING_POLICY
@@ -77,13 +82,15 @@ class NativeConfig(AppConfig):
         error_policy = parse_error_policy(
             native_settings.TRANSIFEX_ERROR_POLICY
         )
+        cache = parse_cache(native_settings.TRANSIFEX_CACHE)
         init(
             native_settings.TRANSIFEX_TOKEN,
             languages,
             secret=native_settings.TRANSIFEX_SECRET,
             cds_host=native_settings.TRANSIFEX_CDS_HOST,
             missing_policy=missing_policy,
-            error_policy=error_policy
+            error_policy=error_policy,
+            cache=cache,
         )
 
         if fetch_translations:
@@ -93,13 +100,17 @@ class NativeConfig(AppConfig):
                 )
             )
             tx.fetch_translations()
-            logger.info('Starting daemon for OTA translations update')
 
-            sync_interval = native_settings.TRANSIFEX_SYNC_INTERVAL or 30*60
-            daemon.start_daemon(
-                interval=sync_interval
-            )
-            request_finished.connect(daemon.is_daemon_running)
+            if native_settings.TRANSIFEX_SYNC_INTERVAL != 0:
+                logger.info('Starting daemon for OTA translations update')
+                sync_interval = (
+                    native_settings.TRANSIFEX_SYNC_INTERVAL
+                    or 30*60
+                )
+                daemon.start_daemon(interval=sync_interval)
+                request_finished.connect(daemon.is_daemon_running)
+            else:
+                logger.info('Syncing daemon will not be started')
         else:
             logger.info(
                 'Starting up without fetching translations or OTA updates'

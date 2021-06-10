@@ -3,7 +3,7 @@
 autopep8
 codecov
 # Pinned, waiting for a fix for https://github.com/nedbat/coveragepy/issues/883
-coverage==4.5.4
+coverage==5.2.1
 ipdb
 mock
 pre-commit==1.21.0

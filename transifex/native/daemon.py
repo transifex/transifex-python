@@ -50,7 +50,11 @@ class DaemonicThread(threading.Thread):
             not alive or not. Useful when using this method in your application
             so that you get notified if the daemon has stopped for some reason.
         """
-        is_running = getattr(self, 'is_alive', self.isAlive)()
+        is_running_func = getattr(self, 'is_alive', None)
+        if not is_running_func:
+            is_running_func = getattr(self, 'isAlive', None)
+        is_running = is_running_func() if is_running_func else False
+
         if not is_running and log_errors:
             logger.error('Fetching daemon error: The daemon is not running!')
         return is_running
