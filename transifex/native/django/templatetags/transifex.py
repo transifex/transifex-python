@@ -206,9 +206,10 @@ class TNode(Node):
         # escaping *every* variable in the context for optimization reasons, we
         # need to filter down to the ones that the ICU template will actually
         # need
-        for key in get_icu_keys(translation_icu_template
-                                if translation_icu_template is not None
-                                else source_icu_template):
+        keys = get_icu_keys(source_icu_template)
+        if translation_icu_template is not None:
+            keys.update(get_icu_keys(translation_icu_template))
+        for key in keys:
             if key in params:
                 continue
             try:
