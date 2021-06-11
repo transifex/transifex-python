@@ -105,26 +105,35 @@ class TxNative(object):
 
     def get_translation(self, source_string, language_code, _context,
                         is_source=False):
-        """ Try to retrieve the translation.
+        """Return the proper translation for the given string
+        and language code.
 
-            A translation is a serialized source_string with ICU format
-            support, e.g.
-            '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
+        A translation is a serialized source_string with ICU format
+        support, e.g.
+        '{num, plural, one {Ένα τραπέζι} other {{num} τραπέζια}}'
+
+        Supports strings in the source language as well, which means
+        that if there is a translation available in the cache
+        for the source language, it will be used instead of the
+        original source_string provided here.
         """
+        pluralized, plurals = parse_plurals(source_string)
+        key = generate_key(string=source_string, context=_context)
+        translation_template = self._cache.get(key, language_code)
+        if (translation_template is not None and pluralized and
+                translation_template.startswith('{???')):
+            variable_name = source_string[1:source_string.index(',')].strip()
+            translation_template = '{{{var}{content}'.format(
+                var=variable_name,
+                content=translation_template[4:],
+            )
 
-        if is_source:
+        # If rendering the source language and there is no
+        # (overridden) translation in the cache, use the original
+        # source string
+        if is_source and not translation_template:
             translation_template = source_string
-        else:
-            pluralized, plurals = parse_plurals(source_string)
-            key = generate_key(string=source_string, context=_context)
-            translation_template = self._cache.get(key, language_code)
-            if (translation_template is not None and pluralized and
-                    translation_template.startswith('{???')):
-                variable_name = source_string[1:source_string.index(',')].\
-                    strip()
-                translation_template = ('{' +
-                                        variable_name +
-                                        translation_template[4:])
+
         return translation_template
 
     def render_translation(self, translation_template, params, source_string,

@@ -72,6 +72,8 @@ class CDSHandler(object):
     def fetch_languages(self):
         """Fetch the languages defined in the CDS for the specific project.
 
+        Contains the source language and all target languages.
+
         :return: a list of language information
         :rtype: dict
         """
@@ -112,10 +114,11 @@ class CDSHandler(object):
 
     def fetch_translations(self, language_code=None):
         """Fetch all translations for the given organization/project/(resource)
-        associated with the current token. Returns a tuple of refresh flag and
-        a dictionary of the fetched translations per language.
-        Refresh flag is going to be true whenever fresh data has been acquired
-        false otherwise.
+        associated with the current token.
+
+        Returns a tuple of refresh flag and a dictionary of the fetched
+        translations per language. Refresh flag is going to be True whenever
+        fresh data has been acquired, False otherwise.
 
         :return: a dictionary of (refresh_flag, translations) tuples
         :rtype: dict

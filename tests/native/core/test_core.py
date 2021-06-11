@@ -208,6 +208,84 @@ class TestNative(object):
         )
         assert translation == u'<script type="text/javascript">alert(1)</script>'
 
+    def test_translate_source_language_returns_overridden_translation(self):
+        """If there is a newer translation in the cache for the source language
+        use that instead of the original source string.
+        """
+        # Populate the cache with two strings in the source language,
+        # essentially providing custom translations for the source strings
+        cache = MemoryCache()
+        source_string1 = u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}'
+        updated_string1 = u'{???, plural, one {# goose} other {# geese}}'
+        key1 = generate_key(source_string1)
+        source_string2 = u'Hello {username}'
+        updated_string2 = u'Hello to you, {username}!'
+        key2 = generate_key(source_string2)
+        data = {
+            'en': (
+                True, {
+                    key1: {'string': updated_string1},
+                    key2: {'string': updated_string2},
+                }
+            )
+        }
+        cache.update(data)
+
+        # Make sure the updated translations are returned
+        mytx = self._get_tx(cache=cache)
+        translation = mytx.translate(
+            source_string1,
+            'en',
+            is_source=True,
+            params={'cnt': 1}
+        )
+        assert translation == u'1 goose'
+        translation = mytx.translate(
+            source_string1,
+            'en',
+            is_source=True,
+            params={'cnt': 10}
+        )
+        assert translation == u'10 geese'
+        translation = mytx.translate(
+            source_string2,
+            'en',
+            is_source=True,
+            params={'username': 'Jane'}
+        )
+        assert translation == u'Hello to you, Jane!'
+
+    def test_translate_source_language_returns_original_string(self):
+        """If there is no newer translation in the cache for the source language
+        use the original source string.
+        """
+        source_string1 = u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}'
+        source_string2 = u'Hello {username}'
+
+        # Make sure the updated translations are returned
+        mytx = self._get_tx()
+        translation = mytx.translate(
+            source_string1,
+            'en',
+            is_source=True,
+            params={'cnt': 1}
+        )
+        assert translation == u'1 duck'
+        translation = mytx.translate(
+            source_string1,
+            'en',
+            is_source=True,
+            params={'cnt': 10}
+        )
+        assert translation == u'10 ducks'
+        translation = mytx.translate(
+            source_string2,
+            'en',
+            is_source=True,
+            params={'username': 'Jane'}
+        )
+        assert translation == u'Hello Jane'
+
     @patch('transifex.native.core.CDSHandler.push_source_strings')
     def test_push_strings_reaches_cds_handler(self, mock_push_strings):
         response = MagicMock()
