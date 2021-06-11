@@ -4,6 +4,7 @@ from django.template import Context, Template
 from django.utils import translation
 from transifex.common.utils import generate_key
 from transifex.native import tx
+from transifex.native.django.templatetags.utils import get_icu_keys
 from transifex.native.rendering import SourceStringPolicy
 
 
@@ -439,3 +440,22 @@ def test_source_filter_is_applied_on_translation():
     # If the filter was applied on the source string, we would get
     # 'I like pancakes'
     translation.activate('en-us')
+
+
+def test_get_icu_keys():
+    assert "username" in get_icu_keys("hello {username}")
+    assert "cnt" in get_icu_keys("""
+        {cnt, plural,
+            one {you have one message}
+            other {you have # new messages}}
+    """)
+
+    # Nesting
+    assert "username" in get_icu_keys("""
+        {gender, select,
+            male {{username} is a boy}
+            female {{username} is a girl}}
+    """)
+
+    # Return empty on error
+    assert get_icu_keys("{{{") == set()
