@@ -1,10 +1,11 @@
 from __future__ import unicode_literals
 
-from django.template.base import TOKEN_BLOCK, Lexer, Parser
+from django.template.base import Lexer, Parser
 from django.utils.encoding import force_text
 from transifex.common._compat import string_types
+from transifex.native.django.compat import TOKEN_BLOCK
 from transifex.native.django.templatetags.transifex import do_t
-from transifex.native.parsing import SourceString, consts
+from transifex.native.parsing import SourceString
 
 # Django template consts
 LOAD_TAG = 'load'
@@ -23,7 +24,7 @@ COPY_AS_IS = object()
 
 # hack to make the identity function
 # signature compatible to all template filters
-def identity(obj, var1=None, var2=None, var3=None, var4=None, var5=None):  # pragma n ocover
+def identity(obj, var1=None, var2=None, var3=None, var4=None, var5=None):  # pragma no cover
     return obj  # pragma no cover
 
 
@@ -66,7 +67,7 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
     """Parse the given template and extract translatable content
     based on the syntax supported by Transifex Native.
 
-    Supports the {% t %} template tags.
+    Supports the {% t %} and {% ut %} template tags.
 
     :param unicode src: the whole Django template
     :param str origin: an optional context for the filename of the source,
@@ -80,7 +81,7 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
     parser = Parser(tokens, {}, [], origin)
     # Since no template libraries are loaded when this code is running,
     # we need to override the find function in order to use the functionality
-    # of the Parser class. The overriden function returns the object as given.
+    # of the Parser class. The overridden function returns the object as given.
     # Without the override, a KeyError is raised inside the parser.
     parser.find_filter = find_filter_identity
 

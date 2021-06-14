@@ -6,14 +6,15 @@ https://docs.djangoproject.com/en/1.11/topics/i18n/translation/
 
 from __future__ import unicode_literals
 
-from django.template.base import (TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
-                                  TOKEN_VAR, TRANSLATOR_COMMENT_MARK,
-                                  DebugLexer, Parser)
+from django import VERSION as DJANGO_VERSION
+from django.template.base import TRANSLATOR_COMMENT_MARK, DebugLexer, Parser
 from django.template.defaulttags import token_kwargs
 from django.templatetags.i18n import do_block_translate, do_translate
 from django.utils.encoding import force_text
 from django.utils.html import escape as escape_html
 from transifex.common._compat import string_types, text_type
+from transifex.native.django.compat import (TOKEN_BLOCK, TOKEN_COMMENT,
+                                            TOKEN_TEXT, TOKEN_VAR)
 from transifex.native.django.utils import templates
 from transifex.native.django.utils.templates import find_filter_identity
 from transifex.native.tools.migrations.models import (Confidence,
@@ -38,6 +39,22 @@ def _render_params(params):
         if value and value != COMMENT_FOUND:
             result.append('='.join((key, text_type(value))))
     return ' '.join(result)
+
+
+def _get_ordered_tokens(parser):
+    """Get the remaining tokens of the parser ordered
+    so that the last in the list is the last in the template.
+
+    Django introduced an optimization on version 3.1 by keeping
+    the list `Parser.tokens` reversed.
+    https://github.com/django/django/pull/11888
+
+    This method is useful when we want to iterate all the remaining
+    tokens of the parser in the correct order.
+    """
+    if DJANGO_VERSION[0] >= 3 and DJANGO_VERSION[1] > 1:
+        return reversed(parser.tokens)
+    return parser.tokens
 
 
 def _make_plural(singular, plural, count_var):
@@ -390,18 +407,23 @@ class DjangoTagMigrationBuilder(object):
 
         # A {% comment %} tag was found; If this is a translation comment,
         # expect the actual comment text to follow shortly
-        elif tag_name == templates.COMMENT_TAG:
-            next_token = parser.tokens[0] if parser.tokens else None
-            if next_token.token_type == TOKEN_TEXT:
+        elif tag_name == templates.COMMENT_TAG and parser.tokens:
+            for next_token in _get_ordered_tokens(parser):
+                if next_token.token_type != TOKEN_TEXT:
+                    break
+                # In Django 3, new lines appear as separate tokens
+
                 comment = _retrieve_comment(next_token.contents)
-                if comment:
-                    self._comment = COMMENT_FOUND
-                    # Create a string migration and start keeping track
-                    # of all the strings that will be migrated
-                    # within the following set of tokens that apply
-                    self._current_string_migration = StringMigration(
-                        original_string, '')
-                    return None, None
+                if not comment:
+                    continue
+
+                self._comment = COMMENT_FOUND
+                # Create a string migration and start keeping track
+                # of all the strings that will be migrated
+                # within the following set of tokens that apply
+                self._current_string_migration = StringMigration(
+                    original_string, '')
+                return None, None
 
         # An {% endcomment %} tag was found
         elif tag_name == templates.ENDCOMMENT_TAG:
@@ -486,7 +508,7 @@ class DjangoTagMigrationBuilder(object):
         # go forward, so the call to parser.next_token() will skip
         # all tokens until {% endblocktrans %} (inclusive).
         consumed_tokens = []
-        for t in parser.tokens:  # these are just the remaining tokens
+        for t in _get_ordered_tokens(parser):  # remaining tokens only
             consumed_tokens.append(t)
             if t.contents in templates.ENDBLOCK_TRANSLATE_TAGS:
                 break  # we assume there will be a {% endblocktrans %} token

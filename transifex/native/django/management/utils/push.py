@@ -182,7 +182,10 @@ class Push(CommandMixin):
             translatable_file.file, translatable_file.dirpath
         ))
         encoding = (
-            settings.FILE_CHARSET if self.settings_available
+            settings.FILE_CHARSET if (
+                hasattr(settings, 'FILE_CHARSET')
+                and self.settings_available
+            )
             else 'utf-8'
         )
         try:

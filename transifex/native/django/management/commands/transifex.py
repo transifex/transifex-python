@@ -40,7 +40,12 @@ class Command(BaseCommand):
 
         class SubParser(CommandParser):
             def __init__(self, **kwargs):
-                super(SubParser, self).__init__(cmd, **kwargs)
+                try:
+                    # Django 1 & 2
+                    super(SubParser, self).__init__(cmd, **kwargs)
+                except TypeError:
+                    # Django 3
+                    super(SubParser, self).__init__(**kwargs)
 
         # common arguments to all subcommands
         parser.add_argument(

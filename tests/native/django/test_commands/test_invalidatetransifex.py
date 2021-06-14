@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import mock
 from django.core.management import call_command
+from tests.native.django.test_commands import get_transifex_command
 from transifex.common.console import Color
 from transifex.native.django.management.commands.transifex import Command
 
@@ -27,7 +28,7 @@ def test_invalidate_cache_fail(mock_echo, mock_invalidate_cache):
 
     # Make sure it's idempotent
     mock_echo.reset_mock()
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'invalidate')
     actual = Color.format(mock_echo.call_args_list[1][0][0])
     assert expected == actual
@@ -53,7 +54,7 @@ def test_invalidate_cache_success(mock_echo, mock_invalidate_cache):
 
     # Make sure it's idempotent
     mock_echo.reset_mock()
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'invalidate')
     actual = Color.format(mock_echo.call_args_list[1][0][0])
     assert expected == actual
@@ -77,7 +78,7 @@ def test_purge_cache_success(mock_echo, mock_invalidate_cache):
 
     # Make sure it's idempotent
     mock_echo.reset_mock()
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'invalidate', purge=True)
     actual = Color.format(mock_echo.call_args_list[1][0][0])
     assert expected == actual
