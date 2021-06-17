@@ -2,6 +2,7 @@
 import mock
 import transifex.native.consts as consts
 from django.core.management import call_command
+from tests.native.django.test_commands import get_transifex_command
 from transifex.native.django.management.commands.transifex import Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.parsing import SourceString
@@ -96,7 +97,7 @@ def test_python_parsing_raises_unicode_error(mock_read, mock_find_files):
         TranslatableFile('dir1', '1.py', 'locdir1'),
     ]
 
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'push')
     # command.string_collection.strings is like: {<key>: <SourceString>}
     found = command.subcommands['push'].string_collection.strings.values()
@@ -113,7 +114,7 @@ def test_python_parsing_no_strings(mock_extract, mock_find_files):
         TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
     ]
 
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'push')
     # command.string_collection.strings is like: {<key>: <SourceString>}
     found = command.subcommands['push'].string_collection.strings.values()
@@ -322,7 +323,7 @@ def test_no_detection_for_non_transifex(mock_find_files, mock_read, mock_push_st
             u'{% blocktrans %}Another Django string{% endblocktrans %}',
         ),
     ]
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'push', domain='djangojs')
     # command.string_collection.strings is like: {<key>: <SourceString>}
     found = command.subcommands['push'].string_collection.strings.values()
@@ -339,7 +340,8 @@ def test_dry_run(mock_find_files, mock_read, mock_push_strings):
     ]
     mock_read.side_effect = PYTHON_FILES
 
-    call_command(Command(), 'push', dry_run=1)
+    command = get_transifex_command()
+    call_command(command, 'push', dry_run=1)
     assert not mock_push_strings.called
 
 
@@ -375,7 +377,7 @@ def run_and_compare(expected, **kwargs):
 
     :param list expected: a list of SourceString objects
     """
-    command = Command()
+    command = get_transifex_command()
     call_command(command, 'push', **kwargs)
     # command.string_collection.strings is like: {<key>: <SourceString>}
     found = command.subcommands['push'].string_collection.strings.values()

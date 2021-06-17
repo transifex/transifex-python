@@ -6,6 +6,7 @@ from transifex.native.django.management.utils.base import CommandMixin
 
 
 class Invalidate(CommandMixin):
+
     def add_arguments(self, subparsers):
         parser = subparsers.add_parser(
             'invalidate',

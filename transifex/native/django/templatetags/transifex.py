@@ -6,17 +6,24 @@ from django.conf import settings
 from django.template import Library, Node, TemplateSyntaxError
 from django.template.base import (BLOCK_TAG_END, BLOCK_TAG_START,
                                   COMMENT_TAG_END, COMMENT_TAG_START,
-                                  TOKEN_BLOCK, TOKEN_COMMENT, TOKEN_TEXT,
-                                  TOKEN_VAR, VARIABLE_TAG_END,
-                                  VARIABLE_TAG_START)
+                                  VARIABLE_TAG_END, VARIABLE_TAG_START)
 from django.template.defaulttags import token_kwargs
 from django.utils.html import escape as escape_html
-from django.utils.safestring import EscapeData, SafeData, mark_safe
+from django.utils.safestring import SafeData, mark_safe
 from django.utils.translation import get_language, to_locale
 from transifex.common._compat import string_types
 from transifex.native import tx
+from transifex.native.django.compat import (TOKEN_BLOCK, TOKEN_COMMENT,
+                                            TOKEN_TEXT, TOKEN_VAR)
 
 from .utils import get_icu_keys
+
+try:
+    from django.utils.safestring import EscapeData
+except ImportError:
+    class EscapeData(object):
+        pass
+
 
 register = Library()
 
