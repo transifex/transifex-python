@@ -286,6 +286,59 @@ class TestNative(object):
         )
         assert translation == u'Hello Jane'
 
+    def test_translate_with_custom_keys(self):
+        # Populate the cache with two strings in the source language,
+        # essentially providing custom translations for the source strings
+        cache = MemoryCache()
+        source_string1 = u'Table'
+        source_string2 = u'Hello {username}'
+        data = {
+            'en': (
+                True, {
+                    'mykey_1': {'string': u'A table'},
+                    'mykey_2': {'string': u'Hello {username}!'},
+                }
+            ),
+            'el': (
+                True, {
+                    'mykey_1': {'string': u'Ένα τραπέζι'},
+                    'mykey_2': {'string': u'Γεια σου, {username}!'},
+                }
+            )
+        }
+        cache.update(data)
+        mytx = self._get_tx(cache=cache)
+
+        translation = mytx.translate(
+            source_string1,
+            'en',
+            is_source=True,
+            _key='mykey_1',
+        )
+        assert translation == u'A table'
+        translation = mytx.translate(
+            source_string1,
+            'el',
+            _key='mykey_1',
+        )
+        assert translation == u'Ένα τραπέζι'
+
+        translation = mytx.translate(
+            source_string2,
+            'en',
+            is_source=True,
+            params={'username': 'Jane'},
+            _key='mykey_2',
+        )
+        assert translation == u'Hello Jane!'
+        translation = mytx.translate(
+            source_string2,
+            'el',
+            params={'username': 'Jane'},
+            _key='mykey_2',
+        )
+        assert translation == u'Γεια σου, Jane!'
+
     @patch('transifex.native.core.CDSHandler.push_source_strings')
     def test_push_strings_reaches_cds_handler(self, mock_push_strings):
         response = MagicMock()

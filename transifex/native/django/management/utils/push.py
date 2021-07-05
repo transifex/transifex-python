@@ -298,6 +298,7 @@ def string_repr(source_string):
     """
     return (
         '[green]"{string}"[end]\n'
+        '{key}'
         '{context}'
         '{comment}'
         '{charlimit}'
@@ -305,6 +306,11 @@ def string_repr(source_string):
         '   [high]occurrences:[end] [file]{occurrences}[end]\n'
     ).format(
         string=source_string.string,
+        key=(
+            '   [high]key:[end] "[yel]{}[end]"\n'.format(
+                source_string.key
+            )
+        ),
         context=(
             '   [high]context:[end] {}\n'.format(
                 u', '.join(source_string.context)

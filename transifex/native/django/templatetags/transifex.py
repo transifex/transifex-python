@@ -199,13 +199,16 @@ class TNode(Node):
 
         # Perform the translation in two steps: First, we get the translation
         # ICU template. Then we perform ICU rendering against 'params'.
-        # Inbetween the two steps, if the tag used was 't' and not 'ut', we
-        # peform escaping on the ICU template.
+        # In between the two steps, if the tag used was 't' and not 'ut', we
+        # perform escaping on the ICU template.
         is_source = get_language() == settings.LANGUAGE_CODE
         locale = to_locale(get_language())  # e.g. from en-us to en_US
         translation_icu_template = tx.get_translation(
-            source_icu_template, locale, params.get('_context', None),
-            is_source,
+            source_string=source_icu_template,
+            language_code=locale,
+            _context=params.get('_context', None),
+            is_source=is_source,
+            _key=params.get('_key', None),
         )
 
         # The ICU template can compile against explicitly passed params as well

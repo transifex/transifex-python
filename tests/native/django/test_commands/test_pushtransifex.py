@@ -298,6 +298,43 @@ def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
 @mock.patch(PATH_PUSH_STRINGS2)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
+def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
+    mock_find_files.return_value = [
+        TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
+    ]
+    mock_read.side_effect = [
+        # 1.html
+        HTML_TEMPLATE.replace(
+            '{content}',
+            u'<p>{% t "<b>Strong</b> {a}" a="A" _context="c1,c2" '
+            u'_tags="t1,t2" _comment="comment1" _charlimit=22 '
+            u'_key="first_key" %}</p>\n'
+
+            u'<p>{% ut "παράδειγμα {b}" b="B" _context="c1,c2" '
+            u'_tags="t1,t2" _comment="comment2" _charlimit=33 '
+            u'_key="second_key" %}</p>'
+        ),
+    ]
+
+    expected = [
+        # 1.html
+        SourceString(
+            u'<b>Strong</b> {a}', 'c1,c2', _tags='t1,t2', _comment='comment1',
+            _charlimit=22, _occurrences=['r1/dir2/1.html:4'],
+            _key='first_key',
+        ),
+        SourceString(
+            u'παράδειγμα {b}', 'c1,c2', _tags='t1,t2', _comment="comment2",
+            _charlimit=33, _occurrences=['r1/dir2/1.html:5'],
+            _key='second_key',
+        ),
+    ]
+    run_and_compare(expected)
+
+
+@mock.patch(PATH_PUSH_STRINGS2)
+@mock.patch(PATH_READ_FILE)
+@mock.patch(PATH_FIND_FILES)
 def test_no_detection_for_non_transifex(mock_find_files, mock_read, mock_push_strings):
     """No strings should be detected if a format other than Transifex Native
     is used in Python files and templates.
