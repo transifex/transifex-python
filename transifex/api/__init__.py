@@ -1,5 +1,6 @@
 import time
 
+import transifex
 from .jsonapi import JsonApi
 from .jsonapi import Resource as JsonApiResource
 from .jsonapi.exceptions import JsonApiException
@@ -31,6 +32,9 @@ class DownloadMixin(object):
 
 class TransifexApi(JsonApi):
     HOST = "https://rest.api.transifex.com"
+    HEADERS = {
+        'User-Agent': "Transifex-API-SDK/{}".format(transifex.__version__),
+    }
 
 
 @TransifexApi.register

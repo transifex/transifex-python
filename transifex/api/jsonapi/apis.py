@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 import requests
 import six
+from copy import deepcopy
 
 from .auth import BearerAuthentication
 from .compat import JSONDecodeError
@@ -90,6 +91,7 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
     """
 
     HOST = None
+    HEADERS = None
 
     def __init__(self, **kwargs):
         """ Create a new API connection instance. It will use the class's
@@ -113,7 +115,10 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
             self.class_registry[base_class.__name__] = child_class
 
         self.host = self.HOST
-        self.headers = {}
+        if self.HEADERS is None:
+            self.headers = {}
+        else:
+            self.headers = deepcopy(self.HEADERS)
         self.setup(**kwargs)
 
     def setup(self, host=None, auth=None, headers=None):
@@ -127,7 +132,7 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
                 self.make_auth_headers = BearerAuthentication(auth)
 
         if headers is not None:
-            self.headers = headers
+            self.headers.update(headers)
 
     @classmethod
     def register(cls, klass):
