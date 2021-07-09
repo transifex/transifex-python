@@ -26,7 +26,6 @@ A python SDK for the [Transifex API (v3)](https://transifex.github.io/openapi/)
     * [Editing relationships](#editing-relationships)
     * [Bulk operations](#bulk-operations)
     * [Form uploads, redirects](#form-uploads-redirects)
-* [Testing](#testing)
 
 <!-- Added by: kbairak, at: Mon May 10 07:09:14 PM EEST 2021 -->
 
@@ -41,9 +40,9 @@ for [{json:api}](https://jsonapi.org) APIs located at the
 library maps to HTTP interactions and consult the Transifex API documentation,
 you should be able to make use of the SDK.
 
-This readme is split between two sections, one that provides an overview of how
+This readme is split between two sections: one that provides an overview of how
 to work with the Transifex API and one that shows how you can use
-`transifex.api.jsonapi` to build and SDK that can interact with *any* API that
+`transifex.api.jsonapi` to build an SDK that can interact with *any* API that
 follows the {json:api}. You should read the second part if you want to
 troubleshoot or understand how the internals of the SDK work.
 
@@ -138,8 +137,10 @@ languages = project.fetch('languages')
 
 ### Changing attributes
 
-Lets use what we've learned so far alongside the API documentation to find a
-"string translation _slot_":
+Let's use what we've learned so far alongside the API documentation to find a
+"untranslated string _slot_" (the `/resource_translations` endpoint returns
+items for strings that haven't been translated yet, setting their `strings`
+field will post a translation):
 
 ```python
 language_dict = {
@@ -225,7 +226,8 @@ to perform the change. Again, you should consult the API documentation to see
 which relationships can be changed and with which methods (in this case -
 changing a project's team - both methods are available).
 
-The `project -> team` is a "singular relationship". To change a "plural
+The `project -> team` is a "singular relationship" (singular relationships are
+either one-to-one or foreign-key relationships). To change a "plural
 relationship", like a project's target languages, you can use the `reset`,
 `add` and `remove` methods:
 
@@ -281,9 +283,8 @@ project.delete()
 
 ### File uploads and downloads
 
-There is some code in `transifex.api` that automate several {json:api}
-interactions behind the scenes in order to help with file uploads and
-downloads.
+There is code in `transifex.api` that automates several {json:api} interactions
+behind the scenes in order to help with file uploads and downloads.
 
 In order to upload a source file to a resource, you can do:
 
@@ -1324,28 +1325,3 @@ while True:
     sleep(5)
     upload.reload()
 ```
-
-## Testing
-
-To run the tests:
-
-```sh
-mkvirtualenv transifex_sdk
-pip install -e .
-pip install -r requirements/testing.txt
-make test
-```
-
-There are several variations on test commands, most targeted towards active
-development:
-
-
-- `make test`: Run tests in multiple python versions using
-  [tox](https://tox.readthedocs.io/en/latest/)
-- `make covtest`: Display coverage information using
-  [pytest-cov](https://github.com/pytest-dev/pytest-cov)
-- `make debugtest`: Disable screen capture (with `-s` option to pytest) so that
-  you can invoke a debugger while the tests are running
-- `make watchtest`: Invoke the tests with
-  [pytest-watch](https://github.com/joeyespo/pytest-watch) so that they rerun
-  every time a source python file in the repository changes
