@@ -5,9 +5,9 @@ import re
 from collections import namedtuple
 
 from transifex.common._compat import string_types
-from transifex.common.utils import generate_key, make_hashable, parse_plurals
+from transifex.common.utils import generate_key, make_hashable
 from transifex.native import consts
-from transifex.native.consts import KEY_CONTEXT, KEY_OCCURRENCES
+from transifex.native.consts import KEY_CONTEXT, KEY_KEY
 
 # PEP 263 magic comment for source code encodings
 # e.g. "# -*- coding: <encoding name> -*-"
@@ -36,8 +36,11 @@ class SourceString(object):
         :param unicode _context: an optional context that accompanies
             the source string
         """
-
-        self.key = generate_key(string=string, context=_context)
+        custom_key = meta.get(KEY_KEY, None)
+        self.key = (
+            custom_key if custom_key
+            else generate_key(string=string, context=_context)
+        )
         self.string = string
         self.context = (
             [x.strip() for x in _context.split(',')] if _context

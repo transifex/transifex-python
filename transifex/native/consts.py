@@ -2,6 +2,7 @@ KEY_DEVELOPER_COMMENT = '_comment'
 KEY_CHARACTER_LIMIT = '_charlimit'
 KEY_TAGS = '_tags'
 KEY_CONTEXT = '_context'
+KEY_KEY = '_key'
 KEY_OCCURRENCES = '_occurrences'
 
 ALL_KEYS = [
@@ -10,4 +11,5 @@ ALL_KEYS = [
     KEY_CHARACTER_LIMIT,
     KEY_TAGS,
     KEY_OCCURRENCES,
+    KEY_KEY,
 ]

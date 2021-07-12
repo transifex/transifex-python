@@ -68,7 +68,7 @@ class TxNative(object):
 
     def translate(
         self, source_string, language_code, is_source=False,
-        _context=None, escape=True, params=None
+        _context=None, escape=True, params=None, _key=None,
     ):
         """Translate the given string to the provided language.
 
@@ -83,6 +83,9 @@ class TxNative(object):
             otherwise it won't
         :param dict params: optional parameters to replace any placeholders
             found in the translation string
+        :param str _key: an optional key that identifies this string;
+            if omitted, the key is generated automatically based on the
+            strings itself and its context
         :return: the rendered string
         :rtype: unicode
         """
@@ -92,19 +95,24 @@ class TxNative(object):
 
         self._check_initialization()
 
-        translation_template = self.get_translation(source_string,
-                                                    language_code,
-                                                    _context,
-                                                    is_source)
+        translation_template = self.get_translation(
+            source_string=source_string,
+            language_code=language_code,
+            _context=_context,
+            is_source=is_source,
+            _key=_key,
+        )
 
-        return self.render_translation(translation_template,
-                                       params,
-                                       source_string,
-                                       language_code,
-                                       escape)
+        return self.render_translation(
+            translation_template=translation_template,
+            params=params,
+            source_string=source_string,
+            language_code=language_code,
+            escape=escape,
+        )
 
     def get_translation(self, source_string, language_code, _context,
-                        is_source=False):
+                        is_source=False, _key=None):
         """Return the proper translation for the given string
         and language code.
 
@@ -118,8 +126,9 @@ class TxNative(object):
         original source_string provided here.
         """
         pluralized, plurals = parse_plurals(source_string)
-        key = generate_key(string=source_string, context=_context)
-        translation_template = self._cache.get(key, language_code)
+        if _key is None:
+            _key = generate_key(string=source_string, context=_context)
+        translation_template = self._cache.get(_key, language_code)
         if (translation_template is not None and pluralized and
                 translation_template.startswith('{???')):
             variable_name = source_string[1:source_string.index(',')].strip()
@@ -138,7 +147,11 @@ class TxNative(object):
 
     def render_translation(self, translation_template, params, source_string,
                            language_code, escape=False):
-        """ Replace the variables in the ICU translation """
+        """Replace the variables in the ICU translation and return the final
+        string in the given language.
+
+        If any error occurs during rendering, the error policy is invoked.
+        """
 
         try:
             return StringRenderer.render(
@@ -154,7 +167,8 @@ class TxNative(object):
                 source_string=source_string,
                 translation=translation_template,
                 language_code=language_code,
-                escape=escape, params=params,
+                escape=escape,
+                params=params,
             )
 
     def fetch_translations(self):
