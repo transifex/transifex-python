@@ -435,12 +435,14 @@ class TestCDSHandler(object):
         assert cds_handler._get_headers() == {
             'Authorization': 'Bearer some_token',
             'Accept-Encoding': 'gzip',
+            'Accept-Version': 'v2',
             'X-NATIVE-SDK': 'python',
         }
 
         assert cds_handler._get_headers(use_secret=True) == {
             'Authorization': 'Bearer some_token:some_secret',
             'Accept-Encoding': 'gzip',
+            'Accept-Version': 'v2',
             'X-NATIVE-SDK': 'python',
         }
 
@@ -449,6 +451,7 @@ class TestCDSHandler(object):
         assert headers == {
             'Authorization': 'Bearer some_token:some_secret',
             'Accept-Encoding': 'gzip',
+            'Accept-Version': 'v2',
             'X-NATIVE-SDK': 'python',
             'If-None-Match': 'something',
         }
@@ -514,7 +517,7 @@ class TestCDSHandler(object):
         # test invalidate
         responses.add(
             responses.POST, cds_host + '/invalidate',
-            status=200, json={'count': 5}
+            status=200, json={'data': {'count': 5}}
         )
 
         cds_handler.invalidate_cache(False)
@@ -523,7 +526,7 @@ class TestCDSHandler(object):
         # test purge
         responses.add(
             responses.POST, cds_host + '/purge',
-            status=200, json={'count': 5}
+            status=200, json={'data': {'count': 5}}
         )
 
         cds_handler.invalidate_cache(True)

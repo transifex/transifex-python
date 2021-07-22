@@ -1,7 +1,8 @@
 from __future__ import absolute_import, unicode_literals
 
-import json
 import os
+import sys
+import time
 
 import transifex.native.consts as consts
 from django.conf import settings
@@ -54,6 +55,10 @@ class Push(CommandMixin):
             help=('Do not push to CDS'),
         )
         parser.add_argument(
+            '--no-wait', action='store_true', dest='no_wait', default=False,
+            help=('Disable polling for upload results'),
+        )
+        parser.add_argument(
             '--verbose', '-v', action='store_true',
             dest='verbose_output', default=False,
             help=('Verbose output'),
@@ -75,6 +80,7 @@ class Push(CommandMixin):
         self.with_tags_only = options['with_tags_only']
         self.without_tags_only = options['without_tags_only']
         self.dry_run = options['dry_run']
+        self.no_wait = options['no_wait']
         extensions = options['extensions']
         if self.domain == 'djangojs':
             exts = extensions if extensions else ['js']
@@ -167,6 +173,28 @@ class Push(CommandMixin):
         status_code, response_content = tx.push_source_strings(
             self.string_collection.strings.values(), self.purge
         )
+
+        if self.no_wait:
+            Color.echo('Queued')
+            return
+
+        job_url = response_content['data']['links']['job']
+        status = 'starting'
+        while status in ['starting', 'pending', 'processing']:
+            time.sleep(1)
+            status_code, response_content = tx.get_push_status(job_url)
+            new_status = response_content['data']['status']
+            if new_status != status:
+                status = new_status
+                if status == 'pending':
+                    sys.stdout.write('In queue...')
+                elif status == 'processing':
+                    sys.stdout.write('Processing...')
+            else:
+                sys.stdout.write('.')
+            sys.stdout.flush()
+
+        Color.echo('')
         self._show_push_results(status_code, response_content)
 
     def _extract_strings(self, translatable_file):
@@ -237,44 +265,52 @@ class Push(CommandMixin):
         :param dict response_content: the content of the response
         """
         try:
-            if 200 <= status_code < 300:
-                # {"created":0,"updated":5,"skipped":1,"deleted":0,"failed":0,"errors":[]}
-                created = response_content.get('created')
-                updated = response_content.get('updated')
-                skipped = response_content.get('skipped')
-                deleted = response_content.get('deleted')
-                failed = response_content.get('failed')
-                errors = response_content.get('errors', [])
+            data = response_content.get('data')
+            status = data.get('status')
+            errors = data.get('errors', [])
+            if status == 'completed':
+                details = data.get('details')
+                created = details.get('created')
+                updated = details.get('updated')
+                skipped = details.get('skipped')
+                deleted = details.get('deleted')
+                failed = details.get('failed')
                 Color.echo(
-                    '[green]\nSuccessfully pushed strings to Transifex.[end]\n'
-                    '[high]Status:[end] [warn]{code}[end]\n'
-                    '[high]Created strings:[end] [warn]{created}[end]\n'
-                    '[high]Updated strings:[end] [warn]{updated}[end]\n'
-                    '[high]Skipped strings:[end] [warn]{skipped}[end]\n'
-                    '[high]Deleted strings:[end] [warn]{deleted}[end]\n'
-                    '[high]Failed strings:[end] [warn]{failed}[end]\n'
-                    '[high]Errors:[end] {errors}[end]\n'.format(
-                        code=status_code,
-                        created=created,
-                        updated=updated,
-                        skipped=skipped,
-                        deleted=deleted,
-                        failed=failed,
-                        errors='\n'.join(errors)
-                    )
+                    '[green]\nSuccessfully pushed strings to Transifex.[end]'
                 )
 
+                if created > 0:
+                    Color.echo(
+                        '[high]Created strings:[end] '
+                        '[warn]{created}[end]'.format(created=created))
+
+                if updated > 0:
+                    Color.echo(
+                        '[high]Updated strings:[end] '
+                        '[warn]{updated}[end]'.format(updated=updated))
+
+                if skipped > 0:
+                    Color.echo(
+                        '[high]Skipped strings:[end] '
+                        '[warn]{skipped}[end]'.format(skipped=skipped))
+
+                if deleted > 0:
+                    Color.echo(
+                        '[high]Deleted strings:[end] '
+                        '[warn]{deleted}[end]'.format(deleted=deleted))
+
+                if failed > 0:
+                    Color.echo(
+                        '[high]Failed strings:[end] '
+                        '[warn]{failed}[end]'.format(failed=failed))
             else:
-                message = response_content.get('message')
-                details = response_content.get('details')
                 Color.echo(
-                    '[error]\nCould not push strings to Transifex.[end]\n'
-                    '[high]Status:[end] [warn]{code}[end]\n'
-                    '[high]Message:[end] [warn]{message}[end]\n'
-                    '[high]Details:[end] [warn]{details}[end]\n'.format(
-                        code=status_code,
-                        message=message,
-                        details=json.dumps(details, indent=4),
+                    '[error]\nCould not push strings to Transifex.[end]')
+
+            if len(errors) > 0:
+                Color.echo(
+                    '[high]Errors:[end] {errors}[end]\n'.format(
+                        errors='\n'.join(errors)
                     )
                 )
         except Exception:

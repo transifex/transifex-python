@@ -220,6 +220,34 @@ class CDSHandler(object):
 
         return response
 
+    def get_push_status(self, job_path):
+        """Get source string push job status
+
+        :param str job_path: Job url path
+        :return: the HTTP response object
+        :rtype: requests.Response
+        """
+        if not self.secret:
+            raise Exception('You need to use `TRANSIFEX_SECRET` when polling '
+                            'source content push')
+
+        try:
+            response = requests.get(
+                self.host + job_path,
+                headers=self._get_headers(use_secret=True),
+            )
+            response.raise_for_status()
+
+        except requests.ConnectionError:
+            logger.error(
+                'Error polling source strings push to CDS: ConnectionError')
+        except Exception as e:
+            logger.error(
+                'Error polling source strings push to CDS: UnknownError '
+                '(`{}`)'.format(str(e)))
+
+        return response
+
     def invalidate_cache(self, purge=False):
         """Invalidate CDS cache.
 
@@ -288,6 +316,7 @@ class CDSHandler(object):
                 secret=(':' + self.secret if use_secret else '')
             ),
             'Accept-Encoding': 'gzip',
+            'Accept-Version': 'v2',
             'X-NATIVE-SDK': 'python',
         }
         if etag:
