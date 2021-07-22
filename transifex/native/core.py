@@ -192,6 +192,18 @@ class TxNative(object):
         response = self._cds_handler.push_source_strings(strings, purge)
         return response.status_code, json.loads(response.content)
 
+    def get_push_status(self, job_path):
+        """Push the given source strings to the CDS.
+
+        :param str job_path: Job url path
+        :return: a tuple containing the status code and the content of the
+            response
+        :rtype: tuple
+        """
+        self._check_initialization()
+        response = self._cds_handler.get_push_status(job_path)
+        return response.status_code, json.loads(response.content)
+
     def invalidate_cache(self, purge=False):
         """Invalidate CDS cache."""
         self._check_initialization()

@@ -3,7 +3,6 @@ import mock
 import transifex.native.consts as consts
 from django.core.management import call_command
 from tests.native.django.test_commands import get_transifex_command
-from transifex.native.django.management.commands.transifex import Command
 from transifex.native.django.management.common import TranslatableFile
 from transifex.native.parsing import SourceString
 
@@ -32,8 +31,25 @@ PATH_EXTRACT_STRINGS = ('transifex.native.django.management.utils.push.Push.'
                         '_extract_strings')
 PATH_PUSH_STRINGS = ('transifex.native.django.management.utils.push.tx.'
                      'push_source_strings')
+PATH_PUSH_STATUS = ('transifex.native.django.management.utils.push.tx.'
+                    'get_push_status')
 PATH_PUSH_STRINGS2 = ('transifex.native.django.management.utils.push.Push.'
                       'push_strings')
+
+PUSH_CDS_JSON = {
+    "data": {
+        "links": {
+            "job": "/job",
+        },
+    },
+}
+
+PUSH_CDS_STATUS_JSON = {
+    "data": {
+        "details": {},
+        "status": "completed",
+    }
+}
 
 PYTHON_FILES = [
     # 1.py
@@ -121,11 +137,14 @@ def test_python_parsing_no_strings(mock_extract, mock_find_files):
     assert set(found) == set([])
 
 
+@mock.patch(PATH_PUSH_STATUS)
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_python_parsing_push_exception(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 500, "content_to_trigger_exception"
+def test_python_parsing_success(mock_find_files, mock_read, mock_push_strings,
+                                mock_push_status):
+    mock_push_strings.return_value = 202, PUSH_CDS_JSON
+    mock_push_status.return_value = 200, PUSH_CDS_STATUS_JSON
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
@@ -137,31 +156,17 @@ def test_python_parsing_push_exception(mock_find_files, mock_read, mock_push_str
     run_and_compare(expected)
 
 
+@mock.patch(PATH_PUSH_STATUS)
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_python_parsing_success(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
-    mock_find_files.return_value = [
-        TranslatableFile('dir1', '1.py', 'locdir1'),
-        TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
-        TranslatableFile('dir1/dir3', '3.py', 'locdir1'),
-    ]
-    mock_read.side_effect = PYTHON_FILES
-
-    expected = SOURCE_STRINGS
-    run_and_compare(expected)
-
-
-@mock.patch(PATH_PUSH_STRINGS)
-@mock.patch(PATH_READ_FILE)
-@mock.patch(PATH_FIND_FILES)
-def test_append_tags(mock_find_files, mock_read, mock_push_strings):
+def test_append_tags(mock_find_files, mock_read, mock_push_strings, mock_push_status):
     """Test the functionality of the --append_tags option.
 
     The new tags should be added to the existing ones of each string.
     """
-    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+    mock_push_strings.return_value = 202, PUSH_CDS_JSON
+    mock_push_status.return_value = 200, PUSH_CDS_STATUS_JSON
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
     ]
@@ -175,11 +180,13 @@ def test_append_tags(mock_find_files, mock_read, mock_push_strings):
     run_and_compare(expected, append_tags=u'extra1,extra2')
 
 
+@mock.patch(PATH_PUSH_STATUS)
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_with_tags_only(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+def test_with_tags_only(mock_find_files, mock_read, mock_push_strings, mock_push_status):
+    mock_push_strings.return_value = 202, PUSH_CDS_JSON
+    mock_push_status.return_value = 200, PUSH_CDS_STATUS_JSON
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
@@ -195,11 +202,13 @@ def test_with_tags_only(mock_find_files, mock_read, mock_push_strings):
     run_and_compare(expected, with_tags_only='t1,t2')
 
 
+@mock.patch(PATH_PUSH_STATUS)
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_without_tags_only(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+def test_without_tags_only(mock_find_files, mock_read, mock_push_strings, mock_push_status):
+    mock_push_strings.return_value = 202, PUSH_CDS_JSON
+    mock_push_status.return_value = 200, PUSH_CDS_STATUS_JSON
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
@@ -215,11 +224,13 @@ def test_without_tags_only(mock_find_files, mock_read, mock_push_strings):
     run_and_compare(expected, without_tags_only='t1,t2')
 
 
+@mock.patch(PATH_PUSH_STATUS)
 @mock.patch(PATH_PUSH_STRINGS)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_all_tags_options(mock_find_files, mock_read, mock_push_strings):
-    mock_push_strings.return_value = 200, {'doesnt': 'matter'}
+def test_all_tags_options(mock_find_files, mock_read, mock_push_strings, mock_push_status):
+    mock_push_strings.return_value = 202, PUSH_CDS_JSON
+    mock_push_status.return_value = 200, PUSH_CDS_STATUS_JSON
     mock_find_files.return_value = [
         TranslatableFile('dir1', '1.py', 'locdir1'),
         TranslatableFile('dir1/dir2', '2.py', 'locdir1'),
@@ -298,7 +309,7 @@ def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
 @mock.patch(PATH_PUSH_STRINGS2)
 @mock.patch(PATH_READ_FILE)
 @mock.patch(PATH_FIND_FILES)
-def test_template_parsing(mock_find_files, mock_read, mock_push_strings):
+def test_template_parsing2(mock_find_files, mock_read, mock_push_strings):
     mock_find_files.return_value = [
         TranslatableFile('dir1/dir2', '1.html', 'locdir1'),
     ]

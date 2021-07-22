@@ -31,8 +31,8 @@ class Invalidate(CommandMixin):
 
         try:
             if 200 <= status_code < 300:
-                # {"count":0}
-                count = response_content.get('count')
+                # {"data": { "count":0 }}
+                count = response_content['data']['count']
                 if purge:
                     Color.echo(
                         '[green]\nSuccessfully purged CDS cache.[end]\n'

@@ -3,7 +3,6 @@ import mock
 from django.core.management import call_command
 from tests.native.django.test_commands import get_transifex_command
 from transifex.common.console import Color
-from transifex.native.django.management.commands.transifex import Command
 
 PATH_INVALIDATE_CACHE = ('transifex.native.django.management.utils.push.tx.'
                          'invalidate_cache')
@@ -38,7 +37,9 @@ def test_invalidate_cache_fail(mock_echo, mock_invalidate_cache):
 @mock.patch('transifex.common.console.Color.echo')
 def test_invalidate_cache_success(mock_echo, mock_invalidate_cache):
     mock_invalidate_cache.return_value = 200, {
-        'count': 5,
+        'data': {
+            'count': 5,
+        },
     }
 
     expected = Color.format(
@@ -64,7 +65,9 @@ def test_invalidate_cache_success(mock_echo, mock_invalidate_cache):
 @mock.patch('transifex.common.console.Color.echo')
 def test_purge_cache_success(mock_echo, mock_invalidate_cache):
     mock_invalidate_cache.return_value = 200, {
-        'count': 5,
+        'data': {
+            'count': 5,
+        }
     }
 
     expected = Color.format(

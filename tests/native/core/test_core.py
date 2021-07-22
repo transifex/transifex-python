@@ -339,12 +339,21 @@ class TestNative(object):
         )
         assert translation == u'Γεια σου, Jane!'
 
+    @patch('transifex.native.core.CDSHandler.get_push_status')
     @patch('transifex.native.core.CDSHandler.push_source_strings')
-    def test_push_strings_reaches_cds_handler(self, mock_push_strings):
+    def test_push_strings_reaches_cds_handler(
+        self, mock_push_strings, mock_get_status
+    ):
+        response = MagicMock()
+        response.status_code = 202
+        response.content = '{"data":{"links":{"job":"/job"}}}'
+        mock_push_strings.return_value = response
+
         response = MagicMock()
         response.status_code = 200
-        response.content = '{}'
-        mock_push_strings.return_value = response
+        response.content = '{"data":{"status":"completed","details":{}}}'
+        mock_get_status.return_value = response
+
         strings = [SourceString('a'), SourceString('b')]
         mytx = self._get_tx()
         mytx.push_source_strings(strings, False)
