@@ -1,6 +1,7 @@
 import time
 
 import transifex
+
 from .jsonapi import JsonApi
 from .jsonapi import Resource as JsonApiResource
 from .jsonapi.exceptions import JsonApiException

@@ -1,8 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
+from copy import deepcopy
+
 import requests
 import six
-from copy import deepcopy
 
 from .auth import BearerAuthentication
 from .compat import JSONDecodeError
