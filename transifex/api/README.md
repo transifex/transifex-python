@@ -81,14 +81,26 @@ common to all Transifex API resource types so you might as well get used to
 them. If the list fits into one response, using `all` instead of `list` doesn't
 have any penalties.
 
-If you want to find a specific organization, you can do something like:
+If you want to find a specific organization, you can use the 'slug' filter:
 
 ```python
-organization_dict = {
-    organization.slug: organization
-    for organization in transifex_api.Organization.all()
-}
-organization = organization_dict['my_org']
+organization = transifex_api.Organization.filter(slug="my_org")[0]
+# or
+organization = transifex_api.Organization.get(slug="my_org")
+```
+
+_(`get` does the same thing as `filter(...)[0]` but raises an exception if the
+number of results is not 1.)_
+
+Alternatively (if for example you don't know the slug but the name of the
+organization), you can search against all of them:
+
+```python
+organization = None
+for o in transifex_api.Organization.all():
+    if o.name == "My Org":
+        organization = o
+        break
 ```
 
 After you get an `Organization` instance, you can access its attributes:
@@ -104,32 +116,26 @@ To get a list of projects, do:
 projects = transifex_api.Project.filter(organization=organization)
 ```
 
+However, if you look at how a project is represented in the
+[API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects~1{project_id}/get),
+Organization objects have a `projects` relationship with a `related` links, so
+you can achieve the same thing with:
+
+```python
+projects = organization.fetch('projects')
+```
+
 If you look into the
 [API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects/get),
-you can see that:
-
-1. the `organization` filter is required
-2. A `slug` filter is also supported
-
-So, to find a specific project, you can do:
+you can see that a `slug` filter is also supported, so to find a specific
+project, you can do:
 
 ```python
-project = transifex_api.Project.filter(organization=organization, slug="my_project")[0]
+project = organization.fetch('projects').get(slug="my_project")
 ```
 
-Or you can use the shortcut:
-
-```python
-project = transifex_api.Project.get(organization=organization, slug="my_project")
-```
-
-`get` does the same thing as `filter(...)[0]` but raises an exception if the
-number of results is not 1.
-
-If you look at how a project is represented in the
-[API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects~1{project_id}/get),
-you will see that they have a `languages` relationship with a `related` link.
-This means that you can access a project's target languages with:
+Projects also have a `languages` relationship. This means that you can access a
+project's target languages with:
 
 ```python
 languages = project.fetch('languages')
@@ -143,34 +149,18 @@ items for strings that haven't been translated yet, setting their `strings`
 field will post a translation):
 
 ```python
-language_dict = {
-    language.code: language
-    for language in project.fetch('languages')
-}
-language = language_dict['el']
-
-resource_dict = {
-    resource.slug: resource
-    for resource in transifex_api.Resource.filter(project=project).all()
-}
-resource = resource_dict['my_resource']
-
+language = transifex_api.Language.get(code="el")
+resource = project.fetch('resources').get(slug="my_resource")
 translations = transifex_api.ResourceTranslation.\
     filter(resource=resource, language=language).\
     include('resource_string')
 translation = translations[0]
 ```
 
-Notes:
-
-1. We don't use the "dict trick" with projects but we do with organizations,
-   resources and languages because there is a `slug` filter for projects in the
-   API but there is not `slug` or `code` filter for the rest (yet). You should
-   consult the API documentation to find out which filters are available
-2. Appending a `.include` to a filter will prefetch a relationship. In the case
-   of ResourceTranslation, this will also fetch the source string information
-   for the "translation slot". Again, you should consult the API documentation
-   to see if including relationships is supported for a given API resource type
+_Appending a `.include` to a filter will pre-fetch a relationship. In the case
+of ResourceTranslation, this will also fetch the source string information for
+the "translation slot". Again, you should consult the API documentation to see
+if including relationships is supported for a given API resource type_
 
 In order to save a translation to the server, we use `.save`:
 
@@ -197,9 +187,9 @@ translation.save(strings={'other': source_string + " in greeek!!!"})
 Lets use projects, teams and project languages as examples:
 
 ```
-project = transifex_api.Project.get(...)
+project = transifex_api.Project.get(organization=..., slug="...")
 team_1 = project.fetch('team')
-team_2 = transifex_api.Team.filter(...)[0]
+team_2 = transifex_api.Team.get(slug="...")
 ```
 
 If we want to change the project's team from `team_1` to `team_2`, we have 2
