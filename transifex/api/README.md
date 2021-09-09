@@ -1011,7 +1011,6 @@ child = family_api.Child.create(attributes={'name': "Hercules"},
                                 relationships={'parent': {'data': {'type': "parents": 'id': "1"}}})
 ```
 
-
 This way, you can reuse a relationship from another object when creating,
 without having to fetch the relationship:
 
