@@ -1,7 +1,8 @@
 from __future__ import unicode_literals
 
-import click
 from transifex.native.rendering import StringRenderer
+
+from ._compat import input
 
 
 class Color:
@@ -45,13 +46,16 @@ class Color:
             print(Color.format(string)),
 
 
-def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=None):
+def prompt(prompt_msg, description=None, default=None, new_line=False,
+           vtype=None):
     """Prompt the user to enter a reply.
 
     :param str prompt_msg: the prompt message
-    :param basestr description: an optional description to show above the prompt message
+    :param basestr description: an optional description to show above the
+        prompt message
     :param basestr default: an optional default value
-    :param bool new_line: if True, an empty line will be printed before the prompt
+    :param bool new_line: if True, an empty line will be printed before the
+        prompt
     :param type vtype: the expected type of the input
     :return: the prompt object returned by Click
     :rtype: Any
@@ -63,7 +67,12 @@ def prompt(prompt_msg, description=None, default=None, new_line=False, vtype=Non
         Color.echo('[prompt]{description}[end]'.format(
             description=description))
 
-    return click.prompt(prompt_msg, default=default, type=(vtype or str))
+    result = input(prompt_msg)
+    if not result:
+        result = default
+    elif vtype is not None:
+        result = vtype(result)
+    return result
 
 
 def pluralized(one, other, cnt_value):
