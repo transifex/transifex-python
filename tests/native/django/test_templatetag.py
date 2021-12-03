@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 from django.template import Context, Template
 from django.utils import translation
-from transifex.common.utils import generate_key
+from transifex.common.utils import generate_hashed_key, generate_key
 from transifex.native import tx
 from transifex.native.django.templatetags.utils import get_icu_keys
 from transifex.native.rendering import SourceStringPolicy
@@ -395,13 +395,33 @@ def test_safe_and_escape_filter_on_block_ignored():
             '&lt;xml&gt;hello&lt;/xml&gt; &lt;xml&gt;world&lt;/xml&gt;')
 
 
-def test_translates():
+def test_translates_hashed_key():
+    hello_key = generate_hashed_key(string='hello', context=None)
+    tx._cache.update({'fr': (True, {hello_key: {'string': "bonjour"}})})
+    assert do_test('{% t "hello" %}', lang_code="fr") == "bonjour"
+
+
+def test_translates_source_key():
     hello_key = generate_key(string='hello', context=None)
     tx._cache.update({'fr': (True, {hello_key: {'string': "bonjour"}})})
     assert do_test('{% t "hello" %}', lang_code="fr") == "bonjour"
 
 
-def test_translation_missing():
+def test_translation_missing_hashed_key():
+    old_missing_policy = tx._missing_policy
+    tx._missing_policy = SourceStringPolicy()
+
+    tx._cache._translations_by_lang = {}
+    assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
+
+    hello_key = generate_hashed_key(string='hello', context=None)
+    tx._cache.update({'fr': (True, {hello_key: {'string': None}})})
+    assert do_test('{% t "hello" %}', lang_code="fr") == "hello"
+
+    tx._missing_policy = old_missing_policy
+
+
+def test_translation_missing_source_key():
     old_missing_policy = tx._missing_policy
     tx._missing_policy = SourceStringPolicy()
 

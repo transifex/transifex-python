@@ -29,17 +29,18 @@ Import = namedtuple('Import', ('module', 'function', 'node'))
 class SourceString(object):
     """A data object that contains information about a source string."""
 
-    def __init__(self, string, _context=None, **meta):
+    def __init__(self, string, _context=None, fkeygen=generate_key, **meta):
         """Constructor.
 
         :param unicode string: the source string  # check ./consts.py
         :param unicode _context: an optional context that accompanies
             the source string
+        :param func fkeygen: key generator function
         """
         custom_key = meta.get(KEY_KEY, None)
         self.key = (
             custom_key if custom_key
-            else generate_key(string=string, context=_context)
+            else fkeygen(string=string, context=_context)
         )
         self.string = string
         self.context = (
@@ -152,7 +153,7 @@ class Extractor(object):
                 ('.'.join(nodes[:-1]), nodes[-1])
             )
 
-    def extract_strings(self, src, origin=None):
+    def extract_strings(self, src, origin=None, fkeygen=generate_key):
         """Parse the given Python file string and extract translatable content.
 
         :param unicode src: a chunk of Python code
@@ -169,7 +170,7 @@ class Extractor(object):
             visitor = CallDetectionVisitor(self._functions)
             visitor.visit(tree)
             source_strings, linenos = parse_source_strings(
-                visitor.function_calls)
+                visitor.function_calls, fkeygen)
             # add file path to the string occurrence along with already
             # included number
         except Exception as e:
@@ -398,11 +399,12 @@ class CallDetectionVisitor(ast.NodeVisitor):
             self.generic_visit(node)
 
 
-def parse_source_strings(nodes):
+def parse_source_strings(nodes, fkeygen):
     """Parse the given function call nodes and return a list of SourceString
     objects.
 
     :param list nodes: a list of Node objects
+    :param func fkeygen: key generator function
 
     :return:  a tuple of the source_strings along with the corresponding linenos
     :rtype: tuple
@@ -425,7 +427,7 @@ def parse_source_strings(nodes):
             if context is None:
                 context = params.pop(KEY_CONTEXT, None)
 
-            strings.append(SourceString(string, context, **params))
+            strings.append(SourceString(string, context, fkeygen, **params))
         except Exception as e:
             raise AttributeError(
                 'Invalid module/function format on line {} col {}: {}'.format(

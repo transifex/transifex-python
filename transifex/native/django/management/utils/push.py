@@ -9,6 +9,7 @@ from django.conf import settings
 from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
 from transifex.common.console import Color
+from transifex.common.utils import generate_hashed_key, generate_key
 from transifex.native import tx
 from transifex.native.django.management.common import SourceStringCollection
 from transifex.native.django.management.utils.base import CommandMixin
@@ -69,6 +70,11 @@ class Push(CommandMixin):
             help=('Follows symlinks to directories when examining source code '
                   'and templates for translation strings.'),
         )
+        parser.add_argument(
+            '--key-generator', dest='key_generator', default='source',
+            choices=['source', 'hash'],
+            help=('Use "hash" or "source" based keys (default: source)'),
+        )
 
     def handle(self, *args, **options):
         self.verbose_output = options['verbose_output']
@@ -81,6 +87,7 @@ class Push(CommandMixin):
         self.without_tags_only = options['without_tags_only']
         self.dry_run = options['dry_run']
         self.no_wait = options['no_wait']
+        self.key_generator = options['key_generator']
         extensions = options['extensions']
         if self.domain == 'djangojs':
             exts = extensions if extensions else ['js']
@@ -206,6 +213,10 @@ class Push(CommandMixin):
         :return: a list of SourceString objects
         :rtype: list
         """
+        fkeygen = generate_key
+        if self.key_generator == 'hash':
+            fkeygen = generate_hashed_key
+
         self.verbose('Processing file %s in %s' % (
             translatable_file.file, translatable_file.dirpath
         ))
@@ -230,12 +241,17 @@ class Push(CommandMixin):
         # Python file
         if extension == '.py':
             return self.python_extractor.extract_strings(
-                force_text(src_data), translatable_file.path[2:]
+                force_text(src_data),
+                translatable_file.path[2:],
+                fkeygen
             )
 
         # Template file
         return extract_transifex_template_strings(
-            src_data, translatable_file.path[2:], encoding,
+            src_data,
+            translatable_file.path[2:],
+            encoding,
+            fkeygen
         )
 
     def _show_collect_results(self):
