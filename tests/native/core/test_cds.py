@@ -370,7 +370,7 @@ class TestCDSHandler(object):
             host=cds_host
         )
 
-        # test push no correct
+        # test push no content
         responses.add(
             responses.POST, cds_host + '/content/',
             status=200, json={'data': []}

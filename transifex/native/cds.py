@@ -200,6 +200,8 @@ class CDSHandler(object):
         cds_url = TRANSIFEX_CDS_URLS['PUSH_SOURCE_STRINGS']
 
         data = {k: v for k, v in [self._serialize(item) for item in strings]}
+        response = None
+
         try:
             response = requests.post(
                 self.host + cds_url,
@@ -231,6 +233,7 @@ class CDSHandler(object):
             raise Exception('You need to use `TRANSIFEX_SECRET` when polling '
                             'source content push')
 
+        response = None
         try:
             response = requests.get(
                 self.host + job_path,
@@ -263,6 +266,7 @@ class CDSHandler(object):
         cds_url = TRANSIFEX_CDS_URLS['PURGE_CACHE'] if purge else \
             TRANSIFEX_CDS_URLS['INVALIDATE_CACHE']
 
+        response = None
         try:
             response = requests.post(
                 self.host + cds_url,

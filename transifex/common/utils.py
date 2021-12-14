@@ -6,14 +6,31 @@ from hashlib import md5
 import pytz
 
 
-def generate_key(string=None, context=None, parsed=False, plurals=None):
+def generate_key(string=None, context=None):
     """Return a unique key based on the given source string and context.
 
     :param str string: An ICU string
-    :param dict plurals: A dictionary with pre-parsed plurals.
-        Should be like:
-            { 1: "Here is one dog",
-              5: "Here are many dogs"}
+    :param Union[unicode, list] context: an optional context that
+        accompanies the string
+    :return: a unique key
+    :rtype: str
+    """
+    if not string:
+        raise ValueError("You need to specify at least a `string`")
+
+    if context:  # pragma: no cover
+        if isinstance(context, list):
+            context = u','.join(context)
+
+        return ('::'.join([string, context]))
+
+    return string
+
+
+def generate_hashed_key(string=None, context=None):
+    """Return a unique key based on the given source string and context.
+
+    :param str string: An ICU string
     :param Union[unicode, list] context: an optional context that
         accompanies the string
     :return: a unique key
@@ -25,14 +42,10 @@ def generate_key(string=None, context=None, parsed=False, plurals=None):
         used for escaping)"""
         return plural.replace('\\', '\\\\').replace(':', '\:')
 
-    if not string and not plurals:
-        raise ValueError("You need to specify at least "
-                         "one of `string`, `plurals`")
-    if string and plurals:
-        raise ValueError("Cannot use both `string` and `plurals`")
+    if not string:
+        raise ValueError("You need to specify at least a `string`")
 
-    if not plurals:
-        _, plurals = parse_plurals(string)
+    _, plurals = parse_plurals(string)
 
     string_content = u':'.join(
         u'{}:{}'.format(rule, escape_plural(string))

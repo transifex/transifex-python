@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from mock import MagicMock, patch
-from transifex.common.utils import generate_key
+from mock import MagicMock, call, patch
+from transifex.common.utils import generate_hashed_key, generate_key
 from transifex.native.cache import MemoryCache
 from transifex.native.cds import TRANSIFEX_CDS_HOST
 from transifex.native.core import NotInitializedError, TxNative
@@ -104,8 +104,10 @@ class TestNative(object):
         mock_cache.return_value = None
         mytx = self._get_tx()
         mytx.translate('My String', 'en', is_source=False)
-        mock_cache.assert_called_once_with(
-            generate_key(string='My String'), 'en')
+        mock_cache.assert_has_calls([
+            call(generate_key(string='My String'), 'en'),
+            call(generate_hashed_key(string='My String'), 'en')
+        ])
         mock_render.assert_called_once_with(
             source_string='My String',
             string_to_render=None,
@@ -215,12 +217,17 @@ class TestNative(object):
         # Populate the cache with two strings in the source language,
         # essentially providing custom translations for the source strings
         cache = MemoryCache()
+
+        # Source based key
         source_string1 = u'{cnt, plural, one {{cnt} duck} other {{cnt} ducks}}'
         updated_string1 = u'{???, plural, one {# goose} other {# geese}}'
         key1 = generate_key(source_string1)
+
+        # Hash based key
         source_string2 = u'Hello {username}'
         updated_string2 = u'Hello to you, {username}!'
-        key2 = generate_key(source_string2)
+        key2 = generate_hashed_key(source_string2)
+
         data = {
             'en': (
                 True, {

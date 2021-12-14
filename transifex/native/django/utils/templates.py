@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 from django.template.base import Lexer, Parser
 from django.utils.encoding import force_text
 from transifex.common._compat import string_types
+from transifex.common.utils import generate_key
+from transifex.native.consts import KEY_CONTEXT
 from transifex.native.django.compat import TOKEN_BLOCK
 from transifex.native.django.templatetags.transifex import do_t
 from transifex.native.parsing import SourceString
@@ -41,13 +43,15 @@ def find_filter_identity(filter_name):
     return identity
 
 
-def tnode_to_source_string(tnode):
+def tnode_to_source_string(tnode, fkeygen):
     """ Convert a parsed TNode to a SourceString instance.
 
         TNode is what the template tag implementation will return having
         processed the contents from the template. A SourceString is a data
         object which exposes information in a useful way for pushing to
         transifex.
+
+        :param func fkeygen: key generator function
     """
     if not isinstance(tnode.source_string.var, string_types):
         return None
@@ -59,11 +63,14 @@ def tnode_to_source_string(tnode):
             meta[key] = value.var
         elif getattr(value.var, 'literal', None) is not None:
             meta[key] = value.var.literal
-    _context = meta.pop('_context', None)
-    return SourceString(tnode.source_string.var, _context, **meta)
+    _context = meta.pop(KEY_CONTEXT, None)
+
+    return SourceString(
+        tnode.source_string.var, _context, fkeygen, **meta)
 
 
-def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
+def extract_transifex_template_strings(
+        src, origin=None, charset='utf-8', fkeygen=generate_key):
     """Parse the given template and extract translatable content
     based on the syntax supported by Transifex Native.
 
@@ -73,6 +80,7 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
     :param str origin: an optional context for the filename of the source,
         e.g. the file name
     :param str charset: the character set to use
+    :param func fkeygen: key generator function
     :return: a list of SourceString objects
     :rtype: list
     """
@@ -91,7 +99,7 @@ def extract_transifex_template_strings(src, origin=None, charset='utf-8'):
         if (token.token_type == TOKEN_BLOCK and
                 token.split_contents()[0] in ('t', 'ut')):
             tnode = do_t(parser, token)
-            source_string = tnode_to_source_string(tnode)
+            source_string = tnode_to_source_string(tnode, fkeygen)
             if source_string is None:
                 continue
             if token.lineno and origin:

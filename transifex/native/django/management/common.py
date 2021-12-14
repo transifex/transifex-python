@@ -1,7 +1,7 @@
 import os
 from functools import total_ordering
 
-from transifex.common.utils import generate_key
+from transifex.common.utils import generate_hashed_key
 
 NO_LOCALE_DIR = object()
 
@@ -44,7 +44,7 @@ class SourceStringCollection(object):
 
         :param SourceString source_string: the object to add
         """
-        key = generate_key(
+        key = generate_hashed_key(
             string=source_string.string, context=source_string.context
         )
         if key not in self.strings:
