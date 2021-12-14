@@ -7,6 +7,12 @@ Transifex Python Toolkit is a collection of tools that allow you to easily local
 
 This project adheres to the Contributor Covenant [code of conduct](/CODE_OF_CONDUCT.md). To contribute to Transifex Python Toolkit, please check out the [contribution guidelines](/CONTRIBUTING.md).
 
+# Upgrade to v2
+
+If you are upgrading from the `1.x.x` version, please read this [migration guide](https://github.com/transifex/transifex-python/blob/HEAD/UPGRADE_TO_V2.md), as there are breaking changes in place.
+
+# Quick starting guide
+
 1. Install toolkit in your code `$ pip install transifex-python`
 2. Add a provided TOKEN and SECRET in your config, connecting your application with a Transifex project
 3. Add internationalization commands in your code
