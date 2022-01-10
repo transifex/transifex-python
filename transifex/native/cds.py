@@ -55,7 +55,7 @@ class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
     def __init__(self, configured_languages, token, secret=None,
-                 host=TRANSIFEX_CDS_HOST):
+                 host=TRANSIFEX_CDS_HOST, fetch_all_langs=False):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
@@ -64,6 +64,7 @@ class CDSHandler(object):
         :param str host: the host of the Content Delivery Service
         """
         self.configured_language_codes = configured_languages
+        self.fetch_all_langs = fetch_all_langs
         self.token = token
         self.secret = secret
         self.host = host or TRANSIFEX_CDS_HOST
@@ -133,8 +134,14 @@ class CDSHandler(object):
         else:
             languages = [language_code]
 
-        for language_code in set(languages) & \
-                set(self.configured_language_codes):
+        # All remote languages
+        languages = set(languages)
+
+        # Scope down to only languages appearing in LANGUAGES setting
+        if not self.fetch_all_langs:
+            languages &= set(self.configured_language_codes)
+
+        for language_code in languages:
 
             try:
                 response = self.retry_get_request(

@@ -40,6 +40,7 @@ class TxNative(object):
     def init(
         self, languages, token, secret=None, cds_host=None,
         missing_policy=None, error_policy=None, cache=None,
+        fetch_all_langs=False,
     ):
         """Create an instance of the core framework class.
 
@@ -57,13 +58,15 @@ class TxNative(object):
         :param AbstractErrorPolicy error_policy: an optional policy
             to determine how to handle rendering errors
         :param AbstractCache cache: an optional cache
+        :param bool fetch_all_langs: force pull all remote languages
         """
         self._languages = languages
         self._cache = cache or MemoryCache()
         self._missing_policy = missing_policy or SourceStringPolicy()
         self._error_policy = error_policy or SourceStringErrorPolicy()
         self._cds_handler = CDSHandler(
-            self._languages, token, secret=secret, host=cds_host
+            self._languages, token, secret=secret, host=cds_host,
+            fetch_all_langs=fetch_all_langs,
         )
         self.initialized = True
 
