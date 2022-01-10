@@ -5,6 +5,7 @@ def init(
     token, languages, secret=None,
     cds_host=None, missing_policy=None,
     error_policy=None, cache=None,
+    fetch_all_langs=False,
 ):
     """Initialize the framework.
 
@@ -18,7 +19,8 @@ def init(
         for returning strings when a translation is missing
     :param AbstractErrorPolicy error_policy: an optional policy to use
         for defining how to handle translation rendering errors
-        :param AbstractCache cache: an optional cache
+    :param AbstractCache cache: an optional cache
+    :param bool fetch_all_langs: force pull all remote languages
     """
     if not tx.initialized:
         tx.init(
@@ -29,6 +31,7 @@ def init(
             missing_policy=missing_policy,
             error_policy=error_policy,
             cache=cache,
+            fetch_all_langs=fetch_all_langs,
         )
 
 

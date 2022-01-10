@@ -11,3 +11,6 @@ SKIP_TRANSLATIONS_SYNC = getattr(settings, 'SKIP_TRANSLATIONS_SYNC', False)
 TRANSIFEX_SYNC_INTERVAL = getattr(settings,
                                   'TRANSIFEX_SYNC_INTERVAL',
                                   30*60)
+TRANSIFEX_FETCH_ALL_LANGUAGES = getattr(settings,
+                                        'TRANSIFEX_FETCH_ALL_LANGUAGES',
+                                        False)
