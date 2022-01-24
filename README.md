@@ -38,9 +38,9 @@ If you are upgrading from the `1.x.x` version, please read this [migration guide
 5. When translations are added in your Transifex project are automatically made available
 
 To learn more about using Transifex Python toolkit check:
-* [Quickstart guide for Django web application](https://docs.transifex.com/django-sdk/quickstart-1?utm_campaign=tx-native&utm_source=github&utm_medium=link)
-* [Quickstart guide for Python application](https://docs.transifex.com/python-sdk/quickstart?utm_campaign=tx-native&utm_source=github&utm_medium=link)
-* For a general overview visit [Transifex Native overview](https://docs.transifex.com/transifex-native-sdk-overview/introduction?utm_campaign=tx-native&utm_source=github&utm_medium=link)
+* [Quickstart guide for Django web application](https://developers.transifex.com/docs/django-sdk?utm_campaign=tx-native&utm_source=github&utm_medium=link)
+* [Quickstart guide for Python application](https://developers.transifex.com/docs/python-sdk?utm_campaign=tx-native&utm_source=github&utm_medium=link)
+* For a general overview visit [Transifex Native overview](https://developers.transifex.com/docs/native?utm_campaign=tx-native&utm_source=github&utm_medium=link)
 * For some common questions & answers check our [Transifex Native community](https://community.transifex.com/c/transifex-native/17)
 
 # License
