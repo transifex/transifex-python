@@ -198,5 +198,10 @@ class I18nFormat(JsonApiResource):
     TYPE = "i18n_formats"
 
 
+@TransifexApi.register
+class ResourceStringsRevision(JsonApiResource):
+    TYPE = "resource_strings_revisions"
+
+
 # This is our global object
 transifex_api = TransifexApi()
