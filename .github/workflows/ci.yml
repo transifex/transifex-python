@@ -19,17 +19,6 @@ jobs:
           docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
           docker run --rm native sh -c 'pre-commit run --files $(git ls-files transifex* tests*)'
 
-  python2_7-django1_11-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Test py2.7-dj1.11
-        run: |
-          docker build --build-arg PYTHON_VERSION=2.7 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
-        env:
-          CODECOV_TOKEN: ${{secrets.codecov_token}}
-
   python3_6-django1_11-tests:
     runs-on: ubuntu-latest
     steps:
@@ -73,7 +62,7 @@ jobs:
 
   publish-pypi:
     needs: [
-        quality-checks, python2_7-django1_11-tests,python3_6-django1_11-tests,
+        quality-checks, python3_6-django1_11-tests,
         python3_6-django2_0-tests, python3_8-django2_2-tests, python3_9-django3_2-tests
     ]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
