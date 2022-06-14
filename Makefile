@@ -3,13 +3,6 @@ FILES=$(shell git ls-files transifex* tests*)
 
 build:
 	DOCKER_BUILDKIT=1 docker build \
-		--no-cache \
-		--progress=plain \
-		--build-arg PYTHON_VERSION=2.7 \
-		--build-arg DJANGO_VERSION=1.11 \
-		-t native:2.7-1.11-latest \
-		-f Dockerfile-tmpl .
-	DOCKER_BUILDKIT=1 docker build \
 	        --no-cache \
 	        --progress=plain \
 	        --build-arg PYTHON_VERSION=3.6 \
@@ -44,10 +37,7 @@ code_quality:
 	    sh -c 'pre-commit run --files $(FILES)'
 
 localtests:
-	# Django 1.11 (Python 2.7 & 3.6)
-	docker run -v $(CUR_PATH):/usr/app \
-	    --rm native:2.7-1.11-latest\
-	    pytest --cov --cov-append --cov-report=term-missing
+	# Django 1.11 (3.6)
 	docker run -v $(CUR_PATH):/usr/app \
 	    --rm native:3.6-1.11-latest\
 	    pytest --cov --cov-append --cov-report=term-missing

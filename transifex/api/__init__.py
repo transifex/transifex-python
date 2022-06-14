@@ -8,22 +8,26 @@ from .jsonapi.exceptions import JsonApiException
 
 
 class DownloadMixin(object):
-    """ Mixin that offers a download method for Transifex APIv3. """
+    """Mixin that offers a download method for Transifex APIv3."""
 
     @classmethod
     def download(cls, interval=5, *args, **kwargs):
-        """ Create and poll an async download. Return the download URL when
-            done.
+        """Create and poll an async download. Return the download URL when
+        done.
         """
 
         download = cls.create(*args, **kwargs)
         while True:
-            if hasattr(download, 'errors') and len(download.errors) > 0:
-                errors = [{'code': e['code'],
-                           'detail': e['detail'],
-                           'title': e['detail'],
-                           'status': '409'}
-                          for e in download.errors]
+            if hasattr(download, "errors") and len(download.errors) > 0:
+                errors = [
+                    {
+                        "code": e["code"],
+                        "detail": e["detail"],
+                        "title": e["detail"],
+                        "status": "409",
+                    }
+                    for e in download.errors
+                ]
                 raise JsonApiException(409, errors)
             if download.redirect:
                 return download.redirect
@@ -31,10 +35,52 @@ class DownloadMixin(object):
             download.reload()
 
 
+class UploadMixin(object):
+    @classmethod
+    def upload(cls, content, interval=5, **data):
+        """Upload content with multipart/form-data.
+
+        :param content: A string or file-like object that will be sent as a
+                        file upload
+        :param interval: How often (in seconds) to poll for the completion
+                         of the upload job
+        :param data: Data that will be sent as (non file) form fields
+        """
+        for key, value in list(data.items()):
+            if isinstance(value, JsonApiResource):
+                data[key] = value.id
+
+        upload = cls.create_with_form(data=data, files={"content": content})
+
+        while True:
+            if hasattr(upload, "errors") and len(upload.errors) > 0:
+                errors = [
+                    {
+                        "code": e["code"],
+                        "detail": e["detail"],
+                        "title": e["detail"],
+                        "status": "409",
+                    }
+                    for e in upload.errors
+                ]
+                raise JsonApiException(409, errors)
+
+            if upload.redirect:
+                return upload.follow()
+            elif (
+                hasattr(upload, "attributes")
+                and upload.attributes.get("status") == "succeeded"
+            ):
+                return upload.attributes.get("details")
+
+            time.sleep(interval)
+            upload.reload()
+
+
 class TransifexApi(JsonApi):
     HOST = "https://rest.api.transifex.com"
     HEADERS = {
-        'User-Agent': "Transifex-API-SDK/{}".format(transifex.__version__),
+        "User-Agent": "Transifex-API-SDK/{}".format(transifex.__version__),
     }
 
 
@@ -66,9 +112,7 @@ class Resource(JsonApiResource):
         count = 0
         # Instead of filter, if Resource had a plural relationship to
         # ResourceString, we could do `self.fetch('resource_strings')`
-        for page in list(self.API.ResourceString.
-                         filter(resource=self).
-                         all_pages()):
+        for page in list(self.API.ResourceString.filter(resource=self).all_pages()):
             count += len(page)
             self.API.ResourceString.bulk_delete(page)
         return count
@@ -82,90 +126,22 @@ class ResourceString(JsonApiResource):
 @TransifexApi.register
 class ResourceTranslation(JsonApiResource):
     TYPE = "resource_translations"
-    EDITABLE = ["strings", 'reviewed', "proofread"]
+    EDITABLE = ["strings", "reviewed", "proofread"]
 
 
 @TransifexApi.register
-class ResourceStringsAsyncUpload(JsonApiResource):
+class ResourceStringsAsyncUpload(JsonApiResource, UploadMixin):
     TYPE = "resource_strings_async_uploads"
 
-    @classmethod
-    def upload(cls, resource, content, interval=5):
-        """ Upload source content with multipart/form-data.
-
-            :param resource: A (transifex) Resource instance or ID
-            :param content: A string or file-like object
-            :param interval: How often (in seconds) to poll for the completion
-                             of the upload job
-        """
-
-        if isinstance(resource, JsonApiResource):
-            resource = resource.id
-
-        upload = cls.create_with_form(data={'resource': resource},
-                                      files={'content': content})
-
-        while True:
-            if hasattr(upload, 'errors') and len(upload.errors) > 0:
-                errors = [{
-                    'code': e['code'],
-                    'detail': e['detail'],
-                    'title': e['detail'],
-                    'status': '409'} for e in upload.errors]
-                raise JsonApiException(409, errors)
-
-            if upload.redirect:
-                return upload.follow()
-            if (hasattr(upload, 'attributes')
-                    and upload.attributes.get("details")):
-                return upload.attributes.get("details")
-
-            time.sleep(interval)
-            upload.reload()
-
 
 @TransifexApi.register
-class ResourceTranslationsAsyncUpload(JsonApiResource):
+class ResourceTranslationsAsyncUpload(JsonApiResource, UploadMixin):
     TYPE = "resource_translations_async_uploads"
 
     @classmethod
-    def upload(cls, resource, content, language, interval=5,
-               file_type='default'):
-        """ Upload translation content with multipart/form-data.
-
-            :param resource: A (transifex) Resource instance or ID
-            :param content: A string or file-like object
-            :param language: A (transifex) Language instance or ID
-            :param interval: How often (in seconds) to poll for the completion
-                             of the upload job
-            :param file_type: The content file type
-        """
-
-        if isinstance(resource, JsonApiResource):
-            resource = resource.id
-
-        upload = cls.create_with_form(data={'resource': resource,
-                                            'language': language,
-                                            'file_type': file_type},
-                                      files={'content': content})
-
-        while True:
-            if hasattr(upload, 'errors') and len(upload.errors) > 0:
-                errors = [{
-                    'code': e['code'],
-                    'detail': e['detail'],
-                    'title': e['detail'],
-                    'status': '409'} for e in upload.errors]
-                raise JsonApiException(409, errors)
-
-            if upload.redirect:
-                return upload.follow()
-            if (hasattr(upload, 'attributes')
-                    and upload.attributes.get("details")):
-                return upload.attributes.get("details")
-
-            time.sleep(interval)
-            upload.reload()
+    def upload(cls, content, interval=5, **data):
+        data.setdefault("file_type", "default")
+        return super().upload(content, interval, **data)
 
 
 @TransifexApi.register
@@ -201,6 +177,56 @@ class I18nFormat(JsonApiResource):
 @TransifexApi.register
 class ResourceStringsRevision(JsonApiResource):
     TYPE = "resource_strings_revisions"
+
+
+@TransifexApi.register
+class ContextScreenshotMap(JsonApiResource):
+    TYPE = "context_screenshot_maps"
+
+
+@TransifexApi.register
+class ContextScreenshot(JsonApiResource):
+    TYPE = "context_screenshots"
+
+
+@TransifexApi.register
+class OrganizationActivityReportsAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "organization_activity_reports_async_downloads"
+
+
+@TransifexApi.register
+class ProjectActivityReportsAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "project_activity_reports_async_downloads"
+
+
+@TransifexApi.register
+class ResourceActivityReportsAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "resource_activity_reports_async_downloads"
+
+
+@TransifexApi.register
+class ProjectWebhook(JsonApiResource):
+    TYPE = "project_webhooks"
+
+
+@TransifexApi.register
+class ResourceStringComment(JsonApiResource):
+    TYPE = "resource_string_comments"
+
+
+@TransifexApi.register
+class TeamActivityReportsAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "team_activity_reports_async_downloads"
+
+
+@TransifexApi.register
+class TmxAsyncDownload(JsonApiResource, DownloadMixin):
+    TYPE = "tmx_async_downloads"
+
+
+@TransifexApi.register
+class TmxAsyncUpload(JsonApiResource, UploadMixin):
+    TYPE = "tmx_async_uploads"
 
 
 # This is our global object
