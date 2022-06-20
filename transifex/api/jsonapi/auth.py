@@ -8,7 +8,7 @@ class BearerAuthentication(object):
         self.api_key = api_key
 
     def __call__(self):
-        return {'Authorization': "Bearer {}".format(self.api_key)}
+        return {"Authorization": "Bearer {}".format(self.api_key)}
 
 
 class ULFAuthentication(object):
@@ -18,25 +18,23 @@ class ULFAuthentication(object):
 
     def __call__(self):
         if self.secret is None:
-            return {'Authorization': "ULF {}".format(self.public)}
+            return {"Authorization": "ULF {}".format(self.public)}
         else:
-            return {'Authorization': ("ULF {}:{}".
-                                      format(self.public, self.secret))}
+            return {"Authorization": ("ULF {}:{}".format(self.public, self.secret))}
 
 
 class JWTAuthentication(object):
     """
-        Usage:
+    Usage:
 
-            >>> from jsonapi import setup
-            >>> setup(host="https://some.host.com",
-            ...       auth=JWTAuthentication(payload={'username': "username"},
-            ...                              secret="SHARED_SECRET",
-            ...                              duration=300))
+        >>> from jsonapi import setup
+        >>> setup(host="https://some.host.com",
+        ...       auth=JWTAuthentication(payload={'username': "username"},
+        ...                              secret="SHARED_SECRET",
+        ...                              duration=300))
     """
 
-    def __init__(self, payload, secret, duration, algorithm="HS256",
-                 get_now=None):
+    def __init__(self, payload, secret, duration, algorithm="HS256", get_now=None):
         self.payload = dict(payload)
         self.secret = secret
         self.duration = duration
@@ -53,8 +51,8 @@ class JWTAuthentication(object):
 
         exp = self.get_now() + datetime.timedelta(seconds=self.duration)
         payload = dict(self.payload)
-        payload['exp'] = exp
-        token = jwt.encode(payload=payload,
-                           secret=self.secret,
-                           algorithm=self.algorithm)
-        return {'Authorization': "JWT {}".format(token)}
+        payload["exp"] = exp
+        token = jwt.encode(
+            payload=payload, secret=self.secret, algorithm=self.algorithm
+        )
+        return {"Authorization": "JWT {}".format(token)}

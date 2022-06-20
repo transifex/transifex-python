@@ -23,6 +23,7 @@ except AttributeError:
     pass
 try:
     import simplejson
+
     JSONDecodeError.append(simplejson.JSONDecodeError)
 except ImportError:
     pass

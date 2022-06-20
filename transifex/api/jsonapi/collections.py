@@ -12,8 +12,10 @@ class Collection(abc.MutableSequence):
         parsed = urlparse(url)
         path, query = parsed.path, parsed.query
         query_params = parse_qs(query)
-        query_params = {key: value[0] if len(value) == 1 else value
-                        for key, value in list(query_params.items())}
+        query_params = {
+            key: value[0] if len(value) == 1 else value
+            for key, value in list(query_params.items())
+        }
 
         url = path
         params.update(query_params)
@@ -28,7 +30,7 @@ class Collection(abc.MutableSequence):
 
     @classmethod
     def from_data(cls, API, response_body):
-        result = cls(API, '')
+        result = cls(API, "")
         result._evaluate(response_body)
         return result
 
@@ -53,30 +55,28 @@ class Collection(abc.MutableSequence):
             return
 
         if response_body is None:
-            response_body = self.API.request('get', self._url,
-                                             params=self._params)
+            response_body = self.API.request("get", self._url, params=self._params)
         included = {}
-        if 'included' in response_body:
-            included = {(item['type'], item['id']): item
-                        for item in response_body['included']}
+        if "included" in response_body:
+            included = {
+                (item["type"], item["id"]): item for item in response_body["included"]
+            }
 
         self._data = []
-        for item in response_body['data']:
+        for item in response_body["data"]:
             related = {}
-            for (name, relationship) in item.get('relationships', {}).items():
-                if relationship is None or 'data' not in relationship:
+            for (name, relationship) in item.get("relationships", {}).items():
+                if relationship is None or "data" not in relationship:
                     continue
-                key = (relationship['data']['type'],
-                       relationship['data']['id'])
+                key = (relationship["data"]["type"], relationship["data"]["id"])
                 if key in included:
                     related[name] = self.API.new(included[key])
-            relationships = item.pop('relationships', {})
+            relationships = item.pop("relationships", {})
             relationships.update(related)
-            self._data.append(self.API.new(relationships=relationships,
-                                           **item))
+            self._data.append(self.API.new(relationships=relationships, **item))
 
-        self._next_url = response_body.get('links', {}).get('next')
-        self._previous_url = response_body.get('links', {}).get('previous')
+        self._next_url = response_body.get("links", {}).get("next")
+        self._previous_url = response_body.get("links", {}).get("previous")
 
     # Make it look like a list
     def __getitem__(self, index):
@@ -100,21 +100,21 @@ class Collection(abc.MutableSequence):
     def to_dict(self):
         self_url = self._url
         if self._params:
-            self_url += ('?' +
-                         '&'.join(("{}={}".format(key, value)
-                                   for key, value in self._params.items())))
+            self_url += "?" + "&".join(
+                ("{}={}".format(key, value) for key, value in self._params.items())
+            )
 
-        links = {'self': self_url}
+        links = {"self": self_url}
         if self.has_next():
-            links['next'] = self.next_url()
+            links["next"] = self.next_url()
         else:
-            links['next'] = None
+            links["next"] = None
         if self.has_previous():
-            links['previous'] = self.previous_url()
+            links["previous"] = self.previous_url()
         else:
-            links['previous'] = None
+            links["previous"] = None
 
-        return {'data': [item.to_dict() for item in self.data], 'links': links}
+        return {"data": [item.to_dict() for item in self.data], "links": links}
 
     # Pagination
     def has_next(self):
@@ -149,8 +149,7 @@ class Collection(abc.MutableSequence):
         params = dict(self._params)
 
         for key, value in filters.items():
-            key = "filter" + ''.join(("[{}]".format(part)
-                                      for part in key.split('__')))
+            key = "filter" + "".join(("[{}]".format(part) for part in key.split("__")))
             if isinstance(value, Resource):
                 value = value.id
 
@@ -162,26 +161,28 @@ class Collection(abc.MutableSequence):
         params = dict(self._params)
 
         if len(args) == 1 and not kwargs:
-            params['page'] = args[0]
+            params["page"] = args[0]
         elif len(args) == 0 and kwargs:
             for key, value in kwargs.items():
-                params['page[{}]'.format(key)] = value
+                params["page[{}]".format(key)] = value
         else:
-            raise ValueError("Either one positional or keyword arguments "
-                             "accepted for pagination")
+            raise ValueError(
+                "Either one positional or keyword arguments " "accepted for pagination"
+            )
 
         return self.__class__(self.API, self._url, params)
 
     def _param_method(param_name):
         def _method(self, *fields):
             params = dict(self._params)
-            params[param_name] = ','.join(fields)
+            params[param_name] = ",".join(fields)
             return self.__class__(self.API, self._url, params)
+
         return _method
 
-    include = _param_method('include')
-    sort = _param_method('sort')
-    fields = _param_method('fields')
+    include = _param_method("include")
+    sort = _param_method("sort")
+    fields = _param_method("fields")
 
     def extra(self, **kwargs):
         params = dict(self._params)
