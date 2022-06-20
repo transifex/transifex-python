@@ -5,19 +5,9 @@ from copy import deepcopy
 import requests
 
 from .collections import Collection
-from .utils import (
-    has_data,
-    has_links,
-    is_collection,
-    is_dict,
-    is_fetched,
-    is_list,
-    is_null,
-    is_related,
-    is_related_list,
-    is_resource,
-    is_resource_identifier,
-)
+from .utils import (has_data, has_links, is_collection, is_dict, is_fetched,
+                    is_list, is_null, is_related, is_related_list, is_resource,
+                    is_resource_identifier)
 
 
 class Resource(object):
@@ -121,7 +111,8 @@ class Resource(object):
                     ]
                     self.set_related(relationship_name, new_items)
                 else:  # Singular
-                    key = (relationship["data"]["type"], relationship["data"]["id"])
+                    key = (relationship["data"]["type"],
+                           relationship["data"]["id"])
                     if key in included:
                         self.set_related(relationship_name, included[key])
 
@@ -162,7 +153,8 @@ class Resource(object):
                 self.relationships[key] = value
             else:
                 raise ValueError(
-                    "Invalid type '{}' for relationship '{}'".format(value, key)
+                    "Invalid type '{}' for relationship '{}'".format(
+                        value, key)
                 )
 
     def set_related(self, key, value):
@@ -384,7 +376,8 @@ class Resource(object):
             else:
                 # Plural relationship
                 url = relationship.get("links", {}).get(
-                    "related", "/{}/{}/{}".format(self.TYPE, self.id, relationship_name)
+                    "related", "/{}/{}/{}".format(self.TYPE,
+                                                  self.id, relationship_name)
                 )
                 self.related[relationship_name] = Collection(self.API, url)
 
@@ -466,7 +459,8 @@ class Resource(object):
         if editable_fields is not None:
             for field in editable_fields:
                 if field in self.attributes:
-                    result.setdefault("attributes", {})[field] = self.attributes[field]
+                    result.setdefault("attributes", {})[
+                        field] = self.attributes[field]
                 elif field in self.relationships:
                     result.setdefault("relationships", {})[field] = self.relationships[
                         field
@@ -535,7 +529,8 @@ class Resource(object):
 
         if type is None and cls.TYPE is not None:
             type = cls.TYPE
-        response_body = cls.API.request("post", cls.get_collection_url(), **kwargs)
+        response_body = cls.API.request(
+            "post", cls.get_collection_url(), **kwargs)
         return cls.API.new(response_body)
 
     def follow(self):
@@ -820,14 +815,16 @@ class Resource(object):
                 except ValueError:
                     id, attributes = item
                     relationships = None
-                item = cls(id=id, attributes=attributes, relationships=relationships)
+                item = cls(id=id, attributes=attributes,
+                           relationships=relationships)
             else:
                 item = cls.as_resource(item)
                 if not isinstance(item, Resource):
                     item = cls(id=item)
 
             if item.id is None:
-                raise ValueError("'id' not supplied as part of an update " "operation")
+                raise ValueError(
+                    "'id' not supplied as part of an update " "operation")
 
             attributes, relationships = item.attributes, item.relationships
             if fields:

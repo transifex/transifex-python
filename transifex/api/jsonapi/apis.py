@@ -107,7 +107,8 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
         for base_class in self.__class__.registry:
             # Dynamically create a subclass adding 'self' (the API connection
             # instance) as a class variable to it
-            child_class = type_(base_class.__name__, (base_class,), {"API": self})
+            child_class = type_(base_class.__name__,
+                                (base_class,), {"API": self})
 
             # Lookup the new class by it's name or its TYPE class attribute
             setattr(self, base_class.TYPE, child_class)
@@ -193,7 +194,8 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
 
         if not response.ok:
             try:
-                exc = JsonApiException(response.status_code, response.json()["errors"])
+                exc = JsonApiException(
+                    response.status_code, response.json()["errors"])
             except Exception:
                 response.raise_for_status()
             else:
