@@ -83,6 +83,61 @@ class TransifexApi(JsonApi):
         "User-Agent": "Transifex-API-SDK/{}".format(transifex.__version__),
     }
 
+    # Auto-completion support
+    Organization: JsonApiResource
+    Team: JsonApiResource
+    Project: JsonApiResource
+    Language: JsonApiResource
+    Resource: JsonApiResource
+    ResourceString: JsonApiResource
+    ResourceTranslation: JsonApiResource
+    ResourceStringsAsyncUpload: JsonApiResource
+    ResourceTranslationsAsyncUpload: JsonApiResource
+    User: JsonApiResource
+    TeamMembership: JsonApiResource
+    ResourceLanguageStats: JsonApiResource
+    ResourceStringsAsyncDownload: JsonApiResource
+    ResourceTranslationsAsyncDownload: JsonApiResource
+    I18nFormat: JsonApiResource
+    ResourceStringsRevision: JsonApiResource
+    ContextScreenshotMap: JsonApiResource
+    ContextScreenshot: JsonApiResource
+    OrganizationActivityReportsAsyncDownload: JsonApiResource
+    ProjectActivityReportsAsyncDownload: JsonApiResource
+    ResourceActivityReportsAsyncDownload: JsonApiResource
+    ProjectWebhook: JsonApiResource
+    ResourceStringComment: JsonApiResource
+    TeamActivityReportsAsyncDownload: JsonApiResource
+    TmxAsyncDownload: JsonApiResource
+    TmxAsyncUpload: JsonApiResource
+
+    organizations: JsonApiResource
+    teams: JsonApiResource
+    projects: JsonApiResource
+    languages: JsonApiResource
+    resources: JsonApiResource
+    resource_strings: JsonApiResource
+    resource_translations: JsonApiResource
+    resource_strings_async_uploads: JsonApiResource
+    resource_translations_async_uploads: JsonApiResource
+    users: JsonApiResource
+    team_memberships: JsonApiResource
+    resource_language_stats: JsonApiResource
+    resource_strings_async_downloads: JsonApiResource
+    resource_translations_async_downloads: JsonApiResource
+    i18n_formats: JsonApiResource
+    resource_strings_revisions: JsonApiResource
+    context_screenshot_maps: JsonApiResource
+    context_screenshots: JsonApiResource
+    organization_activity_reports_async_downloads: JsonApiResource
+    project_activity_reports_async_downloads: JsonApiResource
+    resource_activity_reports_async_downloads: JsonApiResource
+    project_webhooks: JsonApiResource
+    resource_string_comments: JsonApiResource
+    team_activity_reports_async_downloads: JsonApiResource
+    tmx_async_downloads: JsonApiResource
+    tmx_async_uploads: JsonApiResource
+
 
 @TransifexApi.register
 class Organization(JsonApiResource):

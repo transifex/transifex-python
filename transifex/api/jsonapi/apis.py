@@ -103,15 +103,17 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
         """
 
         self.type_registry = {}
-        self.class_registry = {}
 
         for base_class in self.__class__.registry:
             # Dynamically create a subclass adding 'self' (the API connection
             # instance) as a class variable to it
             child_class = type_(base_class.__name__, (base_class,), {"API": self})
+
             # Lookup the new class by it's name or its TYPE class attribute
+            setattr(self, base_class.TYPE, child_class)
+            setattr(self, base_class.__name__, child_class)
+
             self.type_registry[base_class.TYPE] = child_class
-            self.class_registry[base_class.__name__] = child_class
 
         self.host = self.HOST
         if self.HEADERS is None:
@@ -144,32 +146,6 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
 
         cls.registry.append(klass)
         return klass
-
-    def __getattr__(self, attr):
-        """Access a registered API resource class. A class name or API
-        resource type can be used.
-
-            >>> class FooApi(JsonApi):
-            ...     HOST = "https://api.foo.com"
-
-            >>> @FooApi.register
-            ... class Foo(Resource):
-            ...     TYPE = "foos"
-
-            >>> foo_api = FooApi()
-
-            >>> foo_api.Foo.list()
-            >>> # or
-            >>> foo_api.foos.list()
-        """
-
-        try:
-            return self.class_registry[attr]
-        except KeyError:
-            try:
-                return self.type_registry[attr]
-            except KeyError:
-                raise AttributeError(attr)
 
     #                 Required args
     def request(
