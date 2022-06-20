@@ -26,8 +26,9 @@ def reset_setup():
 
 
 def test_registries():
-    assert issubclass(test_api.type_registry['globaltests'], GlobalTest)
-    assert issubclass(test_api.class_registry['GlobalTest'], GlobalTest)
+    assert issubclass(test_api.type_registry["globaltests"], GlobalTest)
+    assert issubclass(test_api.globaltests, GlobalTest)
+    assert issubclass(test_api.GlobalTest, GlobalTest)
 
 
 def test_setup_plaintext():
