@@ -282,15 +282,15 @@ In order to upload a source file to a resource, you can do:
 resource = transifex_api.Resource.filter(...)[0]
 content = "The new source file content"
 
-transifex_api.ResourceStringsAsyncUpload.upload(resource, content)
+transifex_api.ResourceStringsAsyncUpload.upload(content, resource=resource)
 ```
 
 In order to download a translated language file, you can do:
 
 ```python
-language = transifex_api.Language.list()[0]
-url = transifex_api.ResourceTranslationsAsyncDownload.\
-    download(resource=resource, language=language)
+url = transifex_api.ResourceTranslationsAsyncDownload.download(
+  resource=resource, language=language
+)
 translated_content = requests.get(url).text
 ```
 
