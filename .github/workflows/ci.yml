@@ -15,9 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Code quality checks
-        run: |
-          docker build --build-arg PYTHON_VERSION=3.6 --build-arg DJANGO_VERSION=1.11 -t native -f Dockerfile-tmpl .
-          docker run --rm native sh -c 'pre-commit run --files $(git ls-files transifex* tests*)'
+        run: make code_quality
 
   python3_6-django1_11-tests:
     runs-on: ubuntu-latest

@@ -3,8 +3,8 @@ from __future__ import unicode_literals
 import sys
 
 import pytest
-from transifex.common.strings import (LazyString, alt_quote,
-                                      printf_to_format_style)
+
+from transifex.common.strings import LazyString, alt_quote, printf_to_format_style
 
 
 def test_printf_to_format_style():
