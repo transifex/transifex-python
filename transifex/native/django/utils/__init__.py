@@ -19,8 +19,13 @@ def translate(_string, _context=None, _escape=True, **params):
     :return: the final translation in the current language
     :rtype: unicode
     """
-    is_source = get_language() == settings.LANGUAGE_CODE
-    locale = to_locale(get_language())  # e.g. from en-us to en_US
+    language = get_language()
+    if language is None:
+        is_source = True
+        locale = settings.LANGUAGE_CODE
+    else:
+        is_source = get_language() == settings.LANGUAGE_CODE
+        locale = to_locale(get_language())  # e.g. from en-us to en_US
     return tx.translate(
         _string,
         locale,
@@ -50,9 +55,7 @@ def lazy_translate(_string, _context=None, _escape=True, **params):
         the final translation in the current language
     :rtype: LazyString
     """
-    return LazyString(
-        translate, _string, _context=_context, escape=_escape, **params
-    )
+    return LazyString(translate, _string, _context=_context, escape=_escape, **params)
 
 
 def utranslate(_string, _context=None, **params):
