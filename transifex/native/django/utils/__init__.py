@@ -55,7 +55,14 @@ def lazy_translate(_string, _context=None, _escape=True, **params):
         the final translation in the current language
     :rtype: LazyString
     """
-    return LazyString(translate, _string, _context=_context, escape=_escape, **params)
+    return LazyString(
+        translate,
+        _string,
+        _context=_context,
+        escape=_escape,
+        fallback_value=_string,
+        **params
+    )
 
 
 def utranslate(_string, _context=None, **params):

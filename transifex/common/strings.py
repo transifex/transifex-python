@@ -145,16 +145,20 @@ def lazy_str_meta(name, bases, dct):
 class LazyString(str, metaclass=lazy_str_meta):
     """Lazy string implementation.
 
-    We use __new__ to save an empty string and also the '_func', '_args' and '_kwargs'
-    attributes. The empty string is not supposed to be used anywhere. Instead, all
-    methods that would be inherited from `str` have been replaced by the metaclass with
-    ones that operate on `str(self)`, which runs the lazy evaluation. We also manually
-    override '__radd__'.
+    We use __new__ to save an empty string or the fallback value and also the '_func',
+    '_args' and '_kwargs' attributes. The empty string or fallback value is not supposed
+    to be used anywhere. Instead, all methods that would be inherited from `str` have
+    been replaced by the metaclass with ones that operate on `str(self)`, which runs the
+    lazy evaluation. We also manually override '__radd__'.
 
         Usage:
 
             >>> mapping = {}
+
+            >>> # Not enough to render the string yet, but it's ok
             >>> s = LazyString(lambda: "hello {name}".format(**mapping))
+
+            >>> # Now the string can be rendered
             >>> mapping['name'] = "Bill"
 
             >>> str(s)
@@ -165,19 +169,36 @@ class LazyString(str, metaclass=lazy_str_meta):
 
             >>> isinstance(s, str)
             <<< True
+
+    You can also pass the 'fallback_value' keyword argument to save as the underlying
+    string and to use as a return value for `__repr__`.
     """
 
-    def __new__(cls, func, *args, **kwargs):
-        result = super().__new__(cls, "")
-        result._func = func
-        result._args = args
-        result._kwargs = kwargs
-        return result
+    def __new__(cls, func, *args, fallback_value="", **kwargs):
+        self = super().__new__(cls, fallback_value)
+        self._fallback_value = fallback_value
+        self._func = func
+        self._args = args
+        self._kwargs = kwargs
+        return self
 
     def __str__(self):
         """Perform lazy evaluation"""
 
         return self._func(*self._args, **self._kwargs)
+
+    def __repr__(self):
+        if self._fallback_value:
+            return repr(self._fallback_value)
+        result = f"{self.__class__.__name__}({self._func!r}"
+        if self._args:
+            result += ", " + ", ".join((repr(arg) for arg in self._args))
+        if self._kwargs:
+            result += ", " + ", ".join(
+                (f"{key!r}: {value!r}" for key, value in self._kwargs.items())
+            )
+        result += ")"
+        return result
 
     def __radd__(right, left):
         """`str` doesn't define `__radd__` because for its use-case, `__add__` is
