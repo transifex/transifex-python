@@ -3,15 +3,14 @@ from __future__ import unicode_literals
 # A single quote that is not preceded by \
 # i.e. matches "This is 'something" but not "This is \' something"
 import re
+from functools import wraps
 
-from transifex.common._compat import PY3, binary_type, text_type
-
-VAR_FORMAT = 'variable_{cnt}'
+VAR_FORMAT = "variable_{cnt}"
 
 RE_SINGLE_QUOTE = r"(?<!\\)\'"
 # A double quote that is not preceded by \
 # i.e. matches 'This is "something' but not 'This is \" something'
-RE_DOUBLE_QUOTE = r'(?<!\\)\"'
+RE_DOUBLE_QUOTE = r"(?<!\\)\""
 
 
 def printf_to_format_style(string):
@@ -30,7 +29,7 @@ def printf_to_format_style(string):
         and a list of the names of all variables
     :rtype: tuple
     """
-    obj = {'cnt': 1, 'variables': []}  # Python 2 nonlocal workaround
+    obj = {"cnt": 1, "variables": []}  # Python 2 nonlocal workaround
 
     def replace_named(match):
         """Given a regex match like '%(foo)s' return '{foo}'.
@@ -43,16 +42,12 @@ def printf_to_format_style(string):
         """
         # [2:-2] means from '%(foo)s' -> get 'foo'
         var = match.group(0)[2:-2]
-        new = '{{{}}}'.format(var)
-        obj['variables'].append(var)
+        new = "{{{}}}".format(var)
+        obj["variables"].append(var)
         return new
 
-    pattern = re.compile(r'(%\(\w+\)s)')
-    new_string, total = re.subn(
-        pattern,
-        replace_named,
-        string
-    )
+    pattern = re.compile(r"(%\(\w+\)s)")
+    new_string, total = re.subn(pattern, replace_named, string)
 
     def replace_unnamed(match):
         """Given a regex match like '%s' return '{variable_N}' where N
@@ -64,16 +59,16 @@ def printf_to_format_style(string):
         :return: a new string using str.format() placeholder syntax
         :rtype: str
         """
-        var = VAR_FORMAT.format(cnt=str(obj['cnt']))
-        new = '{{{}}}'.format(var)
-        obj['variables'].append(var)
-        obj['cnt'] += 1
+        var = VAR_FORMAT.format(cnt=str(obj["cnt"]))
+        new = "{{{}}}".format(var)
+        obj["variables"].append(var)
+        obj["cnt"] += 1
         return new
 
-    pattern = re.compile('(%s)')
+    pattern = re.compile("(%s)")
     new_string, total = re.subn(pattern, replace_unnamed, new_string)
 
-    return new_string, obj['variables']
+    return new_string, obj["variables"]
 
 
 def alt_quote(quote, string):
@@ -105,128 +100,114 @@ def alt_quote(quote, string):
     return quote
 
 
-class LazyString(object):
-    """Can be used instead of a string instance when delayed evaluation
-    is desired.
-
-    Upon instantiation, the caller needs to provide a function along
-    with any parameters, that will be used when the string value will be
-    evaluated.
-
-    Lazy evaluation is achieved through Pythons magic methods `__str__`
-    and `__unicode__`.
-
-    Usage:
-    In the following example, the value of 'foo' and 'bar' is not available
-    # when the string is declared (mapping is empty). However, mapping is only
-    # accessed
-    >>> mapping = {}
-    >>> string = LazyString(lambda x: '{}={}'.format(x, mapping[x]), 'foo')
-    >>> mapping.update({'foo': 33, 'bar': 44})
-    >>> print(string)
-    foo=44
+def lazy_str_meta(name, bases, dct):
+    """Metaclass for lazy strings. We modify all functions of `str` except the
+    "dangerous" ones to versions that operate on `str(self)`. `str(self)` is what
+    performs the lazy evaluation of the string (see below).
     """
 
-    def __init__(self, func, *args, **kwargs):
+    for attr in set(dir(str)) - {
+        "__repr__",
+        "__sizeof__",
+        "__init__",
+        "__doc__",
+        "__reduce__",
+        "__new__",
+        "__str__",
+        "__dir__",
+        "__getnewargs__",
+        "__getattribute__",
+        "__subclasshook__",
+        "__delattr__",
+        "__setattr__",
+        "__reduce_ex__",
+        "__init_subclass__",
+        "__class__",
+    }:
+        func = getattr(str, attr)
+        if not callable(func):
+            continue
+
+        # We have to do this "double-wrapping" of the function because otherwise all
+        # functions assigned to `dct` will have the same, last function we defined
+        def a(func):
+            @wraps(func)
+            def b(self, *args, **kwargs):
+                return func(str(self), *args, **kwargs)
+
+            return b
+
+        dct[attr] = a(func)
+
+    return type(name, bases, dct)
+
+
+class LazyString(str, metaclass=lazy_str_meta):
+    """Lazy string implementation.
+
+    We use __new__ to save an empty string or the fallback value and also the '_func',
+    '_args' and '_kwargs' attributes. The empty string or fallback value is not supposed
+    to be used anywhere. Instead, all methods that would be inherited from `str` have
+    been replaced by the metaclass with ones that operate on `str(self)`, which runs the
+    lazy evaluation. We also manually override '__radd__'.
+
+        Usage:
+
+            >>> mapping = {}
+
+            >>> # Not enough to render the string yet, but it's ok
+            >>> s = LazyString(lambda: "hello {name}".format(**mapping))
+
+            >>> # Now the string can be rendered
+            >>> mapping['name'] = "Bill"
+
+            >>> str(s)
+            <<< 'hello Bill'
+
+            >>> print(s)
+            <<< hello Bill
+
+            >>> isinstance(s, str)
+            <<< True
+
+    You can also pass the 'fallback_value' keyword argument to save as the underlying
+    string and to use as a return value for `__repr__`.
+    """
+
+    def __new__(cls, func, *args, fallback_value="", **kwargs):
+        self = super().__new__(cls, fallback_value)
+        self._fallback_value = fallback_value
         self._func = func
         self._args = args
-        self._encoding = kwargs.pop('encoding', 'utf-8')
         self._kwargs = kwargs
+        return self
 
-    def __getattr__(self, attr):
-        if attr == "__setstate__":
-            raise AttributeError(attr)
-        string = self._text()
-        if hasattr(string, attr):
-            return getattr(string, attr)
-        raise AttributeError(attr)
+    def __str__(self):
+        """Perform lazy evaluation"""
 
-    @property
-    def _resolved(self):
-        """Call the proper text_type wrapper (str() or unicode() depending
-        on the Python version) on the resolved value."""
-        return self._text()
+        return self._func(*self._args, **self._kwargs)
 
-    def __unicode__(self):  # pragma: no cover
-        """Resolve the value of the string.
+    def __repr__(self):
+        if self._fallback_value:
+            return repr(self._fallback_value)
+        result = f"{self.__class__.__name__}({self._func!r}"
+        if self._args:
+            result += ", " + ", ".join((repr(arg) for arg in self._args))
+        if self._kwargs:
+            result += ", " + ", ".join(
+                (f"{key!r}: {value!r}" for key, value in self._kwargs.items())
+            )
+        result += ")"
+        return result
 
-        Calls the evaluation function together with all parameters.
+    def __radd__(right, left):
+        """`str` doesn't define `__radd__` because for its use-case, `__add__` is
+        enough. However, since we want both:
+
+            - `LazyString(lambda: "lazy string") + "string"` and
+            - `"string" + LazyString(lambda: "lazy string")`
+
+        to work, we need to implement `__radd__` ourselves.
         """
 
-        return self._text()
-
-    def __str__(self):  # pragma: no cover
-        """Resolve the value of the string.
-
-        Calls the evaluation function together with all parameters.
-        """
-
-        if PY3:
-            return self._text()
-        else:
-            return self._binary()
-
-    def __bytes__(self):  # pragma: no cover
-        """Resolve the value of the string.
-
-        Calls the evaluation function together with all parameters.
-        """
-
-        return self._binary()
-
-    def _text(self):  # pragma: no cover
-        text = self._func(*self._args, **self._kwargs)
-        if isinstance(text, binary_type):
-            text = text.decode(self._encoding)
-        return text
-
-    def _binary(self):  # pragma: no cover
-        binary = self._func(*self._args, **self._kwargs)
-        if isinstance(binary, text_type):
-            binary = binary.encode(self._encoding)
-        return binary
-
-    def __len__(self):
-        return len(self._resolved)
-
-    def __getitem__(self, key):
-        return self._resolved[key]
-
-    def __iter__(self):
-        return iter(self._resolved)
-
-    def __contains__(self, item):
-        return item in self._resolved
-
-    def __add__(self, other):
-        return self._resolved + other
-
-    def __radd__(self, other):
-        return other + self._resolved
-
-    def __mul__(self, other):
-        return self._resolved * other
-
-    def __rmul__(self, other):
-        return other * self._resolved
-
-    def __lt__(self, other):
-        return self._resolved < other
-
-    def __le__(self, other):
-        return self._resolved <= other
-
-    def __eq__(self, other):
-        return self._resolved == other
-
-    def __ne__(self, other):
-        return self._resolved != other
-
-    def __gt__(self, other):
-        return self._resolved > other
-
-    def __ge__(self, other):
-        return self._resolved >= other
-
-    def __hash__(self):
-        return hash(self._text())
+        return left + str(right)

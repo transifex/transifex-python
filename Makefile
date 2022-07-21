@@ -32,9 +32,11 @@ build:
 	        -f Dockerfile-tmpl .
 
 code_quality:
-	docker run -v $(CUR_PATH):/usr/app -it --rm \
-	    native:3.6-1.11-latest \
-	    sh -c 'pre-commit run --files $(FILES)'
+	git diff origin/devel..$(git rev-parse HEAD) --name-only | \
+        xargs docker run --rm \
+            --user $$(id -u):$$(id -g) \
+            --mount src="$$(pwd)",target=/src,type=bind \
+            transifex/txlint --files
 
 localtests:
 	# Django 1.11 (3.6)
