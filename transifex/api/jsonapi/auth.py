@@ -3,12 +3,41 @@ from __future__ import absolute_import, unicode_literals
 import datetime
 
 
-class BearerAuthentication(object):
-    def __init__(self, api_key):
-        self.api_key = api_key
+class SimpleAuthentication:
+    def __init__(self, token):
+        self.token = token
 
     def __call__(self):
-        return {"Authorization": "Bearer {}".format(self.api_key)}
+        return {"Authorization": f"{self.KEY} {self.token}"}
+
+
+class BearerAuthentication(SimpleAuthentication):
+    """
+    You can use this as an alternative to the 'auth' keyword argument to JsonApi's
+    '__init__' or 'setup'. Instead of:
+
+        >>> transifex_api.setup(auth="TOKEN")
+
+    You can use:
+
+        >>> from transifex.api.jsonapi.auth import BearerAuthentication
+        >>> transifex_api.setup(BearerAuthentication("Token"))
+
+    This has the exact same effect, but is more verbose.
+    """
+
+    KEY = "Bearer"
+
+
+class OAuthAuthentication(SimpleAuthentication):
+    """
+    You can use this to set up the SDK to work with OAuth applications:
+
+        >>> from transifex.api.jsonapi.auth import OAuthAuthentication
+        >>> transifex_api.setup(OAuthAuthentication("Token"))
+    """
+
+    KEY = "OAuth"
 
 
 class ULFAuthentication(object):
