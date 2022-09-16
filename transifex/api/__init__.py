@@ -284,5 +284,10 @@ class TmxAsyncUpload(JsonApiResource, UploadMixin):
     TYPE = "tmx_async_uploads"
 
 
+@TransifexApi.register
+class UniqueIdentifier(JsonApiResource, UploadMixin):
+    TYPE = "unique_identifiers"
+
+
 # This is our global object
 transifex_api = TransifexApi()
