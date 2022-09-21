@@ -1,36 +1,5 @@
 A python SDK for the [Transifex API (v3)](https://transifex.github.io/openapi/)
 
-<!--ts-->
-* [Introduction](#introduction)
-* [transifex.api usage](#transifexapi-usage)
-  * [Setting up](#setting-up)
-  * [Finding things](#finding-things)
-  * [Changing attributes](#changing-attributes)
-  * [Changing relationships](#changing-relationships)
-  * [Creating and deleting things](#creating-and-deleting-things)
-  * [File uploads and downloads](#file-uploads-and-downloads)
-* [transifex.api.jsonapi usage](#transifexapijsonapi-usage)
-  * [Setting up](#setting-up-1)
-  * [Retrieval](#retrieval)
-    * [URLs](#urls)
-    * [Getting a single resource object from the API](#getting-a-single-resource-object-from-the-api)
-    * [Relationships](#relationships)
-    * [Shortcuts](#shortcuts)
-    * [Getting Resource collections](#getting-resource-collections)
-    * [Prefetching relationships with include](#prefetching-relationships-with-include)
-    * [Getting single resource objects using filters](#getting-single-resource-objects-using-filters)
-  * [Editing](#editing)
-    * [Saving changes](#saving-changes)
-    * [Creating new resources](#creating-new-resources)
-    * [Deleting](#deleting)
-    * [Editing relationships](#editing-relationships)
-    * [Bulk operations](#bulk-operations)
-    * [Form uploads, redirects](#form-uploads-redirects)
-
-<!-- Added by: kbairak, at: Mon May 10 07:09:14 PM EEST 2021 -->
-
-<!--te-->
-
 ## Introduction
 
 This library provides an SDK for the Transifex API which is located at the
@@ -1314,3 +1283,77 @@ while True:
     sleep(5)
     upload.reload()
 ```
+
+### Exception handling
+
+As mentioned before, using `.get` on a Resource subclass with keyword arguments
+or appending `.get` to a collection can raise one of the `NotSingleItem`,
+`DoesNotExist` or `MultipleObjectsReturned` exceptions (the two latter are
+subclasses of the first). So for example you can do:
+
+```python
+import transifex.api.jsonapi as jsonapi
+
+try:
+    hercules = family_api.Child.get(name="Hercules")
+    # or
+    hercules = family_api.Child.filter(name="Hercules").get()
+except jsonapi.DoesNotExist:
+    print("Child named Hercules does not exist")
+```
+
+Other interactions with the API can also raise exceptions:
+
+- If the API responded with a proper {json:api} error, you will receive an
+  instance of a `transifex.api.jsonapi.JsonApiException` subclass
+
+- Otherwise, if for example the load-balancer in front of the API server
+  returned an error, you will receive the underlying error raised by the
+  `requests` library
+
+Since {json:api} APIs can bundle multiple error objects inside the same
+response, we provide some utilities to make catching and handling them easy.
+
+```python
+import transifex.api.jsonapi as jsonapi
+
+try:
+    project.save(name="New name")
+except jsonapi.JsonApiException.get(400) as exc:
+    errors = exc.filter(400)
+    print(
+        "Permission denied:",
+        ", ".join((error["detail"] for error in errors)),
+    )
+except jsonapi.JsonApiException.get("unauthorized", 403) as exc:
+    print("There was some sort of permission error")
+
+    errors = exc.filter(401)
+    print("Authentication: ", ", ".join((error['detail'] for error in errors)))
+
+    errors = exc.filter(403)
+    print("Permission: ", ", ".join((error['detail'] for error in errors)))
+
+    errors = exc.exclude(401, 403)
+    print("Other: ", ", ".join((error['detail'] for error in errors)))
+except jsonapi.JsonApiException as exc:
+    print("Some other {json:api} errors occurred")
+    print(", ".join((error['detail'] for error in exc.errors)))
+except Exception as exc:
+    print(f"Some other errors occurred: {exc}")
+```
+
+- Using `except JsonApiException.get(*codes)` will
+  ensure you will catch the exception if at least one of its errors has either
+  of the targeted codes
+
+- Using `exc.filter(*codes)` will get you only the error objects from the
+  response that match the codes
+
+- Using `exc.exclude(*codes)` will get you only the error objects from the
+  response that **don't** match the codes
+
+- `exc.errors` has all the bundled error objects
+
+_(you are not limited to using status codes, but you could also use codes, for_
+example 'not_found' or 'conflict', to make your code more readable)
