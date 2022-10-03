@@ -66,7 +66,7 @@ def test_exception_grouping():
     ]
 
     try:
-        raise JsonApiException.new(400, errors)
+        raise JsonApiException.new(400, errors, None)
     except JsonApiException.get("bad_request") as exc:
         assert exc.errors == errors
         assert exc.filter(400) == errors[:2]
@@ -76,7 +76,7 @@ def test_exception_grouping():
 
     caught = False
     try:
-        raise JsonApiException.new(400, errors)
+        raise JsonApiException.new(400, errors, None)
     except JsonApiException.get(401, 404):
         caught = True
 
@@ -84,7 +84,7 @@ def test_exception_grouping():
 
     caught = False
     try:
-        raise JsonApiException.new(400, errors)
+        raise JsonApiException.new(400, errors, None)
     except JsonApiException.get(404):
         caught = True
     except JsonApiException.get("not_found"):
