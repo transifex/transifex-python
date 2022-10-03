@@ -194,7 +194,7 @@ class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
         if not response.ok:
             try:
                 exc = JsonApiException.new(
-                    response.status_code, response.json()["errors"]
+                    response.status_code, response.json()["errors"], response
                 )
             except Exception:
                 response.raise_for_status()

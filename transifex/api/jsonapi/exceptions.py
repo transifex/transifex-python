@@ -28,16 +28,17 @@ class JsonApiException(Exception):
         <<< 'There is already a project with the same name'
     """
 
-    def __init__(self, status_code, errors):
-        super().__init__(status_code, errors)
+    def __init__(self, status_code, errors, response):
+        super().__init__(status_code, errors, response)
 
     status_code = property(lambda self: self.args[0])
     errors = property(lambda self: self.args[1])
+    response = property(lambda self: self.args[2])
 
     EXCEPTION_CLASSES = {}
 
     @classmethod
-    def new(cls, status_code, errors):
+    def new(cls, status_code, errors, response):
         """Get-or-create a new JsonApiException subclass for the status codes
         in the exception's errors and use that to create the exception
         instance. Usage:
@@ -60,7 +61,7 @@ class JsonApiException(Exception):
             cls.EXCEPTION_CLASSES[codes] = type(
                 f"JsonApiException_{'_'.join(codes)}", (cls,), {}
             )
-        return cls.EXCEPTION_CLASSES[codes](status_code, errors)
+        return cls.EXCEPTION_CLASSES[codes](status_code, errors, response)
 
     class _NeverRaisedException(Exception):
         pass
