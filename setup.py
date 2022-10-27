@@ -14,7 +14,7 @@ setup(
     description=("Transifex Python Toolkit"),
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=find_packages(exclude=['*tests*']),
+    packages=find_packages(exclude=["*tests*"]),
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "License :: OSI Approved :: Apache Software License",
