@@ -59,7 +59,7 @@ def lazy_translate(_string, _context=None, _escape=True, **params):
         translate,
         _string,
         _context=_context,
-        escape=_escape,
+        _escape=_escape,
         fallback_value=_string,
         **params
     )
