@@ -38,6 +38,22 @@ code_quality:
             --mount src="$$(pwd)",target=/src,type=bind \
             transifex/txlint --files
 
+shell_dj1.11_py3.6:
+	# Django 1.11 (3.6)
+	docker run --rm -it --entrypoint bash native:3.6-1.11-latest
+
+shell_dj2.0_py3.6:
+	# Django 2.0 (Python 3.6)
+	docker run --rm -it --entrypoint bash native:3.6-2.0-latest
+
+shell_dj2.2_py3.8:
+	# Django 2.2 (Python 3.8)
+	docker run --rm -it --entrypoint bash native:3.8-2.2-latest
+
+shell_dj3.2_py3.9:
+	# Django 3.2 (Python 3.9)
+	docker run --rm -it --entrypoint bash native:3.9-3.2-latest
+
 localtests:
 	# Django 1.11 (3.6)
 	docker run -v $(CUR_PATH):/usr/app \
