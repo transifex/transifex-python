@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
+import reprlib
 from copy import deepcopy
 
 import requests
@@ -70,7 +71,7 @@ class Resource(object):
         # Ignored
         type=None,
         # Magic
-        **kwargs
+        **kwargs,
     ):
         """Write to the basic attributes of Resource. Used by '__init__',
         'reload', '__copy__' and 'save'
@@ -862,23 +863,32 @@ class Resource(object):
         return self.as_resource_identifier() == other.as_resource_identifier()
 
     def __repr__(self):
+        r = reprlib.Repr()
+        r.maxlevel = 2
+        r.maxdict = 2
+        r.maxlist = 2
+        r.maxstring = 20
+
         if self.__class__ is Resource:
             class_name = "Unknown Resource"
         else:
             class_name = self.__class__.__name__
-
+        args = []
         if self.id is not None:
-            details = self.id
+            args.append(f"id={self.id!r}")
         else:
-            details = "Unsaved"
-
+            args.append("id=<Unsaved>")
+        if self.attributes:
+            args.append(f"attributes={r.repr(self.attributes)}")
+        else:
+            args.append("attributes=<Unfetched>")
+        if self.relationships:
+            args.append(
+                f"relationships={r.repr({key: '...' for key in self.relationships})}"
+            )
         if self.redirect is not None:
-            details += " (redirect ready)"
-
-        if not self.attributes and not self.relationships:
-            details += " (Unfetched)"
-
-        return repr("<{}: {}>".format(class_name, details))
+            args.append(f"redirect={r.repr(self.redirect)}")
+        return f"{class_name}({', '.join(args)})"
 
     def __copy__(self):
         # Will eventually call `_overwrite` so `deepcopy` will be used
