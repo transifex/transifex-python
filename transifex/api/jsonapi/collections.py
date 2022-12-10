@@ -186,6 +186,7 @@ class Collection(abc.MutableSequence):
         return _method
 
     include = _param_method("include")
+    limit = _param_method("limit")
     sort = _param_method("sort")
     fields = _param_method("fields")
 
