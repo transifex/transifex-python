@@ -283,6 +283,90 @@ class TestCDSHandler(object):
 
     @responses.activate
     @patch('transifex.native.cds.logger')
+    def test_fetch_translations_filter_tags(self, patched_logger):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en', 'fr'],
+            'some_token',
+            host=cds_host,
+            filter_tags='foo,bar',
+        )
+
+        # add response for translations
+        responses.add(
+            responses.GET, cds_host + '/content/el?filter[tags]=foo,bar',
+            json={
+                'data': {
+                    'key1': {
+                        'string': 'key1_el'
+                    },
+                    'key2': {
+                        'string': 'key2_el'
+                    },
+                },
+                'meta': {
+                    "some_key": "some_value"
+                }
+            }, status=200
+        )
+
+        resp = cds_handler.fetch_translations(language_code='el')
+        assert resp == {
+            'el': (True, {
+                'key1': {
+                    'string': 'key1_el'
+                },
+                'key2': {
+                    'string': 'key2_el'
+                },
+            }),
+        }
+
+        responses.reset()
+
+    @responses.activate
+    @patch('transifex.native.cds.logger')
+    def test_fetch_translations_filter_status(self, patched_logger):
+        cds_host = 'https://some.host'
+        cds_handler = CDSHandler(
+            ['el', 'en', 'fr'],
+            'some_token',
+            host=cds_host,
+            filter_status='reviewed',
+        )
+
+        # add response for translations
+        responses.add(
+            responses.GET, cds_host + '/content/el?filter[status]=reviewed',
+            json={
+                'data': {
+                    'key1': {
+                        'string': 'key1_el'
+                    },
+                    'key2': {
+                        'string': 'key2_el'
+                    },
+                },
+                'meta': {
+                    "some_key": "some_value"
+                }
+            }, status=200
+        )
+
+        resp = cds_handler.fetch_translations(language_code='el')
+        assert resp == {
+            'el': (True, {
+                'key1': {
+                    'string': 'key1_el'
+                },
+                'key2': {
+                    'string': 'key2_el'
+                },
+            }),
+        }
+
+    @responses.activate
+    @patch('transifex.native.cds.logger')
     def test_fetch_translations_etags_management(self, patched_logger):
 
         cds_host = 'https://some.host'
