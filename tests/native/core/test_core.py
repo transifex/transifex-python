@@ -23,6 +23,7 @@ class TestSourceString(object):
         assert string.developer_comment is None
         assert string.character_limit is None
         assert string.tags == []
+        assert string.occurrences == []
 
     def test_custom_meta(self):
         string = SourceString(
@@ -46,6 +47,22 @@ class TestSourceString(object):
             _tags=['t1', 't2', 't3'],
         )
         assert string.tags == ['t1', 't2', 't3']
+
+    def test_append_values(self):
+        string1 = SourceString(
+            'something',
+            _tags=['t1', 't2', 't3'],
+            _occurrences=['f1', 'f2']
+        )
+        string2 = SourceString(
+            'something',
+            _tags=['t2', 't3', 't4'],
+            _occurrences=['f2', 'f3', 'f4']
+        )
+        string1.tags = string2.tags
+        string1.occurrences = string2.occurrences
+        assert sorted(string1.tags) == sorted(['t1', 't2', 't3', 't4'])
+        assert sorted(string1.occurrences) == sorted(['f4', 'f2', 'f3', 'f1'])
 
 
 class TestNative(object):
