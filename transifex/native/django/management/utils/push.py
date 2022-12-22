@@ -4,7 +4,6 @@ import os
 import sys
 import time
 
-import transifex.native.consts as consts
 from django.conf import settings
 from django.core.management.utils import handle_extensions
 from django.utils.encoding import force_text
@@ -140,8 +139,8 @@ class Push(CommandMixin):
         if self.append_tags:
             extra_tags = [x.strip() for x in self.append_tags.split(',')]
             for key, string in self.string_collection.strings.items():
-                new_string_tags = set(string.tags + extra_tags)
-                string.meta[consts.KEY_TAGS] = list(new_string_tags)
+                # Append tags in SourceString
+                string.tags = extra_tags
 
         # Filter out strings based on tags, i.e. only push strings
         # that contain certain tags or do not contain certain tags

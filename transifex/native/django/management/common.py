@@ -51,6 +51,7 @@ class SourceStringCollection(object):
             self.strings[key] = source_string
         else:
             self.strings[key].occurrences = source_string.occurrences
+            self.strings[key].tags = source_string.tags
 
     def extend(self, source_strings):
         """Add multiple strings to the collection.

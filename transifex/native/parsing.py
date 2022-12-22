@@ -60,6 +60,8 @@ class SourceString(object):
     @occurrences.setter
     def occurrences(self, value):
         self.meta.setdefault(consts.KEY_OCCURRENCES, []).extend(value)
+        # Remove duplicates
+        self.meta[consts.KEY_OCCURRENCES] = list(set(self.meta[consts.KEY_OCCURRENCES]))
 
     @property
     def developer_comment(self):
@@ -84,6 +86,12 @@ class SourceString(object):
         :rtype: list
         """
         return self.meta.get(consts.KEY_TAGS, [])
+
+    @tags.setter
+    def tags(self, value):
+        self.meta.setdefault(consts.KEY_TAGS, []).extend(value)
+        # Remove duplicates
+        self.meta[consts.KEY_TAGS] = list(set(self.meta[consts.KEY_TAGS]))
 
     def _transform_meta(self, meta):
         """Transform values in meta object, whenever applicable.
