@@ -302,7 +302,7 @@ class Resource(object):
             isinstance(response_body, requests.Response)
             and response_body.status_code == 303
         ):
-            self._overwrite(redirect=response_body.headers["Location"])
+            self._overwrite(id=self.id, redirect=response_body.headers["Location"])
         else:
             self._overwrite(
                 included=response_body.get("included"), **response_body["data"]
