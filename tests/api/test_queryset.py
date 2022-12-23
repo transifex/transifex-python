@@ -180,3 +180,33 @@ def test_include():
     item1, item2 = test_api.Item.list()
     assert item1.tag.name == "tag1"
     assert item2.tag.name == "tag2"
+
+
+@responses.activate
+def test_limit():
+    responses.add(
+        responses.GET,
+        "{}/items".format(host),
+        json={"data": payloads[1:5]},
+        match_querystring=True,
+    )
+    responses.add(
+        responses.GET,
+        "{}/items?limit=2".format(host),
+        json={"data": payloads[1:3]},
+        match_querystring=True,
+    )
+
+    all_items = test_api.Item.list()
+    limited_items = test_api.Item.limit(2)
+
+    assert len(all_items) == 4
+    assert len(limited_items) == 2
+
+    assert list(limited_items) == all_items[:2]
+
+    assert (
+        list(test_api.Item.limit(2))
+        == list(test_api.Item.list().limit(2))
+        == list(test_api.Item.list().limit(5).limit(2))
+    )

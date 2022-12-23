@@ -405,6 +405,7 @@ class Resource(object):
     filter = _collection_method("filter")
     page = _collection_method("page")
     include = _collection_method("include")
+    limit = _collection_method("limit")
     sort = _collection_method("sort")
     fields = _collection_method("fields")
     extra = _collection_method("extra")
