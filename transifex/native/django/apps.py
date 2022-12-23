@@ -92,6 +92,8 @@ class NativeConfig(AppConfig):
             error_policy=error_policy,
             cache=cache,
             fetch_all_langs=native_settings.TRANSIFEX_FETCH_ALL_LANGUAGES,
+            filter_tags=native_settings.TRANSIFEX_FILTER_TAGS,
+            filter_status=native_settings.TRANSIFEX_FILTER_STATUS,
         )
 
         if fetch_translations:

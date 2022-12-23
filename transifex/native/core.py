@@ -40,7 +40,8 @@ class TxNative(object):
     def init(
         self, languages, token, secret=None, cds_host=None,
         missing_policy=None, error_policy=None, cache=None,
-        fetch_all_langs=False,
+        fetch_all_langs=False, filter_tags=None,
+        filter_status=None,
     ):
         """Create an instance of the core framework class.
 
@@ -59,6 +60,8 @@ class TxNative(object):
             to determine how to handle rendering errors
         :param AbstractCache cache: an optional cache
         :param bool fetch_all_langs: force pull all remote languages
+        :param str filter_tags: fetch only content with tags
+        :param str filter_status: fetch only content with specific translation status
         """
         self._languages = languages
         self._cache = cache or MemoryCache()
@@ -67,6 +70,8 @@ class TxNative(object):
         self._cds_handler = CDSHandler(
             self._languages, token, secret=secret, host=cds_host,
             fetch_all_langs=fetch_all_langs,
+            filter_tags=filter_tags,
+            filter_status=filter_status,
         )
         self.initialized = True
 

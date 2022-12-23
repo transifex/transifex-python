@@ -6,6 +6,8 @@ def init(
     cds_host=None, missing_policy=None,
     error_policy=None, cache=None,
     fetch_all_langs=False,
+    filter_tags=None,
+    filter_status=None,
 ):
     """Initialize the framework.
 
@@ -21,6 +23,8 @@ def init(
         for defining how to handle translation rendering errors
     :param AbstractCache cache: an optional cache
     :param bool fetch_all_langs: force pull all remote languages
+    :param str filter_tags: fetch only content with tags
+    :param str filter_status: fetch only content with specific translation status
     """
     if not tx.initialized:
         tx.init(
@@ -32,6 +36,8 @@ def init(
             error_policy=error_policy,
             cache=cache,
             fetch_all_langs=fetch_all_langs,
+            filter_tags=filter_tags,
+            filter_status=filter_status,
         )
 
 

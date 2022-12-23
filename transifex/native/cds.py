@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+from urllib.parse import urlencode
 
 import requests
 from transifex.native.consts import (KEY_CHARACTER_LIMIT,
@@ -55,7 +56,8 @@ class CDSHandler(object):
     """Handles communication with the Content Delivery Service."""
 
     def __init__(self, configured_languages, token, secret=None,
-                 host=TRANSIFEX_CDS_HOST, fetch_all_langs=False):
+                 host=TRANSIFEX_CDS_HOST, fetch_all_langs=False,
+                 filter_tags=None, filter_status=None):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
@@ -65,6 +67,8 @@ class CDSHandler(object):
         """
         self.configured_language_codes = configured_languages
         self.fetch_all_langs = fetch_all_langs
+        self.filter_tags = filter_tags
+        self.filter_status = filter_status
         self.token = token
         self.secret = secret
         self.host = host or TRANSIFEX_CDS_HOST
@@ -126,6 +130,15 @@ class CDSHandler(object):
         """
 
         cds_url = TRANSIFEX_CDS_URLS['FETCH_TRANSLATIONS_FOR_LANGUAGE']
+
+        # Append filters
+        query_params = {}
+        if self.filter_tags:
+            query_params["filter[tags]"] = self.filter_tags
+        if self.filter_status:
+            query_params["filter[status]"] = self.filter_status
+        if query_params:
+            cds_url = cds_url + '?' + urlencode(query_params)
 
         translations = {}
 
