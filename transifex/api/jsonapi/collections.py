@@ -180,7 +180,7 @@ class Collection(abc.MutableSequence):
     def _param_method(param_name):
         def _method(self, *fields):
             params = dict(self._params)
-            params[param_name] = ",".join(fields)
+            params[param_name] = ",".join((str(field) for field in fields))
             return self.__class__(self.API, self._url, params)
 
         return _method
