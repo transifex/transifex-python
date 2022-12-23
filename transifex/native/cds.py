@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+from urllib.parse import urlencode
 
 import requests
 from transifex.native.consts import (KEY_CHARACTER_LIMIT,
@@ -131,15 +132,13 @@ class CDSHandler(object):
         cds_url = TRANSIFEX_CDS_URLS['FETCH_TRANSLATIONS_FOR_LANGUAGE']
 
         # Append filters
-        query_params = []
+        query_params = {}
         if self.filter_tags:
-            query_params.append('filter[tags]={tags}'.format(
-                tags=self.filter_tags))
+            query_params["filter[tags]"] = self.filter_tags
         if self.filter_status:
-            query_params.append('filter[status]={status}'.format(
-                status=self.filter_status))
+            query_params["filter[status]"] = self.filter_status
         if query_params:
-            cds_url = cds_url + '?' + '&'.join(query_params)
+            cds_url = cds_url + '?' + urlencode(query_params)
 
         translations = {}
 
