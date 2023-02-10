@@ -2,9 +2,9 @@ import time
 
 import transifex
 
+from .exceptions import DownloadException, UploadException
 from .jsonapi import JsonApi
 from .jsonapi import Resource as JsonApiResource
-from .jsonapi.exceptions import JsonApiException
 
 
 class DownloadMixin(object):
@@ -19,16 +19,11 @@ class DownloadMixin(object):
         download = cls.create(*args, **kwargs)
         while True:
             if hasattr(download, "errors") and len(download.errors) > 0:
-                errors = [
-                    {
-                        "code": e["code"],
-                        "detail": e["detail"],
-                        "title": e["detail"],
-                        "status": "409",
-                    }
-                    for e in download.errors
-                ]
-                raise JsonApiException(409, errors)
+                # The way Transifex APIv3 works right now, only one error will be
+                # returned, so we give priority to the first error's 'detail' field. If
+                # more errors are included in the future, the user can inspect the
+                # exception's second argument
+                raise DownloadException(download.error[0]["detail"], download.errors)
             if download.redirect:
                 return download.redirect
             time.sleep(interval)
@@ -54,16 +49,11 @@ class UploadMixin(object):
 
         while True:
             if hasattr(upload, "errors") and len(upload.errors) > 0:
-                errors = [
-                    {
-                        "code": e["code"],
-                        "detail": e["detail"],
-                        "title": e["detail"],
-                        "status": "409",
-                    }
-                    for e in upload.errors
-                ]
-                raise JsonApiException(409, errors)
+                # The way Transifex APIv3 works right now, only one error will be
+                # returned, so we give priority to the first error's 'detail' field. If
+                # more errors are included in the future, the user can inspect the
+                # exception's second argument
+                raise UploadException(upload.errors[0]["detail"], upload.errors)
 
             if upload.redirect:
                 return upload.follow()
