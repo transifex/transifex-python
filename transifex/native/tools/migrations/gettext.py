@@ -514,7 +514,13 @@ class Transformer(object):
             level of the migration
         :rtype: Tuple[unicode, int]
         """
-        module_path, func_name = get_func_parts(func_call_node)
+        try:
+            # get_func_parts can raise an error is the function
+            # call name cannot be retrieved.
+            # In that case, just bail-out.
+            module_path, func_name = get_func_parts(func_call_node)
+        except:
+            return
 
         for import_obj in visitor.imports:
             if module_path != import_obj.module \

@@ -379,7 +379,13 @@ class CallDetectionVisitor(ast.NodeVisitor):
         """
         self.generic_visit(node)
 
-        current_module_path, current_func_name = get_func_parts(node)
+        try:
+            # get_func_parts can raise an error is the function
+            # call name cannot be retrieved.
+            # In that case, just bail-out.
+            current_module_path, current_func_name = get_func_parts(node)
+        except:
+            return
 
         # Check against all supported function calls and if there is a match
         # add the node for later processing
