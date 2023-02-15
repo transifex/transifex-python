@@ -111,24 +111,20 @@ class TestExtractor(object):
         assert ex.errors[0][0] == 'myfile.py'
         assert isinstance(ex.errors[0][1], SyntaxError)
 
-    def test_exceptions_on_function_call(self):
+    def test_ignore_exceptions_on_function_call(self):
         src = TEMPLATE.format(
             _import='from transifex.native import translate',
-            call1='33',  # should produce an error
-            call2='_',
+            call1='33', # should produce an error
+            call2='translate',
         )
         ex = Extractor()
         results = ex.extract_strings(src, 'myfile.py')
-        assert results == []
-        assert ex.errors[0][0] == 'myfile.py'
-        assert isinstance(ex.errors[0][1], AttributeError)
-        # Num/Constant discrepancy between python versions
-        assert re.search(
-            re.escape("Invalid module/function format on line 6 col 0: '") +
-            r'Num|Constant' +
-            re.escape("' object has no attribute 'attr'"),
-            ex.errors[0][1].args[0]
-        )
+        assert results == [
+            SourceString(
+                u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
+                _charlimit=33, _occurrences=['myfile.py:7'],
+            ),
+        ]
 
     def _assert(self, src):
         ex = Extractor()
