@@ -4,9 +4,9 @@ import os
 import sys
 import time
 
+from django import VERSION as DJANGO_VERSION
 from django.conf import settings
 from django.core.management.utils import handle_extensions
-from django.utils.encoding import force_text
 from transifex.common.console import Color
 from transifex.common.utils import generate_hashed_key, generate_key
 from transifex.native import tx
@@ -15,6 +15,11 @@ from transifex.native.django.management.utils.base import CommandMixin
 from transifex.native.django.utils.templates import \
     extract_transifex_template_strings
 from transifex.native.parsing import Extractor
+
+if DJANGO_VERSION[0] >= 4:
+    from django.utils.encoding import force_str as force_text
+else:
+    from django.utils.encoding import force_text
 
 
 class Push(CommandMixin):

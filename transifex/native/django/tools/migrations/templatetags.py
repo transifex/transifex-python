@@ -7,10 +7,9 @@ https://docs.djangoproject.com/en/1.11/topics/i18n/translation/
 from __future__ import unicode_literals
 
 from django import VERSION as DJANGO_VERSION
-from django.template.base import TRANSLATOR_COMMENT_MARK, DebugLexer, Parser
+from django.template.base import DebugLexer, Parser
 from django.template.defaulttags import token_kwargs
 from django.templatetags.i18n import do_block_translate, do_translate
-from django.utils.encoding import force_text
 from django.utils.html import escape as escape_html
 from transifex.common._compat import string_types, text_type
 from transifex.native.django.compat import (TOKEN_BLOCK, TOKEN_COMMENT,
@@ -20,6 +19,13 @@ from transifex.native.django.utils.templates import find_filter_identity
 from transifex.native.tools.migrations.models import (Confidence,
                                                       FileMigration,
                                                       StringMigration)
+
+if DJANGO_VERSION[0] >= 4:
+    from django.utils.translation.template import TRANSLATOR_COMMENT_MARK
+    from django.utils.encoding import force_str as force_text
+else:
+    from django.template.base import TRANSLATOR_COMMENT_MARK
+    from django.utils.encoding import force_text
 
 COMMENT_FOUND = object()
 
