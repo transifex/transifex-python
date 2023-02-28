@@ -58,7 +58,8 @@ def _get_ordered_tokens(parser):
     This method is useful when we want to iterate all the remaining
     tokens of the parser in the correct order.
     """
-    if DJANGO_VERSION[0] >= 3 and DJANGO_VERSION[1] > 1:
+    major, minor = DJANGO_VERSION[:2]
+    if major == 3 and minor > 1 or major > 3:
         return reversed(parser.tokens)
     return parser.tokens
 
