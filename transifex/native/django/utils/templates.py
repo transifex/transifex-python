@@ -1,13 +1,18 @@
 from __future__ import unicode_literals
 
+from django import VERSION as DJANGO_VERSION
 from django.template.base import Lexer, Parser
-from django.utils.encoding import force_text
 from transifex.common._compat import string_types
 from transifex.common.utils import generate_key
 from transifex.native.consts import KEY_CONTEXT
 from transifex.native.django.compat import TOKEN_BLOCK
 from transifex.native.django.templatetags.transifex import do_t
 from transifex.native.parsing import SourceString
+
+if DJANGO_VERSION[0] >= 4:
+    from django.utils.encoding import force_str as force_text
+else:
+    from django.utils.encoding import force_text
 
 # Django template consts
 LOAD_TAG = 'load'

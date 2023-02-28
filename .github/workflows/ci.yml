@@ -27,6 +27,7 @@ jobs:
           docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
+
   python3_6-django2_0-tests:
     runs-on: ubuntu-latest
     steps:
@@ -37,6 +38,7 @@ jobs:
           docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
+
   python3_7-django2_2-tests:
     runs-on: ubuntu-latest
     steps:
@@ -47,6 +49,7 @@ jobs:
           docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
+
   python3_8-django2_2-tests:
     runs-on: ubuntu-latest
     steps:
@@ -57,6 +60,7 @@ jobs:
           docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
+
   python3_9-django3_2-tests:
     runs-on: ubuntu-latest
     steps:
@@ -64,6 +68,17 @@ jobs:
       - name: Test py3.9-dj3.2
         run: |
           docker build --build-arg PYTHON_VERSION=3.9 --build-arg DJANGO_VERSION=3.2 -t native -f Dockerfile-tmpl .
+          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
+        env:
+          CODECOV_TOKEN: ${{secrets.codecov_token}}
+
+  python3_11-django4_1-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test py3.11-dj4.1
+        run: |
+          docker build --build-arg PYTHON_VERSION=3.11 --build-arg DJANGO_VERSION=4.1 -t native -f Dockerfile-tmpl .
           docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}

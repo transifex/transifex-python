@@ -259,6 +259,10 @@ class TNode(Node):
         # it back in place before returning from render.
         # https://docs.djangoproject.com/en/1.11/howto/custom-template-tags/#thread-safety-considerations  # noqa
         old_source_string_var = self.source_string.var
+        try:
+            old_is_var = self.source_string.is_var
+        except AttributeError:
+            old_is_var = None
 
         # Now we resolve the full source filter expression, after having
         # replaced its text with the outcome of the translation, in order to
@@ -266,8 +270,13 @@ class TNode(Node):
         # marked as safe in order to prevent further escaping attempts that
         # would introduce the danger of double escaping (eg `<` => `&amp;lt;`)
         self.source_string.var = mark_safe(result)
+        self.source_string.is_var = False
+
         result = self.source_string.resolve(context)
+
         self.source_string.var = old_source_string_var
+        if old_is_var is not None:
+            self.source_string.is_var = old_is_var
 
         if self.asvar is not None:
             # Save the translation outcome to a context variable
