@@ -64,6 +64,14 @@ class Push(CommandMixin):
             help=('Disable polling for upload results'),
         )
         parser.add_argument(
+            '--override-tags', action='store_true', dest='override_tags', default=False,
+            help=('Override tags when pushing content'),
+        )
+        parser.add_argument(
+            '--do-not-keep-translations', action='store_true', dest='do_not_keep_translations', default=False,
+            help=('Remove translations when source strings change'),
+        )
+        parser.add_argument(
             '--verbose', '-v', action='store_true',
             dest='verbose_output', default=False,
             help=('Verbose output'),
@@ -90,6 +98,8 @@ class Push(CommandMixin):
         self.with_tags_only = options['with_tags_only']
         self.without_tags_only = options['without_tags_only']
         self.dry_run = options['dry_run']
+        self.override_tags = options['override_tags']
+        self.do_not_keep_translations = options['do_not_keep_translations']
         self.no_wait = options['no_wait']
         self.key_generator = options['key_generator']
         extensions = options['extensions']
@@ -182,7 +192,8 @@ class Push(CommandMixin):
             'to Transifex...'.format(total)
         )
         status_code, response_content = tx.push_source_strings(
-            self.string_collection.strings.values(), self.purge
+            self.string_collection.strings.values(), self.purge,
+            self.do_not_keep_translations, self.override_tags
         )
 
         if self.no_wait:
