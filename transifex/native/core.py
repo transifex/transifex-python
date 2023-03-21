@@ -196,20 +196,26 @@ class TxNative(object):
         self._check_initialization()
         self._cache.update(self._cds_handler.fetch_translations())
 
-    def push_source_strings(self, strings, purge=False):
+    def push_source_strings(self, strings, purge=False,
+                            do_not_keep_translations=False,
+                            override_tags=False):
         """Push the given source strings to the CDS.
 
         :param list strings: a list of SourceString objects
         :param bool purge: True deletes destination source content not included
-                           in pushed content.
-                           False appends the pushed content to destination
-                           source content.
+            in pushed content. False appends the pushed content to destination
+            source content.
+        :param bool do_not_keep_translations: True deletes translations when the
+            source strings of existing keys are updated. False preserves them.
+        :param bool override_tags: True replaces all the tags of pushed strings.
+            False appends them to existing tags.
         :return: a tuple containing the status code and the content of the
             response
         :rtype: tuple
         """
         self._check_initialization()
-        response = self._cds_handler.push_source_strings(strings, purge)
+        response = self._cds_handler.push_source_strings(
+            strings, purge, do_not_keep_translations, override_tags)
         return response.status_code, json.loads(response.content)
 
     def get_push_status(self, job_path):

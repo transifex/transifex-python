@@ -30,6 +30,8 @@ def get_transifex_command():
         'with_tags_only',
         'without_tags_only',
         'dry_run',
+        'override_tags',
+        'do_not_keep_translations',
         'symlinks',
 
         # Invalidate

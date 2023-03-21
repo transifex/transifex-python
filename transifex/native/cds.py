@@ -202,7 +202,9 @@ class CDSHandler(object):
 
         return translations
 
-    def push_source_strings(self, strings, purge=False):
+    def push_source_strings(self, strings, purge=False,
+                            do_not_keep_translations=False,
+                            override_tags=False):
         """Push source strings to CDS.
 
         :param list(SourceString) strings: a list of `SourceString` objects
@@ -210,6 +212,10 @@ class CDSHandler(object):
         :param bool purge: True deletes destination source content not included
             in pushed content. False appends the pushed content to destination
             source content.
+        :param bool do_not_keep_translations: True deletes translations when the
+            source strings of existing keys are updated. False preserves them.
+        :param bool override_tags: True replaces all the tags of pushed strings.
+            False appends them to existing tags.
         :return: the HTTP response object
         :rtype: requests.Response
         """
@@ -228,7 +234,11 @@ class CDSHandler(object):
                 headers=self._get_headers(use_secret=True),
                 json={
                     'data': data,
-                    'meta': {'purge': purge},
+                    'meta': {
+                        'purge': purge,
+                        'keep_translations': not do_not_keep_translations,
+                        'override_tags': override_tags,
+                    },
                 }
             )
             response.raise_for_status()
