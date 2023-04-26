@@ -8,6 +8,8 @@ class Collection(abc.MutableSequence):
     def __init__(self, API, url, params=None):
         if params is None:
             params = {}
+        else:
+            params = dict(params)
 
         parsed = urlparse(url)
         path, query = parsed.path, parsed.query
@@ -55,8 +57,7 @@ class Collection(abc.MutableSequence):
             return
 
         if response_body is None:
-            response_body = self.API.request(
-                "get", self._url, params=self._params)
+            response_body = self.API.request("get", self._url, params=self._params)
         included = {}
         if "included" in response_body:
             included = {
@@ -69,14 +70,12 @@ class Collection(abc.MutableSequence):
             for (name, relationship) in item.get("relationships", {}).items():
                 if relationship is None or "data" not in relationship:
                     continue
-                key = (relationship["data"]["type"],
-                       relationship["data"]["id"])
+                key = (relationship["data"]["type"], relationship["data"]["id"])
                 if key in included:
                     related[name] = self.API.new(included[key])
             relationships = item.pop("relationships", {})
             relationships.update(related)
-            self._data.append(self.API.new(
-                relationships=relationships, **item))
+            self._data.append(self.API.new(relationships=relationships, **item))
 
         self._next_url = response_body.get("links", {}).get("next")
         self._previous_url = response_body.get("links", {}).get("previous")
@@ -104,8 +103,7 @@ class Collection(abc.MutableSequence):
         self_url = self._url
         if self._params:
             self_url += "?" + "&".join(
-                ("{}={}".format(key, value)
-                 for key, value in self._params.items())
+                ("{}={}".format(key, value) for key, value in self._params.items())
             )
 
         links = {"self": self_url}
@@ -125,13 +123,13 @@ class Collection(abc.MutableSequence):
         return bool(self.next_url)
 
     def next(self):
-        return self.__class__(self.API, self.next_url, self._params)
+        return self.__class__(self.API, self.next_url)
 
     def has_previous(self):
         return bool(self.previous_url)
 
     def previous(self):
-        return self.__class__(self.API, self.previous_url, self._params)
+        return self.__class__(self.API, self.previous_url)
 
     def all_pages(self):
         if self.data:
@@ -153,8 +151,7 @@ class Collection(abc.MutableSequence):
         params = dict(self._params)
 
         for key, value in filters.items():
-            key = "filter" + "".join(("[{}]".format(part)
-                                      for part in key.split("__")))
+            key = "filter" + "".join(("[{}]".format(part) for part in key.split("__")))
             if isinstance(value, Resource):
                 value = value.id
 
