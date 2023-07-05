@@ -380,8 +380,8 @@ class TestNative(object):
 
         strings = [SourceString('a'), SourceString('b')]
         mytx = self._get_tx()
-        mytx.push_source_strings(strings, False, True, True)
-        mock_push_strings.assert_called_once_with(strings, False, True, True)
+        mytx.push_source_strings(strings, False, True, True, True)
+        mock_push_strings.assert_called_once_with(strings, False, True, True, True)
 
     @patch('transifex.native.core.MemoryCache.update')
     @patch('transifex.native.core.CDSHandler.fetch_translations')

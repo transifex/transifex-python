@@ -68,6 +68,10 @@ class Push(CommandMixin):
             help=('Override tags when pushing content'),
         )
         parser.add_argument(
+            '--override-occurrences', action='store_true', dest='override_occurrences', default=False,
+            help=('Override occurrences when pushing content'),
+        )
+        parser.add_argument(
             '--do-not-keep-translations', action='store_true', dest='do_not_keep_translations', default=False,
             help=('Remove translations when source strings change'),
         )
@@ -99,6 +103,7 @@ class Push(CommandMixin):
         self.without_tags_only = options['without_tags_only']
         self.dry_run = options['dry_run']
         self.override_tags = options['override_tags']
+        self.override_occurrences = options['override_occurrences']
         self.do_not_keep_translations = options['do_not_keep_translations']
         self.no_wait = options['no_wait']
         self.key_generator = options['key_generator']
@@ -193,7 +198,8 @@ class Push(CommandMixin):
         )
         status_code, response_content = tx.push_source_strings(
             self.string_collection.strings.values(), self.purge,
-            self.do_not_keep_translations, self.override_tags
+            self.do_not_keep_translations, self.override_tags,
+            self.override_occurrences
         )
 
         if self.no_wait:

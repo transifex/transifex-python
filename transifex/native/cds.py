@@ -204,7 +204,8 @@ class CDSHandler(object):
 
     def push_source_strings(self, strings, purge=False,
                             do_not_keep_translations=False,
-                            override_tags=False):
+                            override_tags=False,
+                            override_occurrences=False):
         """Push source strings to CDS.
 
         :param list(SourceString) strings: a list of `SourceString` objects
@@ -216,6 +217,8 @@ class CDSHandler(object):
             source strings of existing keys are updated. False preserves them.
         :param bool override_tags: True replaces all the tags of pushed strings.
             False appends them to existing tags.
+        :param bool override_occurrences: True replaces all the occurrences of pushed strings.
+            False appends them to existing occurrences.
         :return: the HTTP response object
         :rtype: requests.Response
         """
@@ -238,6 +241,7 @@ class CDSHandler(object):
                         'purge': purge,
                         'keep_translations': not do_not_keep_translations,
                         'override_tags': override_tags,
+                        'override_occurrences': override_occurrences,
                     },
                 }
             )
