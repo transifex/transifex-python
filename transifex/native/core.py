@@ -198,7 +198,8 @@ class TxNative(object):
 
     def push_source_strings(self, strings, purge=False,
                             do_not_keep_translations=False,
-                            override_tags=False):
+                            override_tags=False,
+                            override_occurrences=False):
         """Push the given source strings to the CDS.
 
         :param list strings: a list of SourceString objects
@@ -209,13 +210,15 @@ class TxNative(object):
             source strings of existing keys are updated. False preserves them.
         :param bool override_tags: True replaces all the tags of pushed strings.
             False appends them to existing tags.
+        :param bool override_occurrences: True replaces all the occurrences of pushed strings.
+            False appends them to existing occurrences.
         :return: a tuple containing the status code and the content of the
             response
         :rtype: tuple
         """
         self._check_initialization()
         response = self._cds_handler.push_source_strings(
-            strings, purge, do_not_keep_translations, override_tags)
+            strings, purge, do_not_keep_translations, override_tags, override_occurrences)
         return response.status_code, json.loads(response.content)
 
     def get_push_status(self, job_path):

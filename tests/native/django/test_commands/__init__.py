@@ -31,6 +31,7 @@ def get_transifex_command():
         'without_tags_only',
         'dry_run',
         'override_tags',
+        'override_occurrences',
         'do_not_keep_translations',
         'symlinks',
 
