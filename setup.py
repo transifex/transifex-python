@@ -21,5 +21,5 @@ setup(
         "Operating System :: OS Independent",
     ],
     url="https://github.com/transifex/transifex-python",
-    install_requires=["pyseeyou", "pytz", "requests", "click", "asttokens"],
+    install_requires=["pyseeyou", "requests", "click", "asttokens"],
 )
