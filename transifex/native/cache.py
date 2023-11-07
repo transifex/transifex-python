@@ -1,6 +1,3 @@
-from transifex.common.utils import now
-
-
 class AbstractCache(object):
     """
     An interface for classes that cache translations.

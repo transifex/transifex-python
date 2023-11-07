@@ -3,8 +3,6 @@ import re
 from datetime import datetime
 from hashlib import md5
 
-import pytz
-
 
 def generate_key(string=None, context=None):
     """Return a unique key based on the given source string and context.
@@ -64,14 +62,6 @@ def generate_hashed_key(string=None, context=None):
     return md5(
         (':'.join([string_content, context])).encode('utf-8')
     ).hexdigest()
-
-
-def now():
-    """Return the current datetime, as a UTC-aware object.
-
-    :rtype: datetime
-    """
-    return datetime.utcnow().replace(tzinfo=pytz.utc)  # pragma no cover
 
 
 def import_to_python(import_str):
