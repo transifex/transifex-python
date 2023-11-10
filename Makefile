@@ -8,7 +8,8 @@ build: \
 	build_dj2.0_py3.6 \
 	build_dj2.2_py3.8 \
 	build_dj3.2_py3.9 \
-	build_dj4.1_py3.11
+	build_dj4.1_py3.11 \
+	build_dj4.2_py3.12
 
 build_dj1.11_py3.6:
 	DOCKER_BUILDKIT=1 docker build \
@@ -55,6 +56,15 @@ build_dj4.1_py3.11:
 	        -t native:3.11-4.1-latest \
 	        -f Dockerfile-tmpl .
 
+build_dj4.2_py3.12:
+	DOCKER_BUILDKIT=1 docker build \
+	        --no-cache \
+	        --progress=plain \
+	        --build-arg PYTHON_VERSION=3.12 \
+	        --build-arg DJANGO_VERSION=4.2 \
+	        -t native:3.12-4.2-latest \
+	        -f Dockerfile-tmpl .
+
 # --- Code quality ---
 
 code_quality:
@@ -86,6 +96,10 @@ shell_dj4.1_py3.11:
 	# Django 4.1 (Python 3.11)
 	docker run --rm -it --entrypoint bash native:3.11-4.1-latest
 
+shell_dj4.2_py3.12:
+	# Django 4.2 (Python 3.12)
+	docker run --rm -it --entrypoint bash native:3.12-4.2-latest
+
 # --- Tests ---
 
 localtests: \
@@ -94,6 +108,7 @@ localtests: \
 	tests_dj2.2_py3.8 \
 	tests_dj3.2_py3.9 \
 	tests_dj4.1_py3.11 \
+	tests_dj4.2_py3.12 \
 	tests_coverage
 
 tests_dj1.11_py3.6:
@@ -124,6 +139,12 @@ tests_dj4.1_py3.11:
 	# Django 4.1 (Python 3.11)
 	docker run -v $(CUR_PATH):/usr/app \
 	    --rm native:3.11-4.1-latest\
+	    pytest --cov --cov-append --cov-report=term-missing
+
+tests_dj4.2_py3.12:
+	# Django 4.2 (Python 3.12)
+	docker run -v $(CUR_PATH):/usr/app \
+	    --rm native:3.12-4.2-latest\
 	    pytest --cov --cov-append --cov-report=term-missing
 
 tests_coverage:

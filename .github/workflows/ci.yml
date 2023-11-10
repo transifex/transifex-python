@@ -83,6 +83,17 @@ jobs:
         env:
           CODECOV_TOKEN: ${{secrets.codecov_token}}
 
+  python3_12-django4_2-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test py3.12-dj4.2
+        run: |
+          docker build --build-arg PYTHON_VERSION=3.12 --build-arg DJANGO_VERSION=4.2 -t native -f Dockerfile-tmpl .
+          docker run -e CODECOV_TOKEN=$CODECOV_TOKEN --rm native sh -c 'pytest --cov --cov-report=term-missing && codecov'
+        env:
+          CODECOV_TOKEN: ${{secrets.codecov_token}}
+
   publish-pypi:
     needs: [
         quality-checks, python3_6-django1_11-tests,
