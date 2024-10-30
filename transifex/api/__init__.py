@@ -1,4 +1,5 @@
 import time
+from typing import Type
 
 import transifex
 
@@ -74,59 +75,59 @@ class TransifexApi(JsonApi):
     }
 
     # Auto-completion support
-    Organization: JsonApiResource
-    Team: JsonApiResource
-    Project: JsonApiResource
-    Language: JsonApiResource
-    Resource: JsonApiResource
-    ResourceString: JsonApiResource
-    ResourceTranslation: JsonApiResource
-    ResourceStringsAsyncUpload: JsonApiResource
-    ResourceTranslationsAsyncUpload: JsonApiResource
-    User: JsonApiResource
-    TeamMembership: JsonApiResource
-    ResourceLanguageStats: JsonApiResource
-    ResourceStringsAsyncDownload: JsonApiResource
-    ResourceTranslationsAsyncDownload: JsonApiResource
-    I18nFormat: JsonApiResource
-    ResourceStringsRevision: JsonApiResource
-    ContextScreenshotMap: JsonApiResource
-    ContextScreenshot: JsonApiResource
-    OrganizationActivityReportsAsyncDownload: JsonApiResource
-    ProjectActivityReportsAsyncDownload: JsonApiResource
-    ResourceActivityReportsAsyncDownload: JsonApiResource
-    ProjectWebhook: JsonApiResource
-    ResourceStringComment: JsonApiResource
-    TeamActivityReportsAsyncDownload: JsonApiResource
-    TmxAsyncDownload: JsonApiResource
-    TmxAsyncUpload: JsonApiResource
+    Organization: Type[JsonApiResource]
+    Team: Type[JsonApiResource]
+    Project: Type[JsonApiResource]
+    Language: Type[JsonApiResource]
+    Resource: Type[JsonApiResource]
+    ResourceString: Type[JsonApiResource]
+    ResourceTranslation: Type[JsonApiResource]
+    ResourceStringsAsyncUpload: Type[JsonApiResource]
+    ResourceTranslationsAsyncUpload: Type[JsonApiResource]
+    User: Type[JsonApiResource]
+    TeamMembership: Type[JsonApiResource]
+    ResourceLanguageStats: Type[JsonApiResource]
+    ResourceStringsAsyncDownload: Type[JsonApiResource]
+    ResourceTranslationsAsyncDownload: Type[JsonApiResource]
+    I18nFormat: Type[JsonApiResource]
+    ResourceStringsRevision: Type[JsonApiResource]
+    ContextScreenshotMap: Type[JsonApiResource]
+    ContextScreenshot: Type[JsonApiResource]
+    OrganizationActivityReportsAsyncDownload: Type[JsonApiResource]
+    ProjectActivityReportsAsyncDownload: Type[JsonApiResource]
+    ResourceActivityReportsAsyncDownload: Type[JsonApiResource]
+    ProjectWebhook: Type[JsonApiResource]
+    ResourceStringComment: Type[JsonApiResource]
+    TeamActivityReportsAsyncDownload: Type[JsonApiResource]
+    TmxAsyncDownload: Type[JsonApiResource]
+    TmxAsyncUpload: Type[JsonApiResource]
 
-    organizations: JsonApiResource
-    teams: JsonApiResource
-    projects: JsonApiResource
-    languages: JsonApiResource
-    resources: JsonApiResource
-    resource_strings: JsonApiResource
-    resource_translations: JsonApiResource
-    resource_strings_async_uploads: JsonApiResource
-    resource_translations_async_uploads: JsonApiResource
-    users: JsonApiResource
-    team_memberships: JsonApiResource
-    resource_language_stats: JsonApiResource
-    resource_strings_async_downloads: JsonApiResource
-    resource_translations_async_downloads: JsonApiResource
-    i18n_formats: JsonApiResource
-    resource_strings_revisions: JsonApiResource
-    context_screenshot_maps: JsonApiResource
-    context_screenshots: JsonApiResource
-    organization_activity_reports_async_downloads: JsonApiResource
-    project_activity_reports_async_downloads: JsonApiResource
-    resource_activity_reports_async_downloads: JsonApiResource
-    project_webhooks: JsonApiResource
-    resource_string_comments: JsonApiResource
-    team_activity_reports_async_downloads: JsonApiResource
-    tmx_async_downloads: JsonApiResource
-    tmx_async_uploads: JsonApiResource
+    organizations: Type[JsonApiResource]
+    teams: Type[JsonApiResource]
+    projects: Type[JsonApiResource]
+    languages: Type[JsonApiResource]
+    resources: Type[JsonApiResource]
+    resource_strings: Type[JsonApiResource]
+    resource_translations: Type[JsonApiResource]
+    resource_strings_async_uploads: Type[JsonApiResource]
+    resource_translations_async_uploads: Type[JsonApiResource]
+    users: Type[JsonApiResource]
+    team_memberships: Type[JsonApiResource]
+    resource_language_stats: Type[JsonApiResource]
+    resource_strings_async_downloads: Type[JsonApiResource]
+    resource_translations_async_downloads: Type[JsonApiResource]
+    i18n_formats: Type[JsonApiResource]
+    resource_strings_revisions: Type[JsonApiResource]
+    context_screenshot_maps: Type[JsonApiResource]
+    context_screenshots: Type[JsonApiResource]
+    organization_activity_reports_async_downloads: Type[JsonApiResource]
+    project_activity_reports_async_downloads: Type[JsonApiResource]
+    resource_activity_reports_async_downloads: Type[JsonApiResource]
+    project_webhooks: Type[JsonApiResource]
+    resource_string_comments: Type[JsonApiResource]
+    team_activity_reports_async_downloads: Type[JsonApiResource]
+    tmx_async_downloads: Type[JsonApiResource]
+    tmx_async_uploads: Type[JsonApiResource]
 
 
 @TransifexApi.register
