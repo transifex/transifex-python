@@ -324,7 +324,7 @@ class CallDetectionVisitor(ast.NodeVisitor):
             #      registered_func_name='t'
 
             module = node.module
-            if not registered_module_path.startswith(module):
+            if not module or not registered_module_path.startswith(module):
                 continue
 
             # Loop through all 'import' statements, e.g.
