@@ -25,7 +25,7 @@ class TestExtractor(object):
             call1='native.translate',
             call2='native.translate',
         )
-        self._assert(src)
+        self._default_assert(src)
 
     def test_default_import_as(self):
         src = TEMPLATE.format(
@@ -33,7 +33,7 @@ class TestExtractor(object):
             call1='_u.translate',
             call2='_u.translate',
         )
-        self._assert(src)
+        self._default_assert(src)
 
     def test_default_import_from(self):
         src = TEMPLATE.format(
@@ -41,7 +41,7 @@ class TestExtractor(object):
             call1='translate',
             call2='ranslate',
         )
-        self._assert(src)
+        self._default_assert(src)
 
     def test_default_import_from_as(self):
         src = TEMPLATE.format(
@@ -49,7 +49,7 @@ class TestExtractor(object):
             call1='_t',
             call2='_t',
         )
-        self._assert(src)
+        self._default_assert(src)
 
     def test_registered_imports(self):
         # Test all combinations in multi-level imports
@@ -60,24 +60,24 @@ class TestExtractor(object):
         src = TEMPLATE.format(
             _import=(
                 'from module1.module2 import module3 as m3\n'
-                'import module1.module2.module3 as _m3\n'
+                'import module1.module2.module3 as _m3'
             ),
             call1='m3.myfunc',
             call2='_m3.myfunc',
         )
         results = ex.extract_strings(src, 'myfile.py')
-        assert results == self._strings()
+        self._assert(results, self._strings(num_imports=2))
 
         src = TEMPLATE.format(
             _import=(
                 'from module1 import module2 as m2\n'
-                'import module1.module2 as _m2\n'
+                'import module1.module2 as _m2'
             ),
             call1='m2.module3.myfunc',
             call2='_m2.module3.myfunc',
         )
         results = ex.extract_strings(src, 'myfile.py')
-        assert results == self._strings()
+        self._assert(results, self._strings(num_imports=2))
 
         src = TEMPLATE.format(
             _import='import module1 as _m1',
@@ -97,7 +97,7 @@ class TestExtractor(object):
         ]
 
         results = ex.extract_strings(src, 'myfile.py')
-        assert results == expected
+        self._assert(results, expected)
 
     def test_exceptions_on_import(self):
         src = TEMPLATE.format(
@@ -119,25 +119,28 @@ class TestExtractor(object):
         )
         ex = Extractor()
         results = ex.extract_strings(src, 'myfile.py')
-        assert results == [
+        self._assert(results, [
             SourceString(
                 u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
                 _charlimit=33, _occurrences=['myfile.py:7'],
             ),
-        ]
+        ])
 
-    def _assert(self, src):
+    def _default_assert(self, src, num_imports=1):
         ex = Extractor()
         results = ex.extract_strings(src, 'myfile.py')
-        return results == self._strings()
+        self._assert(results, self._strings(num_imports=num_imports))
 
-    def _strings(self):
+    def _assert(self, results, expected_strings):
+        assert [x.__dict__ for x in results] == [x.__dict__ for x in expected_strings]
+
+    def _strings(self, num_imports=1):
         return [
             SourceString(u'Le canapé', u'désign',
                          param1='1', param2=2, param3=True,
-                         _occurrences=['myfile.py:8'], ),
+                         _occurrences=[f'myfile.py:{5 + num_imports}'], ),
             SourceString(
                 u'Les données', u'opération', _comment='comment', _tags=['t1', 't2'],
-                _charlimit=33, _occurrences=['myfile.py:9'],
+                _charlimit=33, _occurrences=[f'myfile.py:{6 + num_imports}'],
             ),
         ]
