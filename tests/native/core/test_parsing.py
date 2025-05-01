@@ -51,6 +51,18 @@ class TestExtractor(object):
         )
         self._default_assert(src)
 
+    def test_extra_relative_import(self):
+        src = TEMPLATE.format(
+            _import=(
+                'import transifex.native\n'
+                'from .. import x\n'
+                'from .y import z'
+            ),
+            call1='native.translate',
+            call2='native.translate',
+        )
+        self._default_assert(src, num_imports=3)
+
     def test_registered_imports(self):
         # Test all combinations in multi-level imports
         # with a custom registered function
