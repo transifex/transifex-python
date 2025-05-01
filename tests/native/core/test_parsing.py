@@ -39,7 +39,7 @@ class TestExtractor(object):
         src = TEMPLATE.format(
             _import='from transifex.native import translate',
             call1='translate',
-            call2='ranslate',
+            call2='translate',
         )
         self._default_assert(src)
 
