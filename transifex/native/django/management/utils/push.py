@@ -3,6 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 import sys
 import time
+import json
 
 from django import VERSION as DJANGO_VERSION
 from django.conf import settings
@@ -230,7 +231,7 @@ class Push(CommandMixin):
 
         Supports both Python files and Django template files.
 
-        :param TranslatableFile translatable_file: the file to search
+        :param: TranslatableFile translatable_file: the file to search
         :return: a list of SourceString objects
         :rtype: list
         """
@@ -295,59 +296,116 @@ class Push(CommandMixin):
             )
             Color.echo(file_list)
 
+
+    def _print_verbose_group(self, label, items):
+        """Print one verbose group (Created/Updated/etc) in a readable format.
+
+        :param label: The label of the verbose group.
+        :param items: The items to print like objects (with .string, .key,
+        .context, .occurrences).
+        """
+        if not items:
+            return
+
+        Color.echo('  [high]{label}:[end] [warn]{n}[end]'.format(
+            label=label, n=len(items)
+        ))
+
+        for i, item in enumerate(items, 1):
+            s = item.get('string', '')
+            key = item.get('key', '')
+            ctx = ', '.join(item.get('context', []) or [])
+            occ = ', '.join(item.get('occurrences', []) or [])
+
+            Color.echo(f'    [pink]{i}.[end] [green]"{s}"[end]')
+            if key:
+                Color.echo(f'       [high]key:[end] "[yel]{key}[end]"')
+            if ctx:
+                Color.echo(f'       [high]context:[end] {ctx}')
+            if occ:
+                Color.echo(f'       [high]occurrences:[end] [file]{occ}[end]')
+
     def _show_push_results(self, status_code, response_content):
         """Display results of pushing the source strings to CDS.
 
-        :param int status_code: the HTTP status code
-        :param dict response_content: the content of the response
+        :param: int status_code: the HTTP status code
+        :param: dict response_content: the content of the response
         """
         try:
-            data = response_content.get('data')
+            data = response_content.get('data', {})
             status = data.get('status')
-            errors = data.get('errors', [])
+            errors = data.get('errors', []) or []
             if status == 'completed':
-                details = data.get('details')
-                created = details.get('created')
-                updated = details.get('updated')
-                skipped = details.get('skipped')
-                deleted = details.get('deleted')
-                failed = details.get('failed')
+                details = data.get('details', {}) or {}
+                created = details.get('created', 0)
+                updated = details.get('updated', 0)
+                skipped = details.get('skipped', 0)
+                deleted = details.get('deleted', 0)
+                failed = details.get('failed', 0)
+                verbose = details.get('verbose', {}) or {}
+
                 Color.echo(
                     '[green]\nSuccessfully pushed strings to Transifex.[end]'
                 )
 
-                if created > 0:
-                    Color.echo(
-                        '[high]Created strings:[end] '
-                        '[warn]{created}[end]'.format(created=created))
+                if verbose and self.verbose_output:
+                    self._print_verbose_group(
+                        'Created strings',
+                        verbose.get('created')
+                    )
+                    self._print_verbose_group(
+                        'Updated strings',
+                        verbose.get('updated')
+                    )
+                    self._print_verbose_group(
+                        'Deleted strings',
+                        verbose.get('deleted')
+                    )
+                    self._print_verbose_group(
+                        'Skipped strings',
+                        verbose.get('skipped')
+                    )
+                    self._print_verbose_group(
+                        'Failed strings',
+                        verbose.get('failed')
+                    )
+                else:
 
-                if updated > 0:
-                    Color.echo(
-                        '[high]Updated strings:[end] '
-                        '[warn]{updated}[end]'.format(updated=updated))
+                    if created > 0:
+                        Color.echo(
+                            '[high]Created strings:[end] '
+                            '[warn]{created}[end]'.format(created=created))
 
-                if skipped > 0:
-                    Color.echo(
-                        '[high]Skipped strings:[end] '
-                        '[warn]{skipped}[end]'.format(skipped=skipped))
+                    if updated > 0:
+                        Color.echo(
+                            '[high]Updated strings:[end] '
+                            '[warn]{updated}[end]'.format(updated=updated))
 
-                if deleted > 0:
-                    Color.echo(
-                        '[high]Deleted strings:[end] '
-                        '[warn]{deleted}[end]'.format(deleted=deleted))
+                    if deleted > 0:
+                        Color.echo(
+                            '[high]Deleted strings:[end] '
+                            '[warn]{deleted}[end]'.format(deleted=deleted))
 
-                if failed > 0:
-                    Color.echo(
-                        '[high]Failed strings:[end] '
-                        '[warn]{failed}[end]'.format(failed=failed))
+                    if skipped > 0:
+                        Color.echo(
+                            '[high]Skipped strings:[end] '
+                            '[warn]{skipped}[end]'.format(skipped=skipped))
+
+                    if failed > 0:
+                        Color.echo(
+                            '[high]Failed strings:[end] '
+                            '[warn]{failed}[end]'.format(failed=failed))
+
             else:
                 Color.echo(
                     '[error]\nCould not push strings to Transifex.[end]')
 
-            if len(errors) > 0:
+            if errors:
                 Color.echo(
                     '[high]Errors:[end] {errors}[end]\n'.format(
-                        errors='\n'.join(errors)
+                        errors='\n'.join(
+                            [json.dumps(e) if not isinstance(e, str) else e for e in errors]
+                        )
                     )
                 )
         except Exception:
