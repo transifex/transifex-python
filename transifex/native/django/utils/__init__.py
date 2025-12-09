@@ -4,7 +4,7 @@ from transifex.common.strings import LazyString
 from transifex.native import tx
 
 
-def translate(_string, _context=None, _escape=True, **params):
+def translate(_string, _context=None, _escape=True, _key=None, **params):
     """Translate the given source string to the current language.
 
     A convenience wrapper that uses the current language of a Django app.
@@ -16,6 +16,9 @@ def translate(_string, _context=None, _escape=True, **params):
         about the source string
     :param bool _escape: if True, the returned string will be HTML-escaped,
         otherwise it won't
+    :param str _key: an optional key that identifies this string;
+        if omitted, the key is generated automatically based on the
+        strings itself and its context
     :return: the final translation in the current language
     :rtype: unicode
     """
@@ -32,6 +35,7 @@ def translate(_string, _context=None, _escape=True, **params):
         _context=_context,
         is_source=is_source,
         escape=_escape,
+        _key=_key,
         params=params,
     )
 
