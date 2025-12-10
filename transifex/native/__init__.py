@@ -8,6 +8,7 @@ def init(
     fetch_all_langs=False,
     filter_tags=None,
     filter_status=None,
+    fetch_timeout=0,
 ):
     """Initialize the framework.
 
@@ -25,6 +26,8 @@ def init(
     :param bool fetch_all_langs: force pull all remote languages
     :param str filter_tags: fetch only content with tags
     :param str filter_status: fetch only content with specific translation status
+    :param int fetch_timeout: maximum time in seconds to wait when fetching
+    translations or locales from CDS
     """
     if not tx.initialized:
         tx.init(
@@ -38,6 +41,7 @@ def init(
             fetch_all_langs=fetch_all_langs,
             filter_tags=filter_tags,
             filter_status=filter_status,
+            fetch_timeout=fetch_timeout,
         )
 
 

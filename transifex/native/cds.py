@@ -57,7 +57,7 @@ class CDSHandler(object):
 
     def __init__(self, configured_languages, token, secret=None,
                  host=TRANSIFEX_CDS_HOST, fetch_all_langs=False,
-                 filter_tags=None, filter_status=None):
+                 filter_tags=None, filter_status=None, fetch_timeout=0):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
@@ -73,6 +73,7 @@ class CDSHandler(object):
         self.secret = secret
         self.host = host or TRANSIFEX_CDS_HOST
         self.etags = EtagStore()
+        self.fetch_timeout = fetch_timeout
 
     def fetch_languages(self):
         """Fetch the languages defined in the CDS for the specific project.
@@ -364,16 +365,33 @@ class CDSHandler(object):
 
     def retry_get_request(self, *args, **kwargs):
         """ Resilient function for GET requests """
-        retries, last_response_status = 0, 202
-        while (last_response_status == 202 or
-                500 <= last_response_status < 600 and
-                retries < MAX_RETRIES):
+        retries_5xx = 0
+        last_response_status = 202
+        start_ts = time.time()
+        max_total_seconds = self.fetch_timeout
 
-            if 500 <= last_response_status < 600:
-                retries += 1
-                time.sleep(retries * RETRY_DELAY_SEC)
-
+        while True:
             response = requests.get(*args, **kwargs)
             last_response_status = response.status_code
 
-        return response
+            # Success or non-retryable status -> return immediately
+            if last_response_status < 500 and last_response_status != 202:
+                return response
+
+            # 202 handling
+            if last_response_status == 202:
+                time.sleep(RETRY_DELAY_SEC)
+
+            # 5xx handling
+            elif 500 <= last_response_status < 600:
+                retries_5xx += 1
+                if retries_5xx > MAX_RETRIES:
+                    return response
+                time.sleep(retries_5xx * RETRY_DELAY_SEC)
+
+            # Timeout handling
+            if (
+                max_total_seconds > 0 and
+                (time.time() - start_ts) >= max_total_seconds
+            ):
+                return response

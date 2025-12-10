@@ -43,6 +43,40 @@ To learn more about using Transifex Python toolkit check:
 * For a general overview visit [Transifex Native overview](https://developers.transifex.com/docs/native?utm_campaign=tx-native&utm_source=github&utm_medium=link)
 * For some common questions & answers check our [Transifex Native community](https://community.transifex.com/c/transifex-native/17)
 
+# Django settings reference
+
+The Transifex Native Django sdk is controlled via a set of configuration options defined in Django settings:
+
+- TRANSIFEX_TOKEN: API token that connects your application to a Transifex project.
+Must be set for both pushing source strings and fetching translations.
+
+- TRANSIFEX_SECRET: Secret used together with the token for authenticated operations against CDS (e.g. pushing source content, invalidating cache).
+
+- TRANSIFEX_CDS_HOST: Override the default CDS host (https://cds.svc.transifex.net).
+
+- TRANSIFEX_FILTER_STATUS: Optional CDS filter[status] parameter used when fetching translations (e.g. "reviewed", "proofread"). If not set, CDS returns all available statuses.
+
+- TRANSIFEX_FILTER_TAGS: Optional CDS filter[tags] parameter used when fetching translations. Use this to limit fetched content to specific tags.
+
+- TRANSIFEX_MISSING_POLICY: Custom “missing translation” policy class.
+Defaults to the built-in SourceStringPolicy when not provided.
+
+- TRANSIFEX_ERROR_POLICY: Custom error handling policy class.
+Defaults to SourceErrorPolicy.
+
+- TRANSIFEX_CACHE
+Custom cache implementation. Defaults to an in-memory cache (MemoryCache) if not provided. Can be used to integrate with a shared cache (e.g. Redis, memcached).
+
+- SKIP_TRANSLATIONS_SYNC: If True, disables automatic translation sync (OTA) for this environment.
+
+- TRANSIFEX_SYNC_INTERVAL: Interval in seconds for the background sync daemon that fetches translations. Default: 30 * 60 (30 minutes). Set to 0 to disable periodic sync and only fetch on startup.
+
+- TRANSIFEX_FETCH_ALL_LANGUAGES: When True, fetch translations for all languages configured in CDS. When False (default), only fetch translations for languages listed in Django’s LANGUAGES setting.
+
+- TRANSIFEX_FETCH_TEMEOUT:
+Maximum time in seconds to wait when fetching translations or locales from CDS.
+0 (default) = no global timeout.
+
 # License
 
 Licensed under Apache License 2.0, see `LICENSE` file.
