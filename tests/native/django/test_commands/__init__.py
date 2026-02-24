@@ -34,6 +34,7 @@ def get_transifex_command():
         'override_occurrences',
         'do_not_keep_translations',
         'symlinks',
+        'force_source_update',
 
         # Invalidate
         'purge',
