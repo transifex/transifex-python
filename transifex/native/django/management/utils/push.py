@@ -92,6 +92,10 @@ class Push(CommandMixin):
             choices=['source', 'hash'],
             help=('Use "hash" or "source" based keys (default: source)'),
         )
+        parser.add_argument(
+            '--force-source-update', action='store_true', dest='force_source_update', default=False,
+            help=('Force the update of the source strings'),
+        )
 
     def handle(self, *args, **options):
         self.verbose_output = options['verbose_output']
@@ -108,6 +112,7 @@ class Push(CommandMixin):
         self.do_not_keep_translations = options['do_not_keep_translations']
         self.no_wait = options['no_wait']
         self.key_generator = options['key_generator']
+        self.force_source_update = options['force_source_update']
         extensions = options['extensions']
         if self.domain == 'djangojs':
             exts = extensions if extensions else ['js']
@@ -200,7 +205,7 @@ class Push(CommandMixin):
         status_code, response_content = tx.push_source_strings(
             self.string_collection.strings.values(), self.purge,
             self.do_not_keep_translations, self.override_tags,
-            self.override_occurrences
+            self.override_occurrences, self.force_source_update
         )
 
         if self.no_wait:
