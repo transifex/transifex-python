@@ -1,7 +1,5 @@
 from __future__ import absolute_import, unicode_literals
 
-import six
-
 from .compat import abc
 
 
@@ -22,7 +20,7 @@ def is_dict(value):
 
 
 def is_list(value):
-    return isinstance(value, abc.Sequence) and not isinstance(value, six.string_types)
+    return isinstance(value, abc.Sequence) and not isinstance(value, str)
 
 
 def is_null(value):
