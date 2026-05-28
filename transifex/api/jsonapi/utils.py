@@ -1,4 +1,4 @@
-from .compat import abc
+from collections import abc
 
 
 def is_resource(value):
