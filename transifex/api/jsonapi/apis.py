@@ -56,7 +56,7 @@ class _JsonApiMetaclass(type_):
         return result
 
 
-class JsonApi(object, metaclass=_JsonApiMetaclass):
+class JsonApi(metaclass=_JsonApiMetaclass):
     """Inteface for a new {json:api} API connection. Initialization
     parameters:
 
