@@ -1,10 +1,6 @@
-from __future__ import absolute_import, unicode_literals
-
 from copy import deepcopy
 
 import requests
-import six
-
 from .auth import BearerAuthentication
 from .compat import JSONDecodeError
 from .exceptions import JsonApiException
@@ -60,7 +56,7 @@ class _JsonApiMetaclass(type_):
         return result
 
 
-class JsonApi(six.with_metaclass(_JsonApiMetaclass, object)):
+class JsonApi(metaclass=_JsonApiMetaclass):
     """Inteface for a new {json:api} API connection. Initialization
     parameters:
 
