@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import copy
+import pickle
 import sys
 
 import pytest
@@ -39,6 +41,13 @@ class TestLazyString:
     def test_contains(self):
         assert "world" not in LazyString(str.upper, "hello world")
         assert "WORLD" in LazyString(str.upper, "hello world")
+
+    def test_copy_deepcopy_and_pickle(self):
+        string = LazyString(str.upper, "hello world")
+
+        assert str(copy.copy(string)) == "HELLO WORLD"
+        assert str(copy.deepcopy(string)) == "HELLO WORLD"
+        assert str(pickle.loads(pickle.dumps(string))) == "HELLO WORLD"
 
     def test_eq(self):
         assert LazyString(str.upper, "hello world") == "HELLO WORLD"

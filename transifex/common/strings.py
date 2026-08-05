@@ -112,6 +112,7 @@ def lazy_str_meta(name, bases, dct):
         "__init__",
         "__doc__",
         "__reduce__",
+        "__getstate__",
         "__new__",
         "__str__",
         "__dir__",
