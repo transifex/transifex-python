@@ -1,4 +1,4 @@
-A python SDK for the [Transifex API (v3)](https://transifex.github.io/openapi/)
+A python SDK for the [Transifex API (v3)](https://api-docs.transifex.com/)
 
 ## Introduction
 
@@ -86,7 +86,7 @@ projects = transifex_api.Project.filter(organization=organization)
 ```
 
 However, if you look at how a project is represented in the
-[API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects~1{project_id}/get),
+[API docs](https://api-docs.transifex.com/#tag/Projects/paths/~1projects~1{project_id}/get),
 Organization objects have a `projects` relationship with a `related` links, so
 you can achieve the same thing with:
 
@@ -95,7 +95,7 @@ projects = organization.fetch('projects')
 ```
 
 If you look into the
-[API docs](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects/get),
+[API docs](https://api-docs.transifex.com/#tag/Projects/paths/~1projects/get),
 you can see that a `slug` filter is also supported, so to find a specific
 project, you can do:
 
@@ -180,7 +180,7 @@ project.change('team', team_2)
 ```
 
 This will send a PATCH request to
-[`/projects/XXX/relationships/team`](https://transifex.github.io/openapi/#tag/Projects/paths/~1projects~1{project_id}~1relationships~1team/patch)
+[`/projects/XXX/relationships/team`](https://api-docs.transifex.com/#tag/Projects/paths/~1projects~1{project_id}~1relationships~1team/patch)
 to perform the change. Again, you should consult the API documentation to see
 which relationships can be changed and with which methods (in this case -
 changing a project's team - both methods are available).
@@ -1252,7 +1252,7 @@ will retrieve that location and process the response using the appropriate
 class.
 
 Given these two mechanisms, here is how you might go about performing a
-[source file upload](https://transifex.github.io/openapi/#tag/Resource-Strings/paths/~1resource_strings_async_uploads/post)
+[source file upload](https://api-docs.transifex.com/#tag/Resource-Strings/paths/~1resource_strings_async_uploads/post)
 in Transifex API:
 
 ```python
