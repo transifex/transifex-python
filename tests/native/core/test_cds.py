@@ -2,10 +2,9 @@ from operator import itemgetter
 
 import pytest
 import responses
-from mock import patch
+from mock import patch, MagicMock
 from transifex.native.cds import CDSHandler
 from transifex.native.parsing import SourceString
-
 
 class TestCDSHandler(object):
 
@@ -635,3 +634,39 @@ class TestCDSHandler(object):
             for x in ('Unprocessable Entity', 'None')
         ]
         assert patched_logger.error.call_args[0][0] in messages
+
+
+    @patch('transifex.native.cds.requests.get')
+    @patch('transifex.native.cds.time.time')
+    @patch('transifex.native.cds.time.sleep')
+    def test_retry_get_request_times_out_on_202(self, mock_sleep, mock_time, mock_get):
+        """
+        If CDS keeps returning 202 and fetch_timeout is set, retry_get_request
+        should stop retrying after the timeout and return the last response.
+        """
+        cds_handler = CDSHandler(
+            ['el', 'en'],
+            'some_token',
+            fetch_timeout=1,  # 1 second total timeout
+        )
+
+        # Always return a 202 response
+        response_202 = MagicMock()
+        response_202.status_code = 202
+        mock_get.return_value = response_202
+
+        # Simulate time:
+        # - first call to time.time() -> start_ts = 0
+        # - after first loop iteration -> 0.5 (still under timeout)
+        # - after second loop iteration -> 1.1 (exceeds timeout, should exit)
+        mock_time.side_effect = [0, 0.5, 1.1]
+        mock_sleep.return_value = None
+
+        result = cds_handler.retry_get_request('https://some.host/languages')
+
+        # We should have called GET twice (two 202s) and then exited due to timeout
+        assert mock_get.call_count == 2
+        assert result is response_202
+
+        # We should have slept twice for the two 202 responses
+        assert mock_sleep.call_count == 2

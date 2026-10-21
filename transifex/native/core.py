@@ -42,6 +42,7 @@ class TxNative(object):
         missing_policy=None, error_policy=None, cache=None,
         fetch_all_langs=False, filter_tags=None,
         filter_status=None,
+        fetch_timeout=0,
     ):
         """Create an instance of the core framework class.
 
@@ -62,6 +63,8 @@ class TxNative(object):
         :param bool fetch_all_langs: force pull all remote languages
         :param str filter_tags: fetch only content with tags
         :param str filter_status: fetch only content with specific translation status
+        :param int fetch_timeout: maximum time in seconds to wait when fetching
+            translations or locales from CDS
         """
         self._languages = languages
         self._cache = cache or MemoryCache()
@@ -72,6 +75,7 @@ class TxNative(object):
             fetch_all_langs=fetch_all_langs,
             filter_tags=filter_tags,
             filter_status=filter_status,
+            fetch_timeout=fetch_timeout,
         )
         self.initialized = True
 

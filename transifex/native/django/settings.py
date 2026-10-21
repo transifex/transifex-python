@@ -16,3 +16,7 @@ TRANSIFEX_SYNC_INTERVAL = getattr(settings,
 TRANSIFEX_FETCH_ALL_LANGUAGES = getattr(settings,
                                         'TRANSIFEX_FETCH_ALL_LANGUAGES',
                                         False)
+TRANSIFEX_FETCH_TIMEOUT = getattr(settings,
+                                  'TRANSIFEX_FETCH_TIMEOUT',
+                                  0)
+
