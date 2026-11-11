@@ -1,6 +1,7 @@
 from operator import itemgetter
 
 import pytest
+import requests
 import responses
 from mock import patch, MagicMock
 from transifex.native.cds import CDSHandler
@@ -670,3 +671,79 @@ class TestCDSHandler(object):
 
         # We should have slept twice for the two 202 responses
         assert mock_sleep.call_count == 2
+
+    @staticmethod
+    def _json_response(status_code, payload):
+        response = MagicMock()
+        response.ok = status_code < 400
+        response.status_code = status_code
+        response.headers = {}
+        response.json.return_value = payload
+        return response
+
+    @patch('transifex.native.cds.requests.get')
+    def test_fetch_requests_use_request_timeout(self, mock_get):
+        mock_get.return_value = self._json_response(200, {'data': []})
+
+        for request_timeout, expected in (
+            (None, (10, 60)),
+            ((3, 7), (3, 7)),
+            (5, 5),
+        ):
+            mock_get.reset_mock()
+            kwargs = {} if request_timeout is None else {
+                'request_timeout': request_timeout}
+            cds_handler = CDSHandler(['el'], 'some_token', **kwargs)
+
+            cds_handler.fetch_languages()
+            cds_handler.fetch_translations(language_code='el')
+
+            timeouts = [c[1]['timeout'] for c in mock_get.call_args_list]
+            assert timeouts == [expected, expected]
+
+    @patch('transifex.native.cds.logger')
+    @patch('transifex.native.cds.requests.get')
+    def test_fetch_logs_request_timeouts(self, mock_get, patched_logger):
+        cds_handler = CDSHandler(['el'], 'some_token')
+
+        for exception in (requests.ReadTimeout(), requests.ConnectTimeout()):
+            mock_get.side_effect = exception
+            patched_logger.reset_mock()
+
+            assert cds_handler.fetch_languages() == []
+            assert cds_handler.fetch_translations(language_code='el') == {
+                'el': (False, {})
+            }
+            assert [c[0][0] for c in patched_logger.error.call_args_list] == [
+                'Error retrieving languages from CDS: Timeout',
+                'Error retrieving translations from CDS: Timeout',
+            ]
+
+    @patch('transifex.native.cds.logger')
+    @patch('transifex.native.cds.time.time')
+    @patch('transifex.native.cds.requests.get')
+    def test_fetch_timeout_bounds_whole_fetch(
+        self, mock_get, mock_time, patched_logger
+    ):
+        cds_handler = CDSHandler(['el', 'en'], 'some_token', fetch_timeout=5)
+        mock_get.side_effect = [
+            self._json_response(200, {'data': [{'code': 'el'},
+                                               {'code': 'en'}]}),
+            self._json_response(200, {'data': {'key': {'string': 'x'}}}),
+        ]
+        # deadline set at 0 -> 5; first language at 1, second at 10
+        mock_time.side_effect = [0, 1, 10]
+
+        translations = cds_handler.fetch_translations()
+
+        assert mock_get.call_count == 2
+        assert sorted(translations.values(), key=lambda v: v[0]) == [
+            (False, {}),
+            (True, {'key': {'string': 'x'}}),
+        ]
+        skipped = [lang for lang, (refresh, _) in translations.items()
+                   if not refresh]
+        patched_logger.error.assert_called_once_with(
+            'Error retrieving translations from CDS: fetch timeout reached, '
+            'skipped `{}`'.format(skipped[0])
+        )

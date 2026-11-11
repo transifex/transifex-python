@@ -35,6 +35,9 @@ MAPPING = {
 # Number of times to retry connecting to CDS before bailing out
 MAX_RETRIES = 3
 RETRY_DELAY_SEC = 2
+# (connect, read) seconds for each fetch request, so an unreachable CDS
+# cannot block the caller for the OS-level TCP timeout
+DEFAULT_REQUEST_TIMEOUT = (10, 60)
 
 
 class EtagStore(object):
@@ -57,13 +60,18 @@ class CDSHandler(object):
 
     def __init__(self, configured_languages, token, secret=None,
                  host=TRANSIFEX_CDS_HOST, fetch_all_langs=False,
-                 filter_tags=None, filter_status=None, fetch_timeout=0):
+                 filter_tags=None, filter_status=None, fetch_timeout=0,
+                 request_timeout=DEFAULT_REQUEST_TIMEOUT):
         """Constructor.
 
         :param list configured_languages: a list of language codes for the
             configured languages in the application
         :param str token: the API token to use for connecting to the CDS
         :param str host: the host of the Content Delivery Service
+        :param int fetch_timeout: maximum seconds for fetching languages and
+            translations, 0 for no limit
+        :param request_timeout: seconds for each fetch request, a number or a
+            (connect, read) tuple as accepted by `requests`
         """
         self.configured_language_codes = configured_languages
         self.fetch_all_langs = fetch_all_langs
@@ -74,12 +82,15 @@ class CDSHandler(object):
         self.host = host or TRANSIFEX_CDS_HOST
         self.etags = EtagStore()
         self.fetch_timeout = fetch_timeout
+        self.request_timeout = request_timeout
 
-    def fetch_languages(self):
+    def fetch_languages(self, deadline=None):
         """Fetch the languages defined in the CDS for the specific project.
 
         Contains the source language and all target languages.
 
+        :param float deadline: `time.time()` value to stop retrying at;
+            defaults to now plus `fetch_timeout`
         :return: a list of language information
         :rtype: dict
         """
@@ -91,6 +102,7 @@ class CDSHandler(object):
             response = self.retry_get_request(
                 self.host + cds_url,
                 headers=self._get_headers(),
+                deadline=deadline,
             )
 
             if not response.ok:
@@ -109,6 +121,8 @@ class CDSHandler(object):
             # exist
             logger.error(
                 'Error retrieving languages from CDS: Malformed response')
+        except requests.Timeout:
+            logger.error('Error retrieving languages from CDS: Timeout')
         except requests.ConnectionError:
             logger.error(
                 'Error retrieving languages from CDS: ConnectionError')
@@ -143,8 +157,13 @@ class CDSHandler(object):
 
         translations = {}
 
+        deadline = self._get_deadline()
+
         if not language_code:
-            languages = [lang['code'] for lang in self.fetch_languages()]
+            languages = [
+                lang['code']
+                for lang in self.fetch_languages(deadline=deadline)
+            ]
         else:
             languages = [language_code]
 
@@ -156,13 +175,21 @@ class CDSHandler(object):
             languages &= set(self.configured_language_codes)
 
         for language_code in languages:
+            if deadline is not None and time.time() >= deadline:
+                logger.error(
+                    'Error retrieving translations from CDS: fetch timeout '
+                    'reached, skipped `{}`'.format(language_code)
+                )
+                translations[language_code] = (False, {})
+                continue
 
             try:
                 response = self.retry_get_request(
                     (self.host + cds_url.format(language_code=language_code)),
                     headers=self._get_headers(
                         etag=self.etags.get(language_code)
-                    )
+                    ),
+                    deadline=deadline,
                 )
 
                 if not response.ok:
@@ -190,6 +217,9 @@ class CDSHandler(object):
                 logger.error('Error retrieving translations from CDS: '
                              'Malformed response')  # pragma no cover
                 translations[language_code] = (False, {})  # pragma no cover
+            except requests.Timeout:
+                logger.error('Error retrieving translations from CDS: Timeout')
+                translations[language_code] = (False, {})
             except requests.ConnectionError:
                 logger.error(
                     'Error retrieving translations from CDS: ConnectionError')
@@ -363,12 +393,23 @@ class CDSHandler(object):
 
         return headers
 
+    def _get_deadline(self):
+        """Return the `time.time()` value a fetch must finish by, or None."""
+        if self.fetch_timeout > 0:
+            return time.time() + self.fetch_timeout
+        return None
+
     def retry_get_request(self, *args, **kwargs):
-        """ Resilient function for GET requests """
+        """Resilient function for GET requests.
+
+        Retries on 202 and 5xx responses until `deadline` (keyword argument,
+        defaults to now plus `fetch_timeout`). Each request is bounded by
+        `request_timeout`.
+        """
+        deadline = kwargs.pop('deadline', None) or self._get_deadline()
+        kwargs.setdefault('timeout', self.request_timeout)
         retries_5xx = 0
         last_response_status = 202
-        start_ts = time.time()
-        max_total_seconds = self.fetch_timeout
 
         while True:
             response = requests.get(*args, **kwargs)
@@ -389,9 +430,5 @@ class CDSHandler(object):
                     return response
                 time.sleep(retries_5xx * RETRY_DELAY_SEC)
 
-            # Timeout handling
-            if (
-                max_total_seconds > 0 and
-                (time.time() - start_ts) >= max_total_seconds
-            ):
+            if deadline is not None and time.time() >= deadline:
                 return response

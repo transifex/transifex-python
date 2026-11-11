@@ -19,4 +19,6 @@ TRANSIFEX_FETCH_ALL_LANGUAGES = getattr(settings,
 TRANSIFEX_FETCH_TIMEOUT = getattr(settings,
                                   'TRANSIFEX_FETCH_TIMEOUT',
                                   0)
-
+TRANSIFEX_REQUEST_TIMEOUT = getattr(settings,
+                                    'TRANSIFEX_REQUEST_TIMEOUT',
+                                    None)

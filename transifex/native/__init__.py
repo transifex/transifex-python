@@ -9,6 +9,7 @@ def init(
     filter_tags=None,
     filter_status=None,
     fetch_timeout=0,
+    request_timeout=None,
 ):
     """Initialize the framework.
 
@@ -28,6 +29,8 @@ def init(
     :param str filter_status: fetch only content with specific translation status
     :param int fetch_timeout: maximum time in seconds to wait when fetching
     translations or locales from CDS
+    :param request_timeout: seconds for each CDS fetch request, a number or
+        a (connect, read) tuple; defaults to (10, 60)
     """
     if not tx.initialized:
         tx.init(
@@ -42,6 +45,7 @@ def init(
             filter_tags=filter_tags,
             filter_status=filter_status,
             fetch_timeout=fetch_timeout,
+            request_timeout=request_timeout,
         )
 
 
