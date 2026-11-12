@@ -822,3 +822,71 @@ class TestCDSHandler(object):
         assert cds_handler.retry_get_request('https://some.host/x') is response
         assert mock_get.call_count == 1
         mock_sleep.assert_not_called()
+
+    @patch('transifex.native.cds.time.monotonic')
+    @patch('transifex.native.cds.requests.get')
+    def test_none_request_timeout_parts_are_capped_by_deadline(
+        self, mock_get, mock_time
+    ):
+        mock_get.return_value = self._json_response(200, {'data': []})
+
+        for request_timeout, expected in (((2, None), (2, 3)), (None, 3)):
+            mock_time.side_effect = [0, 2]
+            cds_handler = CDSHandler(['el'], 'some_token', fetch_timeout=5,
+                                     request_timeout=request_timeout)
+
+            assert cds_handler.fetch_languages() == []
+            assert mock_get.call_args[1]['timeout'] == expected
+
+    @patch('transifex.native.cds.time.sleep')
+    @patch('transifex.native.cds.requests.get')
+    def test_retry_get_request_5xx_retries_without_deadline(
+        self, mock_get, mock_sleep
+    ):
+        response = self._json_response(503)
+        mock_get.return_value = response
+
+        cds_handler = CDSHandler(['el'], 'some_token')
+        assert cds_handler.retry_get_request('https://some.host/x') is response
+
+        assert mock_get.call_count == 4
+        assert [c[0][0] for c in mock_sleep.call_args_list] == [2, 4, 6]
+
+    @patch('transifex.native.cds.time.sleep')
+    @patch('transifex.native.cds.time.monotonic')
+    @patch('transifex.native.cds.requests.get')
+    def test_retry_get_request_202_then_200_within_deadline(
+        self, mock_get, mock_time, mock_sleep
+    ):
+        ok = self._json_response(200, {'data': []})
+        mock_get.side_effect = [self._json_response(202), ok]
+        # deadline 0 -> 10; requests at 0.1 and 2.2, 202 checked at 0.2
+        mock_time.side_effect = [0, 0.1, 0.2, 2.2]
+        cds_handler = CDSHandler(['el'], 'some_token', fetch_timeout=10)
+
+        assert cds_handler.retry_get_request('https://some.host/x') is ok
+        mock_sleep.assert_called_once_with(2)
+
+    @patch('transifex.native.cds.requests.get')
+    def test_fetch_translations_follows_configured_language_order(
+        self, mock_get
+    ):
+        languages = self._json_response(200, {'data': [
+            {'code': 'el'}, {'code': 'en'}, {'code': 'fr'}, {'code': 'de'}]})
+        content = self._json_response(200, {'data': {}})
+
+        for fetch_all_langs, expected in (
+            (False, ['fr', 'el']),
+            (True, ['fr', 'el', 'en', 'de']),
+        ):
+            mock_get.reset_mock()
+            mock_get.side_effect = [languages] + [content] * 4
+            cds_handler = CDSHandler(['fr', 'it', 'el', 'fr'], 'some_token',
+                                     host='https://some.host',
+                                     fetch_all_langs=fetch_all_langs)
+
+            cds_handler.fetch_translations()
+
+            requested = [c[0][0].rsplit('/', 1)[1]
+                         for c in mock_get.call_args_list[1:]]
+            assert requested == expected

@@ -74,9 +74,12 @@ Custom cache implementation. Defaults to an in-memory cache (MemoryCache) if not
 - TRANSIFEX_FETCH_ALL_LANGUAGES: When True, fetch translations for all languages configured in CDS. When False (default), only fetch translations for languages listed in Django’s LANGUAGES setting.
 
 - TRANSIFEX_FETCH_TIMEOUT:
-Maximum time in seconds for one fetch of languages and translations from CDS,
-including retries. Languages not reached in time are skipped until the next
-sync. 0 (default) = no global timeout.
+Approximate maximum time in seconds for one fetch of languages and
+translations from CDS, including retries. It can be exceeded somewhat, e.g. by
+DNS resolution or a host with several IP addresses. Languages are fetched in
+LANGUAGES order; those not reached in time are skipped until the next sync,
+or for the life of the process if TRANSIFEX_SYNC_INTERVAL is 0.
+0 (default) = no global timeout.
 
 - TRANSIFEX_REQUEST_TIMEOUT:
 Timeout in seconds for each request made when fetching from CDS, either a

@@ -52,3 +52,14 @@ class TestModuleInit(object):
         assert isinstance(_tx._missing_policy, SourceStringPolicy)
         assert isinstance(_tx._error_policy, SourceStringErrorPolicy)
         assert isinstance(_tx._cache, MemoryCache)
+
+    def test_init_passes_timeouts_to_cds_handler(self, reset_tx):
+        native.init('mytoken', ['lang1'], fetch_timeout=7,
+                    request_timeout=(1, 2))
+        assert _tx._cds_handler.fetch_timeout == 7
+        assert _tx._cds_handler.request_timeout == (1, 2)
+
+    def test_init_default_request_timeout(self, reset_tx):
+        native.init('mytoken', ['lang1'])
+        assert _tx._cds_handler.fetch_timeout == 0
+        assert _tx._cds_handler.request_timeout == (10, 60)

@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+from collections import OrderedDict
 from urllib.parse import urlencode
 
 import requests
@@ -172,12 +173,15 @@ class CDSHandler(object):
         else:
             languages = [language_code]
 
-        # All remote languages
-        languages = set(languages)
-
-        # Scope down to only languages appearing in LANGUAGES setting
-        if not self.fetch_all_langs:
-            languages &= set(self.configured_language_codes)
+        # Configured languages first, in LANGUAGES order, so the same ones are
+        # fetched if the fetch timeout cuts the loop short; then any other
+        # remote languages when fetching all of them
+        remote = set(languages)
+        ordered = [code for code in self.configured_language_codes
+                   if code in remote]
+        if self.fetch_all_langs:
+            ordered += [code for code in languages if code not in ordered]
+        languages = list(OrderedDict.fromkeys(ordered))
 
         for language_code in languages:
             if deadline is not None and time.monotonic() >= deadline:
@@ -413,9 +417,14 @@ class CDSHandler(object):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise requests.Timeout('CDS fetch timeout reached')
+
+        def cap(part):
+            # None means no limit in requests, so only the deadline applies
+            return remaining if part is None else min(part, remaining)
+
         if isinstance(timeout, tuple):
-            return tuple(min(part, remaining) for part in timeout)
-        return min(timeout, remaining)
+            return tuple(cap(part) for part in timeout)
+        return cap(timeout)
 
     def retry_get_request(self, *args, **kwargs):
         """Resilient function for GET requests.
@@ -425,7 +434,9 @@ class CDSHandler(object):
         `request_timeout` and the time left. Raises `requests.Timeout` if
         CDS is still answering 202 when the deadline is reached.
         """
-        deadline = kwargs.pop('deadline', None) or self._get_deadline()
+        deadline = kwargs.pop('deadline', None)
+        if deadline is None:
+            deadline = self._get_deadline()
         timeout = kwargs.pop('timeout', self.request_timeout)
         retries_5xx = 0
 

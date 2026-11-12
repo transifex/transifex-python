@@ -79,7 +79,8 @@ class TxNative(object):
             filter_tags=filter_tags,
             filter_status=filter_status,
             fetch_timeout=fetch_timeout,
-            request_timeout=request_timeout or DEFAULT_REQUEST_TIMEOUT,
+            request_timeout=(DEFAULT_REQUEST_TIMEOUT if request_timeout is None
+                             else request_timeout),
         )
         self.initialized = True
 
