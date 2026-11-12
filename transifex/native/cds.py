@@ -81,7 +81,12 @@ class CDSHandler(object):
         self.secret = secret
         self.host = host or TRANSIFEX_CDS_HOST
         self.etags = EtagStore()
-        self.fetch_timeout = fetch_timeout
+        try:
+            self.fetch_timeout = float(fetch_timeout or 0)
+        except (TypeError, ValueError):
+            logger.error('Invalid fetch_timeout `{}`, fetch timeout '
+                         'disabled'.format(fetch_timeout))
+            self.fetch_timeout = 0
         self.request_timeout = request_timeout
 
     def fetch_languages(self, deadline=None):
@@ -89,7 +94,7 @@ class CDSHandler(object):
 
         Contains the source language and all target languages.
 
-        :param float deadline: `time.time()` value to stop retrying at;
+        :param float deadline: `time.monotonic()` value to stop retrying at;
             defaults to now plus `fetch_timeout`
         :return: a list of language information
         :rtype: dict
@@ -175,7 +180,7 @@ class CDSHandler(object):
             languages &= set(self.configured_language_codes)
 
         for language_code in languages:
-            if deadline is not None and time.time() >= deadline:
+            if deadline is not None and time.monotonic() >= deadline:
                 logger.error(
                     'Error retrieving translations from CDS: fetch timeout '
                     'reached, skipped `{}`'.format(language_code)
@@ -394,41 +399,53 @@ class CDSHandler(object):
         return headers
 
     def _get_deadline(self):
-        """Return the `time.time()` value a fetch must finish by, or None."""
+        """Return the `time.monotonic()` value a fetch must finish by, or
+        None if there is no `fetch_timeout`."""
         if self.fetch_timeout > 0:
-            return time.time() + self.fetch_timeout
+            return time.monotonic() + self.fetch_timeout
         return None
+
+    def _bounded_timeout(self, timeout, deadline):
+        """Cap a requests `timeout` (number or tuple) to the time left until
+        `deadline`, raising `requests.Timeout` if none is left."""
+        if deadline is None:
+            return timeout
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise requests.Timeout('CDS fetch timeout reached')
+        if isinstance(timeout, tuple):
+            return tuple(min(part, remaining) for part in timeout)
+        return min(timeout, remaining)
 
     def retry_get_request(self, *args, **kwargs):
         """Resilient function for GET requests.
 
         Retries on 202 and 5xx responses until `deadline` (keyword argument,
-        defaults to now plus `fetch_timeout`). Each request is bounded by
-        `request_timeout`.
+        defaults to now plus `fetch_timeout`); requests are bounded by
+        `request_timeout` and the time left. Raises `requests.Timeout` if
+        CDS is still answering 202 when the deadline is reached.
         """
         deadline = kwargs.pop('deadline', None) or self._get_deadline()
-        kwargs.setdefault('timeout', self.request_timeout)
+        timeout = kwargs.pop('timeout', self.request_timeout)
         retries_5xx = 0
-        last_response_status = 202
 
         while True:
+            kwargs['timeout'] = self._bounded_timeout(timeout, deadline)
             response = requests.get(*args, **kwargs)
-            last_response_status = response.status_code
+            status = response.status_code
 
-            # Success or non-retryable status -> return immediately
-            if last_response_status < 500 and last_response_status != 202:
-                return response
-
-            # 202 handling
-            if last_response_status == 202:
-                time.sleep(RETRY_DELAY_SEC)
-
-            # 5xx handling
-            elif 500 <= last_response_status < 600:
+            if status == 202:
+                delay = RETRY_DELAY_SEC
+            elif 500 <= status < 600 and retries_5xx < MAX_RETRIES:
                 retries_5xx += 1
-                if retries_5xx > MAX_RETRIES:
-                    return response
-                time.sleep(retries_5xx * RETRY_DELAY_SEC)
-
-            if deadline is not None and time.time() >= deadline:
+                delay = retries_5xx * RETRY_DELAY_SEC
+            else:
                 return response
+
+            if deadline is not None and deadline - time.monotonic() <= delay:
+                if status == 202:
+                    raise requests.Timeout(
+                        'CDS still processing at fetch timeout')
+                return response
+
+            time.sleep(delay)
