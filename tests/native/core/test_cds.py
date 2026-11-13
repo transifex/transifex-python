@@ -3,8 +3,9 @@ from operator import itemgetter
 import pytest
 import requests
 import responses
+from urllib3.exceptions import ReadTimeoutError
 from mock import patch, MagicMock
-from transifex.native.cds import CDSHandler
+from transifex.native.cds import DEFAULT_REQUEST_TIMEOUT, CDSHandler
 from transifex.native.parsing import SourceString
 
 class TestCDSHandler(object):
@@ -890,3 +891,46 @@ class TestCDSHandler(object):
             requested = [c[0][0].rsplit('/', 1)[1]
                          for c in mock_get.call_args_list[1:]]
             assert requested == expected
+
+    @patch('transifex.native.cds.requests.get')
+    def test_fetch_all_langs_without_configured_languages(self, mock_get):
+        mock_get.side_effect = [
+            self._json_response(200, {'data': [{'code': 'el'}]}),
+            self._json_response(200, {'data': {}}),
+        ]
+        cds_handler = CDSHandler(None, 'some_token',
+                                 host='https://some.host',
+                                 fetch_all_langs=True)
+
+        assert cds_handler.fetch_translations() == {'el': (True, {})}
+
+    @patch('transifex.native.cds.logger')
+    def test_invalid_request_timeout_uses_default(self, patched_logger):
+        for value, expected in (
+            (None, None),
+            (5, 5),
+            ((3, None), (3, None)),
+            ([3, 30], (3, 30)),
+            (0, DEFAULT_REQUEST_TIMEOUT),
+            ('30', DEFAULT_REQUEST_TIMEOUT),
+            (True, DEFAULT_REQUEST_TIMEOUT),
+            ((1, 2, 3), DEFAULT_REQUEST_TIMEOUT),
+        ):
+            cds_handler = CDSHandler(['el'], 'some_token',
+                                     request_timeout=value)
+            assert cds_handler.request_timeout == expected
+        assert patched_logger.error.call_count == 4
+
+    @patch('transifex.native.cds.logger')
+    @patch('transifex.native.cds.requests.get')
+    def test_read_timeout_in_body_is_logged_as_timeout(
+        self, mock_get, patched_logger
+    ):
+        mock_get.side_effect = requests.ConnectionError(
+            ReadTimeoutError(None, None, 'Read timed out.'))
+        cds_handler = CDSHandler(['el'], 'some_token',
+                                 host='https://some.host')
+
+        assert cds_handler.fetch_translations('el') == {'el': (False, {})}
+        patched_logger.error.assert_called_once_with(
+            'Error retrieving translations from CDS: Timeout')

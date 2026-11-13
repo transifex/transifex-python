@@ -5,6 +5,8 @@ from collections import OrderedDict
 from urllib.parse import urlencode
 
 import requests
+from urllib3.exceptions import ReadTimeoutError
+from urllib3.util import Timeout as Urllib3Timeout
 from transifex.native.consts import (KEY_CHARACTER_LIMIT,
                                      KEY_DEVELOPER_COMMENT, KEY_OCCURRENCES,
                                      KEY_TAGS)
@@ -88,7 +90,25 @@ class CDSHandler(object):
             logger.error('Invalid fetch_timeout `{}`, fetch timeout '
                          'disabled'.format(fetch_timeout))
             self.fetch_timeout = 0
-        self.request_timeout = request_timeout
+        self.request_timeout = self._parse_request_timeout(request_timeout)
+
+    @staticmethod
+    def _parse_request_timeout(value):
+        """Return `value` as a `requests` timeout (a number or a
+        (connect, read) tuple, None for no limit), or DEFAULT_REQUEST_TIMEOUT
+        if it is invalid, so a bad setting is reported once here instead of
+        failing every request."""
+        if isinstance(value, list):  # e.g. read from JSON or YAML
+            value = tuple(value)
+        try:
+            connect, read = value if isinstance(value, tuple) else (value,) * 2
+            # The check `requests` runs on every request, done once here
+            Urllib3Timeout(connect=connect, read=read)
+        except (TypeError, ValueError):
+            logger.error('Invalid request_timeout `{}`, using the default '
+                         '`{}`'.format(value, DEFAULT_REQUEST_TIMEOUT))
+            return DEFAULT_REQUEST_TIMEOUT
+        return value
 
     def fetch_languages(self, deadline=None):
         """Fetch the languages defined in the CDS for the specific project.
@@ -177,7 +197,7 @@ class CDSHandler(object):
         # fetched if the fetch timeout cuts the loop short; then any other
         # remote languages when fetching all of them
         remote = set(languages)
-        ordered = [code for code in self.configured_language_codes
+        ordered = [code for code in (self.configured_language_codes or [])
                    if code in remote]
         if self.fetch_all_langs:
             ordered += [code for code in languages if code not in ordered]
@@ -442,7 +462,14 @@ class CDSHandler(object):
 
         while True:
             kwargs['timeout'] = self._bounded_timeout(timeout, deadline)
-            response = requests.get(*args, **kwargs)
+            try:
+                response = requests.get(*args, **kwargs)
+            except requests.ConnectionError as e:
+                # requests reports a read timeout while downloading the body
+                # as ConnectionError; raise it as the Timeout it is
+                if e.args and isinstance(e.args[0], ReadTimeoutError):
+                    raise requests.ReadTimeout(*e.args)
+                raise
             status = response.status_code
 
             if status == 202:

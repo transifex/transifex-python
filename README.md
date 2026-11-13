@@ -75,16 +75,20 @@ Custom cache implementation. Defaults to an in-memory cache (MemoryCache) if not
 
 - TRANSIFEX_FETCH_TIMEOUT:
 Approximate maximum time in seconds for one fetch of languages and
-translations from CDS, including retries. It can be exceeded somewhat, e.g. by
-DNS resolution or a host with several IP addresses. Languages are fetched in
-LANGUAGES order; those not reached in time are skipped until the next sync,
-or for the life of the process if TRANSIFEX_SYNC_INTERVAL is 0.
-0 (default) = no global timeout.
+translations from CDS, including retries. It can be exceeded, e.g. by DNS
+resolution, a host with several IP addresses, or a response that keeps
+sending data slowly (the read timeout applies between received bytes, not to
+the whole response). Languages are fetched in LANGUAGES order; those not
+reached in time are skipped until the next sync, or for the life of the
+process if TRANSIFEX_SYNC_INTERVAL is 0.
+0 (default) = no global timeout: if CDS keeps answering 202, the fetch, and
+so startup, waits until it stops. Set it when translations are fetched at
+startup, e.g. under gunicorn.
 
 - TRANSIFEX_REQUEST_TIMEOUT:
 Timeout in seconds for each request made when fetching from CDS, either a
-number or a `(connect, read)` tuple as accepted by `requests`.
-Defaults to `(10, 60)`.
+number greater than 0 or a `(connect, read)` tuple as accepted by `requests`.
+Invalid values are logged and the default is used. Defaults to `(10, 60)`.
 
 # License
 
