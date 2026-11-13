@@ -6,7 +6,7 @@ import json
 from transifex.common.utils import (generate_hashed_key, generate_key,
                                     parse_plurals)
 from transifex.native.cache import MemoryCache
-from transifex.native.cds import CDSHandler
+from transifex.native.cds import DEFAULT_REQUEST_TIMEOUT, CDSHandler
 from transifex.native.rendering import (SourceStringErrorPolicy,
                                         SourceStringPolicy, StringRenderer)
 
@@ -42,6 +42,8 @@ class TxNative(object):
         missing_policy=None, error_policy=None, cache=None,
         fetch_all_langs=False, filter_tags=None,
         filter_status=None,
+        fetch_timeout=0,
+        request_timeout=None,
     ):
         """Create an instance of the core framework class.
 
@@ -62,6 +64,10 @@ class TxNative(object):
         :param bool fetch_all_langs: force pull all remote languages
         :param str filter_tags: fetch only content with tags
         :param str filter_status: fetch only content with specific translation status
+        :param int fetch_timeout: maximum time in seconds to wait when fetching
+            translations or locales from CDS
+        :param request_timeout: seconds for each CDS fetch request, a number
+            or a (connect, read) tuple; defaults to (10, 60)
         """
         self._languages = languages
         self._cache = cache or MemoryCache()
@@ -72,6 +78,9 @@ class TxNative(object):
             fetch_all_langs=fetch_all_langs,
             filter_tags=filter_tags,
             filter_status=filter_status,
+            fetch_timeout=fetch_timeout,
+            request_timeout=(DEFAULT_REQUEST_TIMEOUT if request_timeout is None
+                             else request_timeout),
         )
         self.initialized = True
 
